@@ -1,0 +1,4 @@
+SUBDIRS = Warewulf
+
+MAINTAINERCLEANFILES = Makefile.in
+

@@ -1,0 +1,227 @@
+#!/usr/bin/perl -Tw
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+use Warewulf::Init;
+use Warewulf::Util;
+use Warewulf::Logger;
+use Warewulf::Config;
+use Warewulf::File;
+use Warewulf::ParallelCmd;
+use Warewulf::Node;
+use Warewulf::DSO::Node;
+use Warewulf::DataStore;
+use Warewulf::Vnfs;
+use Warewulf::Provision;
+use Warewulf::DSO::Vnfs;
+use File::Path;
+use File::Basename;
+use Getopt::Long;
+
+my $db = Warewulf::DataStore->new();
+my $pcmd = Warewulf::ParallelCmd->new();
+my $livesync_config = Warewulf::Config->new("livesync.conf");
+my $opt_lookup = "name";
+my $fanout = $livesync_config->get("max sync") || 8;
+my $timeout = $livesync_config->get("timeout") || 3600;
+my $logdir = $livesync_config->get("logdir") || "/var/log/wwlivesync";
+my $excludes_opts = "--exclude='/proc/' --exclude='/sys/' ";
+my @skiplist;
+my $sync_path;
+my $opt_help;
+my $opt_debug;
+my $opt_verbose;
+my $opt_quiet;
+my $opt_show;
+my @opt_syncfiles;
+
+
+Getopt::Long::Configure ("bundling");
+
+GetOptions(
+    'l|lookup=s'    => \$opt_lookup,
+    'h|help'        => \$opt_help,
+    'd|debug'       => \$opt_debug,
+    'v|verbose'     => \$opt_verbose,
+    'q|quiet'       => \$opt_quiet,
+    'f|files=s'     => \@opt_syncfiles,
+    'show'          => \$opt_show,
+    'logdir=s'      => \$logdir,
+);
+
+
+&set_log_level("NOTICE");
+
+if ($opt_debug) {
+    &set_log_level("DEBUG");
+} elsif ($opt_verbose) {
+    &set_log_level("INFO");
+} elsif ($opt_quiet) {
+    &set_log_level("WARNING");
+}
+
+# Sanitize PATH environment
+$ENV{"PATH"} = "/bin:/usr/bin:/sbin:/usr/sbin";
+
+
+if (! $db) {
+    &eprint("Could not connect to the data store!\n");
+    exit 255;
+}
+
+if (! @ARGV) {
+    $opt_help = 1;
+}
+
+if ($opt_help) {
+    print "USAGE: $0 (options) [targets]\n";
+    print "\nSUMMARY:\n\n";
+    print "     The live sync command will spawn rsync commands to update the running node\n";
+    print "     operating system (VNFS) live. This command should only be used for minor VNFS\n";
+    print "     updates, as large updates including library load could potentially break binary\n";
+    print "     compatibility.\n\n";
+    print "\nOPTIONS:\n\n";
+    print "   -l, --lookup        Identify nodes by specified property (default: \"name\")\n";
+    print "   -f, --files         Pass a list of files to sync instead of the entire VNFS\n";
+    print "       --show          Just print what it would do instead of actually do it\n";
+    print "       --logdir        Directory of per-node logs ($logdir)\n";
+    print "       --verbose       Increase verbosity level\n";
+    print "       --quiet         Decrease verbosity level\n";
+    print "       --debug         Print debugging messages\n";
+    print "   -h, --help          Display this usage summary\n";
+    print "\nTARGETS:\n\n";
+    print "     The target(s) specify which node(s) will be affected by the chosen\n";
+    print "     action(s).  By default, node(s) will be identified by their name(s).\n";
+    print "     Use the --lookup option to specify another property (e.g., \"hwaddr\"\n";
+    print "     or \"groups\").\n\n";
+    print "     All targets can be bracket expanded as follows:\n\n";
+    print "         n00[0-99]       All nodes from n0000 through n0099 (inclusive)\n";
+    print "         n00[00,10-99]   n0000 and all nodes from n0010 through n0099\n\n";
+    print "\nEXAMPLES:\n\n";
+    print "   # wwlivesync n00[00-19]\n";
+    print "\n";
+    exit 1;
+}
+
+$objSet = $db->get_objects("node", $opt_lookup, &expand_bracket(@ARGV));
+
+if (! $objSet || ($objSet->count() == 0)) {
+    &nprint("No nodes found\n");
+    exit 1;
+}
+
+if (! -d $logdir) {
+    mkpath($logdir);
+}
+
+$pcmd->wtime(0);
+$pcmd->ktime($timeout);
+$pcmd->fanout($fanout);
+
+if ( @opt_syncfiles ) {
+    &iprint("Syncing list of files\n");
+    foreach my $p ( split(",", join(",", @opt_syncfiles)) ) {
+        if ( $p =~ /^\/.+/ ) {
+            &dprint("Adding path to sync: (.)$p\n");
+            $sync_path .= ".$p ";
+        } else {
+            &dprint("Adding path to sync: $p\n");
+            $sync_path .= "$p ";
+        }
+    }
+} else {
+    &iprint("Syncing entire VNFS\n");
+    $sync_path = ".";
+}
+
+
+foreach my $o ($objSet->get_list()) {
+    my ($name, $vnfs_name, $vnfsid, $vnfs, $vnfs_config, @excludes, $chroot,
+        $cmd, @exclude, @hybridize, $excludes_opts);
+
+    $name = $o->name();
+    $vnfsid = $o->vnfsid();
+    $vnfs_name = $o->name();
+
+    if (! $vnfsid) {
+        &wprint("VNFS not defined for node: $name\n");
+        next;
+    }
+
+    $vnfs = $db->get_objects("vnfs", "_id", $vnfsid)->get_object(0);
+
+    foreach my $fileid ($o->fileids()) {
+        my $file = $db->get_objects("file", "_id", $fileid)->get_object(0);
+        if ($file) {
+            my $path = $file->path();
+            if ($path) {
+                $excludes_opts .= " --exclude='$path'";
+            }
+        }
+    }
+
+    if (! $vnfs) {
+        &wprint("Unknown VNFS ID '$vnfsid' set for node: $name\n");
+        next;
+    }
+
+    $vnfs_config = Warewulf::Config->new("vnfs.conf", "vnfs/$name.conf");
+    @exclude = $vnfs_config->get("exclude");
+    @excludes = $vnfs_config->get("excludes");
+    @hybridize = $vnfs_config->get("hybridize");
+    @skiplist = ( $vnfs_config->get("livesync skiplist"), $vnfs_config->get("skip list"), $livesync_config->get("skip list") );
+    $chroot = $vnfs->chroot() || $vnfs_config->get("chroot");
+    $vnfs_rsync = $vnfs_config->get("rsync") || "/usr/bin/rsync";
+
+    if (! $chroot) {
+        &wprint("Unknown VNFS chroot location for VNFS: $vnfs_name\n");
+        next;
+    }
+
+    if (! -x "$chroot/$vnfs_rsync") {
+        &wprint("Skipping $name, rsync ($vnfs_rsync) not found in source VNFS.\n");
+        next;
+    }
+
+    if ( -f "$chroot/etc/fstab" ) {
+        open(FSTAB, "$chroot/etc/fstab");
+        while ( my $line = <FSTAB> ) {
+            chomp $line;
+            my @f = split(/\s+/, $line);
+            if ( exists($f[1]) and $f[1] =~ /^(\/.+)$/ ) {
+                if ( $1 ne "/" ) {
+                    &dprint("Automatically excluding: $1\n");
+                    $excludes_opts .= " --exclude='$1'";
+                }
+            }
+        }
+        close FSTAB;
+    }
+
+    foreach my $exclude (@skiplist, @exclude, @excludes, @hybridize) {
+        &dprint("Excluding: $exclude\n");
+        $excludes_opts .= " --exclude='$exclude'";
+    }
+
+    $cmd = "cd $chroot; rsync -HavxR $excludes_opts $sync_path $name:/ > $logdir/$name.log 2>&1 && echo done || echo fail";
+
+    if ($opt_show) {
+        print "$cmd\n";
+    } else {
+        &iprint("Queuing command: $cmd\n");
+        $pcmd->queue($cmd, "$name: ");
+    }
+
+}
+
+
+&iprint("Running all queued commands:\n");
+$pcmd->run();
+
+# Eventually we should return with a proper error code!
+exit 0;

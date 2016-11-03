@@ -1,0 +1,31 @@
+Mon Jul 18 15:51:42 2011                        Michael Jennings (mej)
+
+Fix usage of svnversion since it no longer errors properly.
+----------------------------------------------------------------------
+Thu Aug 11 18:21:56 2011                        Michael Jennings (mej)
+
+Update bootstrap config for new parser format.
+----------------------------------------------------------------------
+Fri Aug 12 13:27:33 2011                        Michael Jennings (mej)
+
+Update module list.
+----------------------------------------------------------------------
+Fri Aug 12 17:37:43 2011                        Michael Jennings (mej)
+
+Adjust version due to incompatible changes.
+----------------------------------------------------------------------
+Fri Feb 24 10:27:44 2012                            Jason Stover (jms)
+
+Added bin/wwmkchroot and etc/wwmkchroot/. An initial start at breaking
+the chroot creation down into bite sized chunks. wwmkchroot requires
+the wwfunctions file in the warewulf-common package for the vnfs_*
+functions defined within.
+----------------------------------------------------------------------
+Mon Mar 12 13:28:43 2012                        Michael Jennings (mej)
+
+Bump version to 3.2.  Improve SVN revision detection.  Add ignores.
+----------------------------------------------------------------------
+Mon Apr 23 12:20:04 2012                        Michael Jennings (mej)
+
+Fix build.
+----------------------------------------------------------------------

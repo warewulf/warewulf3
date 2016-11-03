@@ -1,0 +1,198 @@
+# Warewulf Copyright (c) 2001-2003 Gregory M. Kurtzer
+# 
+# Warewulf Copyright (c) 2003-2013, The Regents of the University of
+# California, through Lawrence Berkeley National Laboratory (subject to
+# receipt of any required approvals from the U.S. Dept. of Energy).
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# (1) Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+# 
+# (2) Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+# 
+# (3) Neither the name of the University of California, Lawrence Berkeley
+# National Laboratory, U.S. Dept. of Energy nor the names of its contributors
+# may be used to endorse or promote products derived from this software
+# without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+# 
+# You are under no obligation whatsoever to provide any bug fixes, patches,
+# or upgrades to the features, functionality or performance of the source
+# code ("Enhancements") to anyone; however, if you choose to make your
+# Enhancements available either publicly, or directly to Lawrence Berkeley
+# National Laboratory, without imposing a separate written license agreement
+# for such Enhancements, then you hereby grant the following license: a
+# non-exclusive, royalty-free perpetual license to install, use, modify,
+# prepare derivative works, incorporate into other computer software,
+# distribute, and sublicense such enhancements or derivative works thereof,
+# in binary and source code form.
+#
+## Copyright (c) 2013, Intel(R) Corporation
+##
+## Redistribution and use in source and binary forms, with or without 
+## modification, are permitted provided that the following conditions are met:
+##
+##    * Redistributions of source code must retain the above copyright notice, 
+##      this list of conditions and the following disclaimer.
+##    * Redistributions in binary form must reproduce the above copyright 
+##      notice, this list of conditions and the following disclaimer in the 
+##      documentation and/or other materials provided with the distribution.
+##    * Neither the name of Intel(R) Corporation nor the names of its contributors 
+##      may be used to endorse or promote products derived from this software 
+##      without specific prior written permission.
+##
+## THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+## AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+## IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+## ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE 
+## LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
+## CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
+## SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
+## INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
+## CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+## POSSIBILITY OF SUCH DAMAGE.
+##
+Information on the warewulf-cluster-node package
+
+wwfirstboot:
+
+  wwfirstboot is an init.d script that will handle disk partitioning. The 
+configuration file for it is located at:
+
+  /etc/sysconfig/wwfirstboot.conf
+
+  This should be edited before importing your VNFS as the default behavior is 
+to skip over partitioning/formating any disks.
+
+  The scripts called by wwfirstboot are stored in the VNFS image at:
+
+  /usr/libexec/warewulf/wwfirstboot/
+
+  with a .wwfb extension. Any file that you do *not* which to be executed 
+during bootup, can be disabled by removing the execute bit from the permissions.
+
+  # chmod 644 /path/to/wwfirstboot/00-format.wwfb
+ 
+  Scripts are executed from /usr/libexec/warewulf/wwfirstboot by named order. So,
+for example you have the following scripts:
+
+  00-adisk.wwfb 00-format.wwfb 21-libdirs.wwfb
+
+  The order they will be executed, assuming they all run durinig the same run, is:
+
+    00-adisk
+    00-format
+    21-libdirs
+
+  Scripts can be ran in either a status of PRIMARY or SECONDARY. The only difference
+is when they are ran.
+
+  PRIMARY   -- Run before any networking comes up
+  SECONDARY -- Ran from rc.local, so after every other service should be up
+
+  The status of a script is difined with an entry like:
+
+    #STATUS: primary
+ 
+CONFIGURATION VARIABLES (wwfirstboot.conf):
+
+  GLOBAL:
+  SKIP = [true|false]
+    - If undefined or true, wwfirstboot will exit upon reading the 
+    configuration file
+
+  00-format.wwfb:
+  FORMAT = [never|first|always]
+    - How to format the partitions. If set to 'never' or undefined, then 
+    wwfirstboot will not format the disk.
+    - When set to 'first', then the disk will be formatted if it appears
+    that it never has gone through wwfirstboot before. The file:
+      [mount point]/.wwfirstboot_timestamp
+    is looked for, and if found, formatting is skipped.
+    - When set to 'always', the drive partitions will always be formatted
+    when wwfirstboot runs.
+
+  DISK = [/dev/xxx|xxx]
+    - What disk to partition/format. The block device given can be either XXX 
+    (sda, sdb), or in the format of /dev/XXX (/dev/sda, /dev/sdb)
+
+  PART_# = [FILESYSTEMS declaration]
+    - Define a specific partition. The format is similar to the main Warewulf
+    FILESYSTEMS declaration for use during bootstrap:
+
+      PART_1="2048:swap"
+      PART_2="fill:ext3:/tmp:1777"
+
+    The layout of the variable values is:
+
+      [sizeMB]:[fsType]:[mp]:[perms]
+
+    [sizeMB] - Size, in MB, of the partition. Can also be 'fill' to take up the
+      rest of the space on disk
+    [fsType] - Filesystem Type .... ext3, ext4, etc... This can be any 
+      filesystem there is a mkfs.[fsType] program in the VNFS for.
+        [mp] - Mount point.
+     [perms] - Directory permissions
+
+  99-michost.wwfb:
+  MICPATH = [path]
+    - Where to create the nodes MIC images. These images must be unique for 
+    each card en each node.
+    - Will use: /var/intel/mic/filesystem - as the default if not specified
+    because it is expected that /opt is NFS shared from the master node
+
+KNOWN ISSUES:
+
+  1) 00-format.wwfb: Limited to a DOS partition table and four (4) primary 
+    partitions only
+
+wwfirstboot EXAMPLE CONFIGURATION:
+
+  An example configuration for wwfirstboot (/etc/sysconfig/wwfirstboot.conf):
+
+######### EXAMPLE #########
+#
+# Do not skip wwfirstboot
+SKIP=false
+#
+# Always format all of the partitions
+FORMAT=always
+#
+# Our disk to work on is: /dev/hdb
+#  - Either will work
+DISK=hdb
+#DISK=/dev/hdb
+#
+# Define our partitions. We are, currently, limited to
+# a DOS partition table, and four (4) primary
+# partitions
+#  - Swap will *always* be formatted reguardless of
+#    the value of FORMAT
+#  - We exit the partition creation if a size of 'fill' is
+#    seen. If you want to use up the rest of the disk, then
+#    define it as the last partiton
+PART_1="2048:swap"
+PART_2="114280:ext3:/scratch:1777"
+PART_3="fill:ext4:/storage:0755"
+#
+# 99-michost
+MICPATH=/storage/mic_dir
+#
+

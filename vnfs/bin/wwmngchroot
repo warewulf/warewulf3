@@ -1,0 +1,888 @@
+#!/bin/bash
+#
+#########################################################
+# This file created by Tim Copeland at
+# Criterion Digital Copyright (c)
+# with the hopes others will find this usefull
+# and to help improve the project in general
+#
+# There is no warranty of any kind implied or otherwise
+#########################################################
+
+
+    # do basic complience tests
+#___________________________________________
+# this script must be run as root
+INSTALATION_USER=$( /usr/bin/whoami )
+
+if [[ "${INSTALATION_USER}" != "root" ]]
+then
+    echo
+    echo
+    echo "This script MUST be run as root"
+    echo
+    echo
+
+    exit 1
+fi
+
+CHROOT=$(which chroot)
+
+if [[ -z "${CHROOT}" ]]
+then
+   echo "Could not find the program 'chroot'"
+   exit 1
+fi
+
+CONFPATH="/etc/warewulf /usr/etc/warewulf /usr/local/etc/warewulf"
+
+WWVNFS=$(which wwvnfs)
+
+
+    # setup our environment
+#___________________________________________
+YUM_CONF="/root/yum-ww.conf"
+DIRNAME=$(dirname $0)
+REMOVECMD="remove"
+
+
+ROOTEDSCRIPT=""
+OPTIONSFILE=""
+CHROOTDIR=""
+DONESHELL=""
+MOREPACKS=""
+OLDCONFIG=""
+INSTALLS=""
+DOSHELL=""
+REMOVES=""
+HYBRID=""
+SAYYES=""
+NAME=""
+
+    # english message manager
+#___________________________________________
+
+warn_msg () {
+    case "${1}" in
+
+        abort)
+            echo
+            echo "Aborted .. fix errors and run this script again"
+            echo
+            ;;
+
+        duplicate)
+            echo
+            echo "########"
+            echo "Warning: A ${NAME}.conf file already exists"
+            echo "If you choose to replace, it will be renamed to ${NAME}.conf.BACK,"
+            echo "and will replace any previous ${NAME}.conf.BACK that may exist."
+            echo
+            echo "yes = Backup the existing ${NAME}.conf, configure any excludes and/or"
+            echo "      hybrid filesystems. Then replace it with the new values."
+            echo
+            echo " no = Do not replace, and use the existing ${NAME}.conf file"
+            echo "      Skip all exclude and hybrid configurations."
+            echo
+            ;;
+
+        excludes)
+            echo
+            echo "==============================================================================="
+            echo "To help keep the imported vnfs small, it is highly recommended to exclude the"
+            echo "package archives from when this vnfs was created. Along with any additional"
+            echo "exclusions that may be included in config files. If hydridized, they will be"
+            echo "available read only accessed in the chroot. Would you like to exclude these"
+            echo "from the vnfs?"
+            echo
+            echo "/var/cache/apt"
+            echo "etc........"
+            echo
+            ;;
+
+        failedpath)
+            echo
+            echo "Unable to locate path to warewulf config files in any of the following paths"
+            echo
+            echo "${CONFPATH}"
+            ;;
+
+        finalize)
+            echo
+            echo "============================================================================"
+            echo "All tasks appear to have successfully completed. Exiting the chroot"
+            echo "============================================================================"
+            ;;
+
+        hybridprompt)
+            echo
+            echo "Do you want to hybridize this vnfs..?"
+            ;;
+
+        import)
+            echo
+            echo "======================================================"
+            echo "${NAME} can now be imported into Warewulf"
+            echo "This can take a while"
+            echo
+            echo "Compress and Import ..?"
+            ;;
+
+        incomplete)
+            echo
+            echo "Incomplete Options"
+            echo
+            ;;
+
+        morepacks)
+            echo
+            echo "============================================================================"
+            echo "All operations have been completed"
+            echo "You requested additional command line support"
+            echo "Dropping into a shell for you to work in"
+            echo
+            ;;
+
+        nodir)
+            echo
+            echo "unable to locate chroot directory ${CHROOTDIR}"
+            echo
+            ;;
+
+        nofile)
+            echo
+            echo "unable to locate options file ${OPTIONSFILE}"
+            echo
+            ;;
+
+        nomount)
+            echo
+            echo "unable to mount ${CHROOTDIR}/proc"
+            echo
+            ;;
+
+        noscript)
+            echo "============================================================================"
+            echo '  ERROR: Failed to run scriptlet. Clues may be found in ^ previous error ^ .. '
+            echo "  We may have been unable to locate or execute the wwmngchroot-scriptlet.sh that"
+            echo "  should be in our chroot environment. Either way dropping into a shell"
+            echo
+            ;;
+
+        shell)
+            echo -e "\033[0;31mNEW SHELL\033[0m"
+            echo "============================================================================"
+            echo "      This shell is from within the CHROOT environment"
+            echo "              ${CHROOTDIR}"
+            echo '      After finished with command line options, type the word "exit"'
+            echo "      to exit command shell and continue with wwmngchroot automation."
+            echo
+            ;;
+
+        shellopt)
+            echo
+            echo "======================================================="
+            echo "Leaving command shell."
+            echo "  yes ) Succesfully completed your tasks and"
+            echo "        would like to finalize any remaining."
+            echo
+            echo "   no ) Abort without further actions."
+            echo "        leaving chroot in its current state"
+            echo
+            ;;
+
+        promptuser)
+            echo
+            echo "Should we continue..?"
+            ;;
+
+    esac
+}
+
+
+    # the command line options passed in
+#___________________________________________
+
+arg_set () {
+    case "${1}" in
+
+        -c|--chroot)
+            CHROOTDIR="${2}"
+            ;;
+
+        --create-template)
+            echo
+            create_template ;
+            echo "example-options.template created"
+            exit 0
+            ;;
+
+        -d)
+            REMOVECMD="autoremove"
+            ;;
+
+        -f|--file)
+            OPTIONSFILE="${2}"
+            ;;
+
+        -h|--help)
+            echo
+            print_help ;
+            echo
+            print_full_help ;
+            exit 0
+            ;;
+
+        -i|--install)
+            shift
+            while [[ ${1} ]]
+            do
+                INSTALLS="${INSTALLS} ${1}"
+                shift
+            done
+            ;;
+
+        -s|--shell)
+            MOREPACKS="true"
+            ;;
+
+        -o|--optionfile-help)
+            echo
+            print_options_help ;
+            exit 0
+            ;;
+
+        -v|--vnfs)
+            NAME="${2}"
+            ;;
+
+        -r|--remove)
+            shift
+            while [[ ${1} ]]
+            do
+                REMOVES="${REMOVES} ${1}"
+                shift
+            done
+            ;;
+
+        -y)
+            SAYYES="-y"
+            ;;
+
+        *)
+            echo
+            echo "***   --- *** --- ***"
+            echo    "Error: ${1} is an invalid option."
+            echo "***   --- *** --- ***"
+            print_help ;
+            exit 1
+            ;;
+
+    esac
+}
+
+
+###############################################################
+###############################################################
+
+abort_install () {
+    warn_msg abort ;
+    clean_up ;
+    exit 1
+}
+
+
+chroot_script () {
+    # create the script to run inside our chroot environment
+    # script will do remove/install work deb packages then be
+    # deleted upon completion after returning back to here
+
+    # can also be used to run templated tasks from within the chroot
+
+    ROOTEDSCRIPT="${CHROOTDIR}/wwmngchroot-scriptlet.sh"
+
+        # export our script to our chroot environment
+    #___________________________________________________________
+
+    echo '#!/bin/bash' > ${ROOTEDSCRIPT} ;
+    echo '#' >> ${ROOTEDSCRIPT} ;
+    echo '# this script was auto-generated by the wwmngchroot.sh' >> ${ROOTEDSCRIPT} ;
+    echo '# it should have been deleted imediately after its use.' >> ${ROOTEDSCRIPT} ;
+    echo '# the fact you are reading this means that it failed to' >> ${ROOTEDSCRIPT} ;
+    echo '# clean up after itself, so you should just delete this file.' >> ${ROOTEDSCRIPT} ;
+    echo '#' >> ${ROOTEDSCRIPT} ;
+    echo "REMOVECMD=\"${REMOVECMD}\"" >> ${ROOTEDSCRIPT} ;
+    echo "INSTALLS=\"${INSTALLS}\"" >> ${ROOTEDSCRIPT} ;
+    echo "REMOVES=\"${REMOVES}\"" >> ${ROOTEDSCRIPT} ;
+    echo "SAYYES=\"${SAYYES}\"" >> ${ROOTEDSCRIPT} ;
+    echo "INSTALL=\"install\"" >> ${ROOTEDSCRIPT} ;
+    ###===###===###===###===###===###===###===###===###===###===
+cat <<'EOF' >>${ROOTEDSCRIPT}
+do_scriptlet () {
+    if [[ -n ${REMOVES} ]]
+    then
+        if [[ -f "/etc/debian_version" ]]
+        then
+            echo
+            echo "removing requested packages"
+
+            if ! apt-get ${SAYYES} ${REMOVECMD} ${REMOVES}
+            then
+                echo
+                echo "failed to remove packages. Dropping into shell"
+                echo
+                exit 1
+            fi
+        fi
+    fi
+    if [[ -n ${INSTALLS} ]]
+    then
+        if [[ -f "/etc/debian_version" ]]
+        then
+            echo
+            echo "  running apt-get update"
+
+            if ! apt-get ${SAYYES} update
+            then
+                echo
+                echo "failed to update package lists. Dropping into shell"
+                echo
+                exit 1
+            fi
+        fi
+        if [[ -f "/etc/debian_version" ]]
+        then
+            echo
+            echo "  installing requested packages"
+
+            if ! apt-get ${SAYYES} ${INSTALL} ${INSTALLS}
+            then
+                echo
+                echo "failed to install requested packages. Dropping into shell"
+                echo
+                exit 1
+            fi
+        fi
+    fi
+}
+# run scriptlet loop
+do_scriptlet ;
+exit 0
+EOF
+    ###===###===###===###===###===###===###===###===###===###===
+    # now make it executable
+    chmod +x ${ROOTEDSCRIPT} ;
+}
+
+
+clean_up () {
+    rm -f ${ROOTEDSCRIPT} ;
+    umount ${CHROOTDIR}/proc 2>/dev/null
+    umount ${CHROOTDIR}/sys 2>/dev/null
+    umount ${CHROOTDIR}/dev 2>/dev/null
+
+    if grep -q "${CHROOTDIR} " /proc/mounts
+    then
+        echo "ERROR: mounted file systems remain in ${CHROOTDIR}"
+        echo "Would you like to force umount them ?"
+
+        if user_decide
+        then
+            umount -l ${CHROOTDIR}/proc 2>/dev/null
+            umount -l ${CHROOTDIR}/sys 2>/dev/null
+            umount -l ${CHROOTDIR}/dev 2>/dev/null
+        else
+            echo "ERROR: Host system left in an odd state .. exiting .."
+            exit 1
+        fi
+    fi
+}
+
+
+close_shell () {
+    warn_msg shellopt ;
+    warn_msg promptuser ;
+
+    if user_decide
+    then
+        DONESHELL="true"
+    else
+        abort_install ;
+    fi
+}
+
+
+conf_check () {
+    local temp=""
+    # check for default path to vnfs.conf and for existing custom.conf file
+    for i in ${CONFPATH}
+    do
+        if [[ -e ${i}/vnfs.conf ]]
+        then
+            temp=${i}
+            break ;
+        fi
+    done
+
+    if [[ -n ${temp} ]]
+    then
+        CONFPATH="${temp}/vnfs"
+    else
+        warn_msg failedpath ;
+        abort_install ;
+    fi
+
+    if [[ ! -d ${CONFPATH} ]]
+    then
+        mkdir -p ${CONFPATH} ;
+    fi
+
+    # now check for any existing custom vnfs.conf files and handle them
+    if [[ -e ${CONFPATH}/${NAME}.conf ]]
+    then
+        warn_msg duplicate ;
+
+        if user_decide
+        then
+            # create new file
+            mv -f ${CONFPATH}/${NAME}.conf ${CONFPATH}/${NAME}.conf.BACK
+            > ${CONFPATH}/${NAME}.conf ;
+        else
+            # use existing file
+            OLDCONFIG="true"
+        fi
+    fi
+}
+
+
+create_template () {
+cat <<EOF >example-options.template
+# This file is an example file created
+# by wwmngchroot. The space deliniated
+# lists should contain packages to be removed
+# or installed into the specified vnfs.
+#
+# sudo wwmngchroot --help
+#
+# Lines starting with # are comments
+#_______________________________________________
+
+# REMOVE="package1 package-2 package_3"
+
+# INSTALL="package1 package-2 package_3"
+
+# A list of files and/or directories to exclude
+# from being imported into Warewulf when using
+# the import option.
+
+# EXCLUSIONS="/path_to/file /path_to/directory"
+
+
+EOF
+}
+
+
+do_shell () {
+    warn_msg shell ;
+    if [[ ! -f ${CHROOTDIR}/root/.wwbashrc ]]
+    then
+        cp ${CHROOTDIR}/root/.bashrc ${CHROOTDIR}/root/.wwbashrc ;
+    fi
+    cp ${CHROOTDIR}/root/.wwbashrc ${CHROOTDIR}/root/.bashrc ;
+
+cat <<EOF >${CHROOTDIR}/root/.bashrc
+PS1="\[\033[0;37m\]\342\224\214\342\224\200<[\[\033[0;33m\]chroot shell\[\033[0;37m\] @ \[\033[0;31m\]\
+$( basename ${CHROOTDIR} )\[\033[0;37m\]]\342\224\200[\[\033[0;32m\]type exit when done\
+\[\033[0;37m\]]\n\[\033[0;37m\]\342\224\224\342\224\200\342\224\200\342\225\274\[\033[0;34m\] \w\[\033[0m\] \$ "
+EOF
+
+    ${CHROOT} ${CHROOTDIR} ;
+
+    # restore default prompt after leaving chroot
+    cp ${CHROOTDIR}/root/.wwbashrc ${CHROOTDIR}/root/.bashrc ;
+    close_shell ;
+}
+
+
+excludes () {
+    warn_msg excludes ;
+
+    if user_decide
+    then
+        # add to vnfs conf file
+        echo "excludes += /var/cache/apt" >> ${CONFPATH}/${NAME}.conf ;
+
+        for n in ${EXCLUSIONS}
+        do
+            echo "excludes += ${n}" >> ${CONFPATH}/${NAME}.conf ;
+        done
+    fi
+}
+
+
+hybridize () {
+    # promp about hybrid
+    warn_msg hybridprompt ;
+
+    if user_decide
+    then
+        # add to vnfs conf file
+        echo "hybridpath = /mnt/vnfs" >> ${CONFPATH}/${NAME}.conf ;
+    fi
+}
+
+
+print_help () {
+cat <<EOF
+        __________________________________________________
+
+            $MYNAME : $VERSION
+            Website : $URL
+
+            To view the help documentation type:
+
+                sudo wwmngchroot --help
+
+                sudo wwmngchroot --optionfile-help
+
+    =============================================================================
+EOF
+}
+
+
+print_options_help () {
+cat <<EOF
+
+    The option file is used to pass in multiple packages for removal and/or installation.
+    It's recommended to name this file to correspond with the name of the vnfs it is related
+    to. This will allow you to create templates for specific vnfs replication.
+
+    Each option can contain a space delinitated list of package names to process. These packages
+    will be in addition to any packages that were passed in with the command line. Package removal
+    precedes package installation.
+
+    REMOVE="package1 package-2 package_3"
+
+    INSTALL="package1 package-2 package_3"
+
+    EXCLUSIONS="/path_to/file /path_to/directory"
+    ___________________________________________________________
+
+    The following command will create an example template file
+    in the same directory as this script and will be named
+            example-options.template
+
+        sudo wwmngchroot --create-template
+
+    ___________________________________________________________
+
+EOF
+}
+
+
+# Prints to screen complete help
+print_full_help () {
+cat <<EOF
+
+    This is designed to simplify adding and removing packages inside chroot, and can automatically import
+    the vnfs into Warewulf when done. A lists of package requests can be passed in as arguments. An
+    additional options file with a list of packages can be used, or simply use the --shell option
+    to install additional packages from the command line before finalizing. When using "--vnfs" option,
+    the vnfs will be compressed and imported into warewulf. If the "--vnfs" is not used, the vnfs will
+    not be imported.
+
+    TROUBLESHOOTING:
+
+        When using both the install and remove options, all package removal occurs before installing packages.
+
+    Examples:
+
+        Install a package into the chroot found at "/var/chroots/debian-6.0.i386"
+
+            sudo wwmngchroot -c /var/chroots/debian-6.0.i386 -i <package>
+
+        Install a package into the chroot found at "/var/chroots/debian-6.0.i386"
+        then import into warewulf over writing the vnfs of the same name that may already exist.
+
+            sudo wwmngchroot -c /var/chroots/debian-6.0.i386 -v debian-6.0.i386 -i <package1>
+
+        Install and remove various packages into the chroot found at "/var/chroots/debian-6.0.i386"
+        then import into warewulf as new vnfs. Not over writing the previous "debian-6.0.i386" vnfs that may already exist.
+        note - Capsule name can be any thing.
+
+            sudo wwmngchroot -c /var/chroots/debian-6.0.i386 -v debian-6.0.i386-2 -i <package1> <package2> -r <package3>
+
+        Install a package into the chroot found at "/var/chroots/debian-6.0.i386" then be dropped into a shell
+        for any additional work that may need to be done inside the chroot before exiting and over writing existing vnfs.
+
+            sudo wwmngchroot -c /var/chroots/debian-6.0.i386 -v debian-6.0.i386 -i <package1> -s
+
+
+        Remove a package and install packages found in an options file into the chroot found at "/var/chroots/debian-6.0.i386"
+        Then dropped into a shell for any additional work that may need to be done inside the chroot before exiting.
+
+            sudo wwmngchroot -c /var/chroots/debian-6.0.i386 -r <package> -f /path/to/file -s
+
+    ___________________________________________________________________________________________
+    ___________________________________________________________________________________________
+
+        -c|--chroot)              Path to the chroot directory
+
+        --create-template)        This will create an example options file in the same directory as
+                                  this script.
+
+        -d)                       This will use autoremove to unistall packages, and will remove
+                                  unneeded dependencies. ( Debian Only )
+
+        -f|--file)                The full path to the options file containing package name to be
+                                  removed/installed. This is optional, but can be usefull for managing
+                                  long lists of packages or for future vnfs creation without the need
+                                  to retype the desired packages.
+
+        -h|--help)                Displays this help info
+
+        -i|--install)             Space separated list of all packages to install. These will be in addition
+                                  to any packages found in the optional options file. All package installation
+                                  will occure after all requested package removal.
+
+        -s|--shell)               This will drop you into a shell inside the chrooted vnfs to allow manual
+                                  command line management before finalizing.
+
+        -o|--optionfile-help)     Displays the detailed help pertaining to the option file format
+
+        -r|--remove)              Space separated list of all package to remove. These will be in addition
+                                  to any packages found in the optional options file. All package removal
+                                  will occure before any requested package are installs.
+
+        -v|--vnfs)                The name this vnfs will have when imported into Warewulf. This
+                                  name can be unique or will prompt if vnfs exists of the same
+                                  name. The vnfs will automatically be imported as this name,
+                                  after all other operations have been completed. Nothing will
+                                  be imported, if this option is not used. Only package management
+                                  will occur.
+
+        -y|--assume-yes)          Automatic yes to "apt-get" prompts. Assume "yes" as answer to all prompts
+                                  and run non-interactively.
+
+
+    ___________________________________________________________________________________________
+EOF
+}
+
+
+user_decide () {
+    local answer=""
+
+    read -p "(yes/no): " answer
+
+    if [[ "${answer}" == "YES" ]] || [[ "${answer}" == "yes" ]]
+    then
+        return 0 ;
+
+    elif [[ "${answer}" == "NO" ]] || [[ "${answer}" == "no" ]]
+    then
+        return 1 ;
+
+    else
+        echo "Invalid Option"
+        user_decide ;
+    fi
+}
+
+
+wwimport () {
+    # check if we should import this into WW
+    warn_msg import ;
+
+    if user_decide
+    then
+        conf_check ;
+
+        if [[ -z ${OLDCONFIG} ]]
+        then
+            excludes ;
+            hybridize ;
+        fi
+
+        ${WWVNFS} --chroot=${CHROOTDIR} ${NAME}
+    fi
+}
+
+
+##========================================================================
+##          --== * MAIN * ==--              ##
+##========================================================================
+
+do_main () {
+    local this_cmd=""
+    local this_arg=""
+
+    if [[ ! ${1} ]]
+    then
+        print_help ;
+        exit 1
+    fi
+
+    while [[ ${1} ]]
+    do
+        this_cmd=${1}
+        this_arg=""
+        shift
+
+        # make sure the next element has a value
+        if [[ -n ${1} ]]
+        then
+            # then if first char of ${1}is not "-"
+            # then it is our arg and not the next
+            # command so assign it to this_arg
+            while [[ -n ${1} ]] && [[ ! ${1} =~ ^\- ]]
+            do
+                this_arg="${this_arg} ${1}"
+                shift
+            done
+        fi
+
+        arg_set ${this_cmd} ${this_arg} ;
+    done
+
+        # make sure we have required options
+    #______________________________________________
+
+    if [[ -z ${CHROOTDIR} ]]
+    then
+        print_help ;
+        warn_msg incomplete ;
+        warn_msg abort ;
+        exit 1
+    fi
+
+    if [[ -n ${OPTIONSFILE} ]]
+    then
+        if [[ -e ${OPTIONSFILE} ]]
+        then
+            . ${OPTIONSFILE} ;
+
+            REMOVES="${REMOVES} ${REMOVE}"
+            INSTALLS="${INSTALLS} ${INSTALL}"
+        else
+            print_help ;
+            warn_msg nofile ;
+            exit 1
+        fi
+    fi
+
+    if [[ -z ${INSTALLS} ]] && [[ -z ${REMOVES} ]] && [[ -z ${MOREPACKS} ]]
+    then
+        print_help ;
+        warn_msg incomplete ;
+        warn_msg abort ;
+        exit 1
+    fi
+
+        # now that we have all command line options
+    #___________________________________________
+
+    # check to see if the chroot directory exists
+    if [[ -d ${CHROOTDIR} ]]
+    then
+        local yum_cmd="yum -c ${CHROOTDIR}/${YUM_CONF} --tolerant --installroot ${CHROOTDIR}"
+
+        # handle RPM based package management
+        # from outside of chroot
+        if [[ -n ${REMOVES} ]] && [[ -f "${CHROOTDIR}/etc/redhat-release"  || \
+                                     -f "${CHROOTDIR}/etc/centos-release" ]]
+        then
+            echo
+            echo "removing requested packages"
+
+            if ! ${yum_cmd} ${SAYYES} remove ${REMOVES}
+            then
+                echo
+                echo "failed to remove packages. Dropping into shell"
+                echo
+                DOSHELL="true"
+            fi
+        fi
+
+        if [[ -n ${INSTALLS} ]] && [[ -f "${CHROOTDIR}/etc/redhat-release"  || \
+                                     -f "${CHROOTDIR}/etc/centos-release" ]]
+        then
+            echo
+            echo "  installing requested packages"
+
+            if ! ${yum_cmd} ${SAYYES} install ${INSTALLS}
+            then
+                echo
+                echo "failed to install requested packages. Dropping into shell"
+                echo
+                DOSHELL="true"
+            fi
+        fi
+
+        # prepare to chroot
+        if mount -o bind /proc ${CHROOTDIR}/proc/ && \
+           mount -o bind /dev ${CHROOTDIR}/dev/ && \
+           mount -o bind /sys ${CHROOTDIR}/sys
+        then
+            # create our chrooted script
+            chroot_script ;
+        else
+            if mount | grep ${CHROOTDIR}/proc
+            then
+                echo
+                echo "/proc already mounted in ${CHROOTDIR}"
+                echo "may not have been cleanly unmounted previously"
+            else
+                warn_msg nomount ;
+                warn_msg abort ;
+                exit 1
+            fi
+        fi
+    else
+        warn_msg nodir ;
+        warn_msg abort ;
+        exit 1
+    fi
+
+        # now that we are in chroot do work
+    #___________________________________________
+    # make it so
+    if ! ${CHROOT} ${CHROOTDIR} ./wwmngchroot-scriptlet.sh
+    then
+        warn_msg noscript ;
+        DOSHELL="true"
+    fi
+
+    if [[ -z ${DONESHELL} ]] && [[ "${MOREPACKS}" == "true" ]]
+    then
+        warn_msg morepacks ;
+        DOSHELL="true"
+    fi
+
+    if [[ -n ${DOSHELL} ]]
+    then
+        do_shell ;
+    fi
+
+    # unmount the chroot
+    clean_up ;
+
+            # now that all done install into WW
+        #___________________________________________
+
+    if [[ -n ${NAME} ]]
+    then
+        wwimport ;
+    fi
+
+    # if we got this far all must have finished correctly
+    warn_msg finalize ;
+}
+
+##---------
+
+do_main $@ ;
+
+##---------
+
+exit 0

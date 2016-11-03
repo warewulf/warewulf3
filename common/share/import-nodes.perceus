@@ -1,0 +1,81 @@
+#!/usr/bin/perl -Tw
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+# 
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+# $Id: import.perceus.pl 579 2011-08-12 20:26:58Z gmk $
+#
+
+use Getopt::Long;
+use Warewulf::Network;
+use Warewulf::Util;
+
+Getopt::Long::Configure ("bundling");
+
+$ENV{"PATH"} = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
+
+my $opt_help;
+my $opt_netdev = "eth0";
+my $rand = &rand_string(16);
+
+GetOptions(
+    'help'          => \$opt_help,
+    'netdev=s'      => \$opt_netdev,
+);
+
+my @nodes;
+
+foreach my $entry (@ARGV) {
+    if ($entry =~ /^([a-zA-Z0-9\-_\[\]\.\*]+)$/) {
+        push(@nodes, $1);
+    }
+}
+
+if ($opt_help) {
+    print("USAGE: $0 --netdev=[node's network device] [perceus node range]\n");
+    exit 1;
+}
+
+my $net = Warewulf::Network->new();
+
+open(NODES, "perceus node show @nodes |");
+while(my $line = <NODES>) {
+    my $name;
+    my $nodename;
+    my $cluster;
+    my $domain;
+    chomp($line);
+    if ($line =~ /^([a-zA-Z0-9_\-\.]+):\s+/) {
+        $name = $1;
+        ($nodename, $cluster, $domain) = split(/\./, $name, 3);
+        $nodes{"$name"}{"NODENAME"} = $nodename;
+        $nodes{"$name"}{"CLUSTER"} = $cluster;
+        $nodes{"$name"}{"DOMAIN"} = $domain;
+        if ($line =~ /^([a-zA-Z0-9\-_\.]+):\s+nodeid=([a-zA-Z0-9:]+)$/) {
+            $nodes{"$name"}{"HWADDR"} = lc($2);
+        }
+        if ($line =~ /^([a-zA-Z0-9\-_\.]+):\s+ipaddr=([0-9\.]+)$/) {
+            $nodes{"$name"}{"IPADDR"} = $net->ip_unserialize($2);
+        }
+    }
+}
+close NODES;
+
+
+foreach my $name (sort keys %nodes) {
+    my $hwaddr = $nodes{"$name"}{"HWADDR"};
+    my $ipaddr = $nodes{"$name"}{"IPADDR"};
+    my $nodename = $nodes{"$name"}{"NODENAME"} || $name;
+    my $command = "node new $nodename --netdev=$opt_netdev --hwaddr=$hwaddr --ipaddr=$ipaddr ";
+
+    if ($nodes{"$name"}{"CLUSTER"}) {
+        $command .= "--cluster=". $nodes{"$name"}{"CLUSTER"} ." ";
+    }
+    if ($nodes{"$name"}{"DOMAIN"}) {
+        $command .= "--domain=". $nodes{"$name"}{"DOMAIN"} ." ";
+    }
+    print $command ."\n";
+}

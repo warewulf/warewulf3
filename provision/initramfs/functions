@@ -1,0 +1,194 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+
+WWDEBUG=0
+
+WWDEBUG=`sed -e '/ wwdebug=/!d;s/.*wwdebug=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWDEBUG
+
+WWNETRETRY=`sed -e '/ wwnetretry=/!d;s/.*wwnetretry=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWNETRETRY
+
+WWHOSTNAME=`sed -e '/ wwhostname=/!d;s/.*wwhostname=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWHOSTNAME
+
+WWIPADDR=`sed -e '/ wwipaddr=/!d;s/.*wwipaddr=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWIPADDR
+
+WWHWADDR=`sed -e '/ wwhwaddr=/!d;s/.*wwhwaddr=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWHWADDR
+
+WWNETMASK=`sed -e '/ wwnetmask=/!d;s/.*wwnetmask=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWNETMASK
+
+WWMASTER=`sed -e '/ wwmaster=/!d;s/.*wwmaster=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWMASTER
+
+WWGATEWAY=`sed -e '/ wwgateway=/!d;s/.*wwgateway=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWGATEWAY
+
+WWDNS=`sed -e '/ wwdns=/!d;s/.*wwdns=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWDNS
+
+WWNETDEV=`sed -e '/ wwnetdev=/!d;s/.*wwnetdev=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWNETDEV
+
+WWMTU=`sed -e '/ wwmtu=/!d;s/.*wwmtu=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWMTU
+
+WWTRANSPORT=`sed -e '/ wwtransport=/!d;s/.*wwtransport=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWTRANSPORT
+
+
+if [ -z "$WWPORT" ]; then
+    WWPORT=9870
+fi
+
+if [ -z "$WWDEBUG" ]; then
+    WWDEBUG=0
+fi
+
+if [ -z "$WWNETRETRY" ]; then
+    WWNETRETRY=30
+fi
+
+
+GRAY="\\033[1;30m"
+RED="\\033[1;31m"
+GREEN="\\033[1;32m"
+YELLOW="\\033[1;33m"
+BLUE="\\033[1;34m"
+PINK="\\033[1;35m"
+CYAN="\\033[1;36m"
+WHITE="\\033[1;37m"
+NORMAL="\\033[0;39m"
+
+
+msg_blue() {
+    echo -ne "$BLUE"
+    echo -ne "$1"
+    echo -ne "$NORMAL"
+}
+
+msg_red() {
+    echo -ne "$RED"
+    echo -ne "$1"
+    echo -ne "$NORMAL"
+}
+
+msg_green() {
+    echo -ne "$GREEN"
+    echo -ne "$1"
+    echo -ne "$NORMAL"
+}
+
+msg_white() {
+    echo -ne "$WHITE"
+    echo -ne "$1"
+    echo -ne "$NORMAL"
+}
+
+msg_gray() {
+    echo -ne "$GRAY"
+    echo -ne "$1"
+    echo -ne "$NORMAL"
+}
+
+msg() {
+    msg_white $@
+}
+
+wwsuccess() {
+    echo -en "\\033[78G"
+    msg_green "OK\n"
+}
+
+wwdone() {
+    echo -en "\\033[76G"
+    msg_red "DONE\n"
+}
+
+wwskipped() {
+    echo -en "\\033[73G"
+    msg_gray "SKIPPED\n"
+}
+
+wwfailure() {
+    echo -en "\\033[75G"
+    msg_red "ERROR\n"
+}
+
+_doreboot() {
+    local SLEEP=$1
+    touch /reboot
+    sleep $SLEEP
+
+    if [ -f "/reboot" ]; then
+        echo
+        echo
+        echo "Rebooting system... Please stand by"
+        echo
+        sleep 2
+        wwlogger "Node rebooting"
+        /sbin/reboot -n -f
+    fi
+}
+
+wwreboot() {
+    message=$1
+    _doreboot 10 &
+    wwlogger "Rebooting node in 10 seconds..."
+    echo
+    echo
+    if [ -n "$message" ]; then
+        msg_red $message
+    fi
+    echo
+    echo "Rebooting in 10 seconds.... "
+    echo
+    echo -n "   Press [ENTER] to interrupt and get a debugging shell: "
+    read foo
+    echo
+    echo "Spawning a debug shell."
+    echo "System will reboot automatically when you close the shell."
+    echo
+    rm /reboot
+    setsid cttyhack sh
+    wwlogger "Node rebooting"
+    /sbin/reboot -n -f
+}
+
+run() {
+    if [ -n "$1" ]; then
+        if [ $WWDEBUG -eq 0 ]; then
+            $@ >/dev/null 2>&1
+            RETVAL=$?
+        elif [ $WWDEBUG -eq 1 ]; then
+            echo -ne "$GRAY"
+            $@ >/dev/null
+            RETVAL=$?
+            echo -ne "$NORMAL"
+        elif [ $WWDEBUG -gt 1 ]; then
+            echo -ne "$GRAY"
+            $@
+            RETVAL=$?
+            echo -ne "$NORMAL"
+        fi
+    fi
+    return $RETVAL
+}
+
+
+
+
+if [ $WWDEBUG -ge 2 ]; then
+    set -x
+fi
+

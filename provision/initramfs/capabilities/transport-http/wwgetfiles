@@ -1,0 +1,125 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+if [ -n "$SET_X" ]; then
+    set -x
+fi
+
+# Lock so more than one wwgetfiles cannot be ran
+LOCKF=/tmp/.wwgetfile.lock
+if [ ! -f ${LOCKF} ]; then
+    touch ${LOCKF}
+else
+    echo "ERROR: wwgetfiles already running"
+    exit 1
+fi
+
+if [ -f /warewulf/transports/http/functions ]; then
+    . /warewulf/transports/http/functions
+elif [ -f ./functions ]; then
+    # For debugging
+    . ./functions
+else
+    exit
+fi
+
+WWGETFILES_INTERVAL=${WWGETFILES_INTERVAL:-180}
+
+if [ -n "$WWGETFILES_INTERVAL" -a $WWGETFILES_INTERVAL -gt 0 ];then
+    if [ -n "$RANDOM" -a ! -f "/init" ]; then
+       SLEEPTIME=`expr $RANDOM % $WWGETFILES_INTERVAL`
+       sleep $SLEEPTIME
+    fi
+fi
+
+TIMESTAMP_FILE="$NEWROOT/tmp/.wwgetfiles_timestamp"
+if [ ! -d $NEWROOT/tmp/ ]; then
+    mkdir $NEWROOT/tmp/
+fi
+
+if [ "$1" = "-F" ]; then
+    rm -f "$TIMESTAMP_FILE"
+elif [ -f "$TIMESTAMP_FILE" ]; then
+    if [ -z "$NEWROOT" ]; then
+        TIMESTAMP=`cat $TIMESTAMP_FILE`
+    fi
+fi
+
+while true; do
+    for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
+        TMPFILE=`mktemp`
+        if wget -q -O "$TMPFILE" "http://$master/WW/file?hwaddr=$WWINIT_HWADDR&timestamp=$TIMESTAMP" 2>/dev/null; then
+            cat $TMPFILE | while read id name uid gid mode timestamp path; do
+                basedir=`dirname $path`
+                case "$mode" in
+                    d*) ftype=d ; mode=`echo $mode | sed 's/^d//'` ;;
+                    l*) ftype=l ; mode=`echo $mode | sed 's/^l//'` ;;
+                    b*) ftype=b ; mode=`echo $mode | sed 's/^b//'` ;;
+                    c*) ftype=c ; mode=`echo $mode | sed 's/^c//'` ;;
+                    p*) ftype=p ; mode=`echo $mode | sed 's/^p//'` ;;
+                    s*) ftype=s ; mode=`echo $mode | sed 's/^s//'` ;;
+                    *)  ftype=f ;;
+                esac
+                if [ ! -d "$NEWROOT/$basedir" ]; then
+                    mkdir -p "$NEWROOT/$basedir"
+                fi
+                if wget -q -O "$NEWROOT/$path.ww$timestamp" "http://$master/WW/file?hwaddr=$WWINIT_HWADDR&fileid=$id"; then
+                    if [ "$ftype" = "l" ]; then
+                        ln -s -f `cat "$NEWROOT/$path.ww$timestamp"` "$NEWROOT/$path"
+                        rm -f "$NEWROOT/$path.ww$timestamp"
+                    elif [ "$ftype" = "d" ]; then
+                        if [ -e "$NEWROOT/$path" -a ! -d "$NEWROOT/$path" ]; then
+                            mv -f "$NEWROOT/$path" "$NEWROOT/$path.ww`date '+%Y%m%d%H%M%S'`"
+                        fi
+                        mkdir -m $mode -p "$NEWROOT/$path"
+                        chown -h $uid "$NEWROOT/$path"
+                        chgrp -h $gid "$NEWROOT/$path"
+                        if [ -f "$NEWROOT/$path.ww$timestamp" ]; then
+                            rm -f "$NEWROOT/$path.ww$timestamp";
+                        fi
+                    else
+                        if [ "$ftype" = "b" -o "$ftype" = "c" ]; then
+                            devno=`cat "$NEWROOT/$path.ww$timestamp"`
+                            major=`expr $devno / 256`
+                            minor=`expr $devno % 256`
+                            rm -f "$NEWROOT/$path.ww$timestamp"
+                            mknod -m $mode "$NEWROOT/$path.ww$timestamp" $ftype $major $minor
+                        elif [ "$ftype" = "p" ]; then
+                            rm -f "$NEWROOT/$path.ww$timestamp"
+                            mknod -m $mode "$NEWROOT/$path.ww$timestamp" p
+                        elif [ "$ftype" = "s" ]; then
+                            : # NOT ACTUALLY SUPPORTED!
+                        else
+                            chmod $mode "$NEWROOT/$path.ww$timestamp"
+                        fi
+                        mv "$NEWROOT/$path.ww$timestamp" "$NEWROOT/$path"
+                        chown $uid "$NEWROOT/$path"
+                        chgrp $gid "$NEWROOT/$path"
+                    fi
+                    echo $timestamp > $TIMESTAMP_FILE
+                else
+                    echo "ERROR: Could not download $name"
+                    rm -f $NEWROOT/$path.ww $NEWROOT/$path.ww$timestamp
+                    # Remove lock file
+                    rm -f ${LOCKF}
+                    exit 2
+                fi
+            done
+            rm -f $TMPFILE
+            # Remove lock file
+            rm -f ${LOCKF}
+            exit 0
+        fi
+        rm -f $TMPFILE
+    done
+    echo -n "." 1>&2
+    throttled_sleep
+done
+
+

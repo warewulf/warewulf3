@@ -1,0 +1,240 @@
+diff -Nur busybox-1.19.3/networking/udhcp/dhcpc.c busybox-1.19.3-ipoib/networking/udhcp/dhcpc.c
+--- busybox-1.19.3/networking/udhcp/dhcpc.c	2010-12-19 16:41:27.000000000 -0800
++++ busybox-1.19.3-ipoib/networking/udhcp/dhcpc.c	2011-09-01 16:47:12.757422343 -0700
+@@ -446,6 +446,13 @@
+ 	packet.xid = xid;
+ 	if (requested)
+ 		udhcp_add_simple_option(&packet, DHCP_REQUESTED_IP, requested);
++	if (!strncmp(client_config.interface, "ib", 2)) {
++		packet.htype = 32;
++		packet.hlen = 0;
++		packet.flags = htons(BROADCAST_FLAG);
++		memset(&packet.chaddr, 0, sizeof(packet.chaddr));
++		packet.ciaddr = 0;
++	}
+ 
+ 	/* Add options: maxsize,
+ 	 * optionally: hostname, fqdn, vendorclass,
+@@ -490,6 +497,14 @@
+ 
+ 	udhcp_add_simple_option(&packet, DHCP_SERVER_ID, server);
+ 
++	if (!strncmp(client_config.interface, "ib", 2)) {
++		packet.htype = 32;
++		packet.hlen = 0;
++		packet.flags = htons(BROADCAST_FLAG);
++		memset(&packet.chaddr, 0, sizeof(packet.chaddr));
++		packet.ciaddr = 0;
++	}
++
+ 	/* Add options: maxsize,
+ 	 * optionally: hostname, fqdn, vendorclass,
+ 	 * "param req" option according to -O, and options specified with -x
+@@ -1093,7 +1108,40 @@
+ 	}
+ 
+ 	clientid_mac_ptr = NULL;
+-	if (!(opt & OPT_C) && !udhcp_find_option(client_config.options, DHCP_CLIENT_ID)) {
++	if (client_config.clientid) {
++		char *c, flag = 1;
++		int i;
++
++		for (c = client_config.clientid + OPT_DATA, i = 0; *c; c++, i++) {
++			/* Every 3rd char must be a : and all others hex digits. */
++			if ((i + 1) % 3 == 0) {
++				if (*c != ':') {
++					flag = 0;
++					break;
++				}
++			} else if (!isxdigit(*c)) {
++				flag = 0;
++				break;
++			}
++		}
++
++		if (flag && (++i % 3 == 0)) {
++			/* It's a hardware address.	 Re-encode it. */
++			unsigned long new_c;
++			uint8_t *p;
++
++			p = (uint8_t *) client_config.clientid + OPT_DATA + 1;
++			for (c = client_config.clientid + OPT_DATA; 1; c++) {
++				new_c = strtoul(c, &c, 16);
++				*p++ = (uint8_t) new_c;
++				if (!c || (*c != ':')) {
++					break;
++				}
++			}
++			client_config.clientid[OPT_LEN] = i / 3 + 1;
++			client_config.clientid[OPT_DATA] = 1;
++		}
++	} else if (!(opt & OPT_C) && !udhcp_find_option(client_config.options, DHCP_CLIENT_ID)) {
+ 		/* not suppressed and not set, set the default client ID */
+ 		client_config.clientid = alloc_dhcp_option(DHCP_CLIENT_ID, "", 7);
+ 		client_config.clientid[OPT_DATA] = 1; /* type: ethernet */
+@@ -1349,8 +1397,9 @@
+ 		}
+ 
+ 		/* Ignore packets that aren't for us */
+-		if (packet.hlen != 6
+-		 || memcmp(packet.chaddr, client_config.client_mac, 6) != 0
++		if (strncmp(client_config.interface, "ib", 2)
++            && (packet.hlen != 6
++                || memcmp(packet.chaddr, client_config.client_mac, 6) != 0)
+ 		) {
+ //FIXME: need to also check that last 10 bytes are zero
+ 			log1("chaddr does not match, ignoring packet"); // log2?
+diff -Nur busybox-1.19.3/networking/udhcp/packet.c busybox-1.19.3-ipoib/networking/udhcp/packet.c
+--- busybox-1.19.3/networking/udhcp/packet.c	2010-12-19 16:41:27.000000000 -0800
++++ busybox-1.19.3-ipoib/networking/udhcp/packet.c	2011-09-02 11:26:15.826231818 -0700
+@@ -17,6 +17,7 @@
+ #endif
+ 
+ #include "common.h"
++#include "dhcpc.h"
+ #include "dhcpd.h"
+ 
+ void FAST_FUNC udhcp_init_header(struct dhcp_packet *packet, char type)
+@@ -171,23 +172,63 @@
+ 		uint32_t dest_nip, int dest_port, const uint8_t *dest_arp,
+ 		int ifindex)
+ {
++	struct sockaddr addr;
+ 	struct sockaddr_ll dest_sll;
+ 	struct ip_udp_dhcp_packet packet;
+ 	unsigned padding;
+ 	int fd;
+ 	int result = -1;
+ 	const char *msg;
+-
+-	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
+-	if (fd < 0) {
+-		msg = "socket(%s)";
+-		goto ret_msg;
+-	}
++	unsigned char buff[4096], *pbuff = buff;
+ 
+ 	memset(&dest_sll, 0, sizeof(dest_sll));
+ 	memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
+ 	packet.data = *dhcp_pkt; /* struct copy */
+ 
++	if (!strncmp(client_config.interface, "ib", 2)) {
++		struct { uint16_t proto; uint16_t reserved; } ipoib_hdr;
++
++		fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
++		if (fd < 0) {
++			msg = "socket(%s)";
++			goto ret_msg;
++		}
++
++		if (dest_nip == 0xffffffff) {
++			/* Need pseudo-header for IPoIB broadcast.
++			   Currently assumes scope of 2 (link-local). */
++			const unsigned char ipv4_bcast_addr[] = {
++				0x00, 0xff, 0xff, 0xff,
++				0xff, 0x12, 0x40, 0x1b, 0x00, 0x00, 0x00, 0x00,
++				0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
++			};
++
++			memcpy(pbuff, ipv4_bcast_addr, sizeof(ipv4_bcast_addr));
++			pbuff += sizeof(ipv4_bcast_addr);
++		}
++
++		/* Add IPoIB header */
++		ipoib_hdr.proto = htons(ETHERTYPE_IP);
++		ipoib_hdr.reserved = 0;
++		memcpy(pbuff, &ipoib_hdr, sizeof(ipoib_hdr));
++		pbuff += sizeof(ipoib_hdr);
++
++		/* IP header must be word-aligned. */
++		for (; (int) (pbuff - buff) % 4; pbuff++) {
++			bb_info_msg("Fudging hardware header.");
++			*pbuff = 0;
++		}
++
++		memset(&addr, 0x0, sizeof(addr));
++		addr.sa_family = AF_PACKET;
++		strncpy(addr.sa_data, (const char *) client_config.interface, sizeof(addr.sa_data));
++	} else {
++		fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
++		if (fd < 0) {
++			msg = "socket(%s)";
++			goto ret_msg;
++		}
++	}
+ 	dest_sll.sll_family = AF_PACKET;
+ 	dest_sll.sll_protocol = htons(ETH_P_IP);
+ 	dest_sll.sll_ifindex = ifindex;
+@@ -225,11 +266,19 @@
+ 	packet.ip.ihl = sizeof(packet.ip) >> 2;
+ 	packet.ip.version = IPVERSION;
+ 	packet.ip.ttl = IPDEFTTL;
++	packet.ip.frag_off = htons(0x4000); /* Don't fragment */
+ 	packet.ip.check = udhcp_checksum(&packet.ip, sizeof(packet.ip));
+ 
+ 	udhcp_dump_packet(dhcp_pkt);
+-	result = sendto(fd, &packet, IP_UDP_DHCP_SIZE - padding, /*flags:*/ 0,
+-			(struct sockaddr *) &dest_sll, sizeof(dest_sll));
++	if (pbuff != buff) {
++		memcpy(pbuff, &packet, sizeof(struct udp_dhcp_packet));
++		result = sendto(fd, buff, sizeof(struct udp_dhcp_packet) + (pbuff - buff), 0,
++						//&addr, sizeof(addr));
++						(struct sockaddr *) &dest_sll, sizeof(dest_sll));
++	} else {
++		result = sendto(fd, &packet, IP_UDP_DHCP_SIZE - padding, /*flags:*/ 0,
++						(struct sockaddr *) &dest_sll, sizeof(dest_sll));
++	}
+ 	msg = "sendto";
+  ret_close:
+ 	close(fd);
+--- busybox-1.19.3/loginutils/getty.c
++++ busybox-1.19.3-getty/loginutils/getty.c
+@@ -271,7 +271,9 @@ static void termios_init(int speed)
+ #ifdef CMSPAR
+ 		| CMSPAR  /* mark or space parity */
+ #endif
++#ifdef CBAUD
+ 		| CBAUD   /* (output) baud rate */
++#endif
+ #ifdef CBAUDEX
+ 		| CBAUDEX /* (output) baud rate */
+ #endif
+--- busybox-1.19.3/modutils/modinfo.c
++++ busybox-1.19.3-modinfo/modutils/modinfo.c
+@@ -13,6 +13,7 @@
+ //config:config MODINFO
+ //config:	bool "modinfo"
+ //config:	default y
++//config:	select PLATFORM_LINUX
+ //config:	help
+ //config:	  Show information about a Linux Kernel module
+ 
+--- busybox-1.19.3/networking/wget.c
++++ busybox-1.19.3-wget/networking/wget.c
+@@ -552,6 +552,7 @@ static void download_one_url(const char 
+ 	FILE *dfp;                      /* socket to ftp server (data)      */
+ 	char *proxy = NULL;
+ 	char *fname_out_alloc;
++	char *redirected_path = NULL;
+ 	struct host_info server;
+ 	struct host_info target;
+ 
+@@ -794,8 +795,8 @@ However, in real world it was observed t
+ 					bb_error_msg_and_die("too many redirections");
+ 				fclose(sfp);
+ 				if (str[0] == '/') {
+-					free(target.allocated);
+-					target.path = target.allocated = xstrdup(str+1);
++					free(redirected_path);
++					target.path = redirected_path = xstrdup(str+1);
+ 					/* lsa stays the same: it's on the same server */
+ 				} else {
+ 					parse_url(str, &target);
+@@ -850,6 +851,7 @@ However, in real world it was observed t
+ 	free(server.allocated);
+ 	free(target.allocated);
+ 	free(fname_out_alloc);
++	free(redirected_path);
+ }
+ 
+ int wget_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;

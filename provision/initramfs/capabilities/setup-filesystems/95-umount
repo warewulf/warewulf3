@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+
+> $NEWROOT/etc/mtab
+
+# Sigh... setting permission with mkdir will only work if the directory
+#  doesn't already exist. So... 
+if [ ! -d $NEWROOT/dev/shm -o ! -k $NEWROOT/dev/shm ]; then
+    mkdir -p $NEWROOT/dev/shm
+    chmod 1777 $NEWROOT/dev/shm
+fi
+
+sort -r /tmp/mptab | while read mp dev type perms opts; do
+    if [ "x$mp" == "x/" ]; then
+        echo "$dev $mp $type $opts 0 0" > $NEWROOT/etc/mtab
+    else
+        if [ "x$mp" == "xnone" ]; then
+	    continue
+        fi
+        if ! umount $NEWROOT/$mp; then
+            mount -o remount,ro $NEWROOT/$mp
+        fi
+    fi
+done
+
+
+chroot $NEWROOT /bin/mount -t tmpfs none /dev/shm
+chroot $NEWROOT /bin/mount -t proc none /proc
+chroot $NEWROOT /bin/mount -t sysfs none /sys
+

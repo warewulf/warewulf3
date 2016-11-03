@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+if [ -n "$SET_X" ]; then
+    set -x
+fi
+
+. /warewulf/transports/http/functions
+
+TMPFILE=`mktemp`
+
+cd ${NEWROOT:-/}
+
+while true; do
+    for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
+
+        rm -f /tmp/vnfs-download 2>/dev/null
+        if ! mkfifo /tmp/vnfs-download 2>/dev/null; then
+            echo "ERROR: Could not create the fifo!"
+            exit 1
+        fi
+
+        gunzip < /tmp/vnfs-download | bsdtar -pxf - &
+        #gunzip < /tmp/vnfs-download | tar -xf - &
+
+        wget -O /tmp/vnfs-download http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR 2>&1
+        WGETEXIT=$?
+
+        wait
+        if [ -f "$NEWROOT/sbin/init" ]; then
+            echo
+            exit 0
+        fi
+
+#        ( wget -O - "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" | gunzip | tar -xf - ) 2>&1
+#        if [ -f "$NEWROOT/sbin/init" ]; then
+#            echo
+#            exit 0
+#        fi
+    done
+    echo -n "."
+    throttled_sleep
+done
+echo
+
+exit 1

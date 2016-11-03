@@ -1,0 +1,182 @@
+#!/bin/bash
+#
+# Author: Ben McClelland and Andrew Shewmaker
+#
+# This program has been approved for release from Los Alamos National
+# Laboratory by LA-CC Number 10-066, and authored by an employee of
+# LANS LLC, operator of the Los Alamos National Laboratory
+# under Contract No. DE-AC52-06NA25396 with the U.S. Department of Energy.
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+# Right now we need a vnfs directory with the config files 
+# /{vnfs path}
+#             /installgroups
+#             /installpackages
+#             /removegroups
+#             /removepackages
+#             /excludepackages
+#             /onservices
+#             /offservices
+#             /whitelist
+#             /yum.conf
+#             /rootfs/
+#
+# Maybe the configs should move to the database?
+#
+# create the structure above, then call this scripts like
+# wwbuildroot /{vnfs path}
+#
+# The hybrid images will need the /{vnfs path}/rootfs mounted on nodes
+#
+
+IMGDIR=$1
+
+if [ -z "$IMGDIR" ]; then
+    echo "USAGE: $0 /path/to/vnfs"
+    exit 1
+fi
+
+YUMCMD="/usr/bin/yum -y -t -d 2 --skip-broken -c $IMGDIR/yum.conf --installroot $IMGDIR/rootfs"
+#YUMCMD="/usr/bin/yum -y -t -d 2 -c $IMGDIR/yum.conf --installroot $IMGDIR/rootfs"
+
+echo "Building $IMGDIR"
+
+# create a basic chroot that rpm can execute on
+if [ ! -e $IMGDIR/rootfs ]; then
+    /bin/mkdir -p $IMGDIR/rootfs/var/lib/rpm
+    /bin/mkdir -p $IMGDIR/rootfs/var/lock/rpm
+    /bin/mkdir -p $IMGDIR/rootfs/var/log
+    /bin/touch $IMGDIR/rootfs/var/log/yum.log
+    /bin/rpm --initdb --root $IMGDIR/rootfs
+    # necessary? they were in the cfengine version of this script
+    /bin/mkdir -p $IMGDIR/rootfs/dev
+    /bin/mkdir -p $IMGDIR/rootfs/etc/ntp
+    /bin/mkdir -p $IMGDIR/rootfs/etc/sysconfig
+    /bin/mkdir -p $IMGDIR/rootfs/var/empty/sshd
+    /bin/mkdir -p $IMGDIR/rootfs/var/lib/yum
+    /bin/mknod -m 0666 $IMGDIR/rootfs/dev/null    c 1 3
+    /bin/mknod -m 0666 $IMGDIR/rootfs/dev/urandom c 1 9
+fi
+
+# set variables true if the corresponding file exists
+if [ -e $IMGDIR/vnfs.img ] ; then
+    if [ -e $IMGDIR/installgroups ] ; then
+        INGRP="$IMGDIR/installgroups"
+    fi
+    if [ -e $IMGDIR/installpackages ] ; then
+        INPKG="$IMGDIR/installpackages"
+    fi
+    if [ -e $IMGDIR/removegroups ] ; then
+        RMGRP="$IMGDIR/removegroups"
+    fi
+    if [ -e $IMGDIR/removepackages ] ; then
+        RMPKG="$IMGDIR/removepackages"
+    fi
+    if [ -e $IMGDIR/excludepackages ] ; then
+        EXPKG="$IMGDIR/excludepackages"
+    fi
+    if [ -e $IMGDIR/onservices ] ; then
+        ONSVC="$IMGDIR/onservices"
+    fi
+    if [ -e $IMGDIR/offservices ] ; then
+        OFFSVC="$IMGDIR/offservices"
+    fi
+fi 
+
+# removepackages and excludepackages are lists of packages, one per line
+# removepackages are actively removed and excluded
+# excludepackages are only excluded, not removed
+
+# EXPKGS is a comma separated list with normal globbing
+# comments are ignored
+# e.g. EXPKGS=foo*,blah; yum -x $EXPKGS install <package>
+EXPKGS=$(/usr/bin/perl -ne '!/^#/ && s/\n$/,/ && print' $IMGDIR/excludepackages $IMGDIR/removepackages)
+if [ -z $EXPKGS ]; then
+    EX=""
+else
+    EX="-x $EXPKGS"
+fi
+
+# RMPKGS is a space separated list with escaped globbing
+# comments are ignored
+# e.g. RMPKGS="foo\* blah"; yum remove $RMPKGS
+RMPKGS=$(/usr/bin/perl -ne 's/(\*|\?)/\\$1/g; !/^#/ && s/\n$/ / && print' $IMGDIR/removepackages)
+
+if test ! -e $IMGDIR/vnfs.img -o -n "$INGRP"; then
+    # yum install all the groups from "installgroups", excluding "removepackages"
+    (/bin/grep -v '#' $IMGDIR/installgroups \
+        | xargs $YUMCMD $EX groupinstall ) \
+        2>&1 | /bin/grep -v "already installed and latest version"
+fi
+
+if test ! -e $IMGDIR/vnfs.img -o -n "$INPKG"; then
+    # yum install all the packages from "installpackages", excluding "removepackages"
+    # escape globbing and ignore comments
+    (/usr/bin/perl -ne 's/(\*|\?)/\\$1/g; !/^#/ && print' $IMGDIR/installpackages \
+        | xargs $YUMCMD $EX install ) \
+        2>&1 | /bin/grep -v "already installed and latest version"
+fi
+
+if test ! -e $IMGDIR/vnfs.img -o -n "$RMGRP"; then
+    # yum remove all the groups from "removegroups"
+    (/bin/grep -v '#' $IMGDIR/removegroups \
+        | xargs $YUMCMD groupremove ) \
+        2>&1 | /bin/grep Erasing
+fi
+
+if test ! -e $IMGDIR/vnfs.img -o -n "$RMPKG"; then
+    # yum remove all the packages from "removepackages"
+    (/bin/grep -v '#' $IMGDIR/removepackages \
+        | xargs $YUMCMD remove ) \
+        2>&1 | /bin/grep Erasing
+fi
+
+if test ! -e $IMGDIR/vnfs.img \
+          -o -n "$INGRP" \
+          -o -n "$INPKG" \
+          -o -n "$RMGRP" \
+          -o -n "$RMPKG" \
+          -o -n "$ONSVC" \
+          -o -n "$OFFSVC"
+then
+    # chkconfig on "gold" services from "onservices"
+    for i in $(/bin/grep -v '#' $IMGDIR/onservices); do
+        if test -e $IMGDIR/rootfs/etc/init.d/$i; then
+          /usr/sbin/chroot $IMGDIR/rootfs /sbin/chkconfig --del $i
+          /usr/sbin/chroot $IMGDIR/rootfs /sbin/chkconfig --add $i
+          /usr/sbin/chroot $IMGDIR/rootfs /sbin/chkconfig $i on
+        fi
+    done
+
+    # chkconfig off "garbage" services from "offservices"
+    #if  [ -n "$OFFSVC" ] ; then
+        for i in $(/bin/grep -v '#' $IMGDIR/offservices); do
+          if test -e $IMGDIR/rootfs/etc/init.d/$i; then
+            /usr/sbin/chroot $IMGDIR/rootfs /sbin/chkconfig $i off
+          fi
+        done
+    #fi
+
+    # cleanup
+    /bin/rm $IMGDIR/rootfs/core* 2>&1 | /bin/grep -v "No such file or directory"
+
+    # yum cleanup
+    $YUMCMD clean all
+    # is this last one necessary?
+    /bin/rm -rf /var/cache/yum/*
+
+    wwhybridize -f $IMGDIR/whitelist -o $IMGDIR/hybridize $IMGDIR/rootfs
+
+    # create image
+    if [ $? -eq 0 ]; then
+        wwcreateimg $IMGDIR
+    fi
+fi
+
+echo "Finished building $IMGDIR"
+

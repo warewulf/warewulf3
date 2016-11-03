@@ -1,0 +1,28 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2013, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: ALL
+#INIT: MASTER
+#INIT: PROVISION
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+wwreqroot
+
+if wwpackage_check dhcp dhcpd dhcp-server dhcpd-server isc-dhcp-server; then
+    if wwservice_activate dhcp dhcpd isc-dhcp-server; then
+        exit 0
+    fi
+fi
+exit 1

@@ -1,0 +1,85 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+
+IPMI_UID=${WWIPMI_UID:-3}
+
+
+if [ -z "$WWIPMI_AUTOCONFIG" -o "$WWIPMI_AUTOCONFIG" == "0" ]; then
+    echo -ne "Auto configuration not activated"
+    exit 1
+fi
+
+if [ -n "$WWIPMI_IPADDR" -a -n "$WWIPMI_NETMASK" ]; then
+
+    modprobe ipmi_devintf >/dev/null 2>&1
+    if ! modprobe ipmi_si >/dev/null 2>&1; then
+        echo -ne "Hardware not supported"
+        exit 1
+    fi
+
+    sleep 1
+
+    if [ ! -c /dev/ipmi0 -a ! -c /dev/ipmi/0 ]; then
+        echo -ne "Device files not found"
+        exit 1
+    fi
+
+    for channel in ${WWIPMI_LANCHANNEL:-1 2 3 4 5 6}; do
+        if ipmitool lan print $channel >/dev/null 2>&1; then
+            RETVAL=0
+            # Set non-volatile channel access to: enable PEF Alerting, 
+            # enable per-message auth, enable user level auth, and to always
+            # be available. Also set non-volatile channel privilege level 
+            # limit to ADMINISTRATOR.
+            ipmitool raw 0x6 0x40 0x${channel} 0x42 0x44                        >/dev/null
+            # Set volatile (active) channel access to: enable PEF Alerting, enable per-message auth, 
+            # enable user level auth, and to always be available. Also set volatile (active) channel  
+            # privledge level limit to ADMINISTRATOR.
+            ipmitool raw 0x6 0x40 0x${channel} 0x82 0x84                        >/dev/null
+            # Enable SOL, and SOL payload on channel
+            ipmitool raw 0xc 0x21 0x${channel} 0x1 0x1                          >/dev/null
+
+            # Setting basic network information
+            ipmitool lan set $channel ipsrc static                              >/dev/null || RETVAL=2
+            ipmitool lan set $channel ipaddr $WWIPMI_IPADDR                     >/dev/null || RETVAL=2
+            ipmitool lan set $channel netmask $WWIPMI_NETMASK                   >/dev/null || RETVAL=2
+            ipmitool lan set $channel access on                                 >/dev/null || RETVAL=2
+            ipmitool channel setaccess $channel $IPMI_UID ipmi=on privilege=4   >/dev/null || RETVAL=2
+
+            # User setup starting with a kludge for IPMI implementations that
+            # do bad things when you try to set the same thing for user/pass
+            # That was already there.
+            ipmitool user set name $IPMI_UID xxtmpuser                          >/dev/null
+            ipmitool user set password $IPMI_UID xxtmppass                      >/dev/null
+            ipmitool user set name $IPMI_UID ${WWIPMI_USERNAME:-wwadmin}        >/dev/null || RETVAL=2
+            ipmitool user set password $IPMI_UID ${WWIPMI_PASSWORD:-wwcalvin}   >/dev/null || RETVAL=2
+            ipmitool user priv $IPMI_UID 4 $channel                             >/dev/null || RETVAL=2
+            ipmitool user enable $IPMI_UID                                      >/dev/null || RETVAL=2
+
+            # Set SOL configuration
+            ipmitool sol set volatile-bit-rate 115.2 $channel                   >/dev/null
+            ipmitool sol set non-volatile-bit-rate 115.2 $channel               >/dev/null
+            ipmitool sol payload enable $channel $IPMI_UID                      >/dev/null || RETVAL=2
+            ipmitool sol set privilege-level user $channel                      >/dev/null || RETVAL=2
+            if [ -n "$WWIPMI_RESET" -a $WWIPMI_RESET != "0" ]; then
+                ipmitool mc reset cold                                              >/dev/null || RETVAL=2
+            fi
+            exit $RETVAL
+        fi
+    done
+    echo -ne "Interface not found"
+    exit 1
+else
+    echo -ne "IPMI is not configured"
+    exit 1
+fi
+
+# Should never get here... but if so, fail without reboot.
+exit 2

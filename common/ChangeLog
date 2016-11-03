@@ -1,0 +1,536 @@
+Thu Oct 28 09:52:32 2010                        Michael Jennings (mej)
+
+Misc. fixes/cleanups to query execution.
+----------------------------------------------------------------------
+Fri Oct 29 03:38:13 2010                        Michael Jennings (mej)
+
+Refactor Logger to offer convenience functions instead of requiring a flag.
+----------------------------------------------------------------------
+Fri Oct 29 19:41:08 2010                        Michael Jennings (mej)
+
+Mostly cosmetic adjustments.
+----------------------------------------------------------------------
+Sat Oct 30 01:30:46 2010                        Michael Jennings (mej)
+
+Add copyrights to perl modules.
+----------------------------------------------------------------------
+Sat Oct 30 17:29:40 2010                                           gmk
+
+Renamed the Node and NodeSet classes to be a more general Object and
+ObjectSet interface. Also added the ability to add to the Object and
+ObjectSet via a hash or array of hashes (respectively) as well as
+be able to find or iterate through the ObjectSet object.
+----------------------------------------------------------------------
+Sun Oct 31 22:45:08 2010                        Michael Jennings (mej)
+
+Tidying as I peruse, putting together an action plan.
+----------------------------------------------------------------------
+Wed Nov 10 13:40:53 2010                        Michael Jennings (mej)
+
+Initial refactoring of existing Object parent class.  More methods to
+come, and need to do search-and-replace to fix breakage.
+----------------------------------------------------------------------
+Wed Nov 10 20:39:04 2010                        Michael Jennings (mej)
+
+A couple more template methods.
+----------------------------------------------------------------------
+Thu Nov 11 00:11:52 2010                        Michael Jennings (mej)
+
+Object documentation improvements and reformatting.
+----------------------------------------------------------------------
+Thu Nov 11 00:27:41 2010                        Michael Jennings (mej)
+
+More touchups and documentation.
+----------------------------------------------------------------------
+Wed Dec  8 16:04:27 2010                        Michael Jennings (mej)
+
+Make serialize() and unserialize() proper methods.
+----------------------------------------------------------------------
+Wed Dec  8 18:02:54 2010                        Michael Jennings (mej)
+
+Minor cleanups.
+----------------------------------------------------------------------
+Tue Dec 14 20:37:29 2010                        Michael Jennings (mej)
+
+Support get/set for array-based (multi-value) members.
+----------------------------------------------------------------------
+Tue Dec 14 22:27:26 2010                        Michael Jennings (mej)
+
+Working on fixing ObjectSet initialization with object hashes.
+----------------------------------------------------------------------
+Tue Dec 14 22:51:50 2010                        Michael Jennings (mej)
+
+add() and del() forceably use arrays now.  set("foo", undef) or
+del("foo") will delete a member entirely.
+----------------------------------------------------------------------
+Wed Dec 15 00:42:11 2010                        Michael Jennings (mej)
+
+Make sure array elements are unique when doing add().
+
+Delete key if del() removes last array element.
+----------------------------------------------------------------------
+Wed Dec 15 00:47:09 2010                        Michael Jennings (mej)
+
+set() for an array now deletes and add()s.
+----------------------------------------------------------------------
+Thu Dec 16 11:10:26 2010                        Michael Jennings (mej)
+
+Use list address for configure.in.
+----------------------------------------------------------------------
+Thu Dec 16 12:59:25 2010                        Michael Jennings (mej)
+
+Convert ModuleLoader to on-demand, class-based operation.  This is one
+possibility of multiple ones we're considering...just want it in the
+SVN history for potential future reference.
+----------------------------------------------------------------------
+Wed Dec 29 02:13:32 2010                        Michael Jennings (mej)
+
+Use magic filehandle syntax <> if stdin isn't a tty.
+----------------------------------------------------------------------
+Wed Dec 29 19:39:49 2010                        Michael Jennings (mej)
+
+Rearrange.  Tested, works fine.
+----------------------------------------------------------------------
+Sat Jan  1 16:07:12 2011                        Michael Jennings (mej)
+
+Rearrange help display a bit to be more clear to the uninitiated.  :-)
+----------------------------------------------------------------------
+Sun Jan  2 05:36:34 2011                        Michael Jennings (mej)
+
+Work in progress:  Log target handling.
+----------------------------------------------------------------------
+Fri Mar  4 16:40:23 2011                        Michael Jennings (mej)
+
+Fix bug in Object->set() that wasn't allowing object member values to
+be references.
+----------------------------------------------------------------------
+Sat Mar  5 01:12:07 2011                        Michael Jennings (mej)
+
+Add subversion revision number to RPM release field.
+
+Numerous spec file fixes and cleanups.
+----------------------------------------------------------------------
+Tue Mar 15 15:24:40 2011                        Michael Jennings (mej)
+
+Handle warnings/fatal errors if Debug.pm is loaded by printing a stack trace.
+----------------------------------------------------------------------
+Wed Mar 16 13:55:17 2011                        Michael Jennings (mej)
+
+Refactor logging and debugging to be more flexible.
+
+Flesh out syslog and alternative logging target handling.
+
+Disable backtrace on warn/die invocation...too noisy for now.
+----------------------------------------------------------------------
+Wed Mar 16 16:24:36 2011                        Michael Jennings (mej)
+
+Improve autogen.sh.
+----------------------------------------------------------------------
+Fri Mar 25 17:45:06 2011                        Michael Jennings (mej)
+
+Object::get() in an array context now returns an empty array.
+----------------------------------------------------------------------
+Fri Jun  3 11:57:48 2011                        Michael Jennings (mej)
+
+We don't compile anything, so don't use libtool or autoheader.
+
+Clean up wwconfig.
+
+Add support for --datarootdir to silence warnings from configure.
+----------------------------------------------------------------------
+Fri Jun  3 12:48:14 2011                        Michael Jennings (mej)
+
+Oops.
+----------------------------------------------------------------------
+Fri Jun  3 13:06:00 2011                        Michael Jennings (mej)
+
+Oops^2.
+----------------------------------------------------------------------
+Mon Jun  6 13:23:14 2011                        Michael Jennings (mej)
+
+Compatibility for RHEL5 autoconf.
+----------------------------------------------------------------------
+Mon Jun  6 17:21:52 2011                        Michael Jennings (mej)
+
+Ignore files cleaned by "make maintainer-clean"
+----------------------------------------------------------------------
+Mon Jul 18 15:49:53 2011                        Michael Jennings (mej)
+
+Fix usage of svnversion since it no longer errors properly.
+----------------------------------------------------------------------
+Tue Jul 19 14:32:41 2011                        Michael Jennings (mej)
+
+Replace use of Digest::file with Digest::MD5.
+----------------------------------------------------------------------
+Tue Aug  2 15:27:47 2011                        Michael Jennings (mej)
+
+Cleanups, documentation fixes, etc. for the top-level modules.  Still
+need to work through the hierarchy.  None of these changes should
+affect functionality, but they still need thorough testing anyway.
+----------------------------------------------------------------------
+Wed Aug  3 17:05:31 2011                        Michael Jennings (mej)
+
+Further cleanups and a few functional corrections vetted with gmk.
+----------------------------------------------------------------------
+Fri Aug  5 16:15:11 2011                        Michael Jennings (mej)
+
+Add ObjectSet::del() method to remove objects from sets.
+----------------------------------------------------------------------
+Fri Aug  5 18:43:51 2011                        Michael Jennings (mej)
+
+Initial testing framework.  Doesn't test much yet, but it's a start.
+Eventually I'd like to achieve complete coverage, at least on the
+modules, but that will take some time.  Use "make test" to run the
+tests.
+----------------------------------------------------------------------
+Wed Aug 10 17:49:32 2011                        Michael Jennings (mej)
+
+WORK IN PROGRESS:  Config.pm rewrite and unit tests.
+
+This WILL BREAK existing config files, so don't try to use it yet!
+----------------------------------------------------------------------
+Thu Aug 11 16:30:59 2011                        Michael Jennings (mej)
+
+Initial refactoring of the Config module is functional.  This version
+of the parser splits on whitespace with commas considered equivalent
+to whitespace.  All tests pass.
+----------------------------------------------------------------------
+Thu Aug 11 16:37:58 2011                        Michael Jennings (mej)
+
+Per discussion with Greg, this version of the parser requires a comma
+between items in a list.  Whitespace surrounding the comma is ignored,
+but embedded whitespace within a value is significant.  This maintains
+consistency between quoting requirements for keys and values but will
+require some existing configuration files to be modified.
+
+The test config file has been modified so that all unit tests pass
+again.
+----------------------------------------------------------------------
+Fri Aug 12 13:23:01 2011                        Michael Jennings (mej)
+
+Remove bogus Warewulf.pm.
+
+Remove Debug.pm and add its contents to Util.pm instead.  Fix
+script/module dependencies accordingly.
+
+Update examine_object() from upstream (Mezzanine) to improve handling
+of objects.
+----------------------------------------------------------------------
+Fri Aug 12 16:56:56 2011                        Michael Jennings (mej)
+
+Renamed Include.pm to ACVars.pm to be more descriptive of what its
+purpose actually is.
+
+Refactored ACVars.pm to be object-oriented using a singleton pattern.
+The singleton is accessible by invoking functions on the module,
+calling static methods of the class, or invoking methods on an object
+instance.  More details and examples are in the POD in the module.
+
+Bumped version to 3.0.99.0 since it's undergone some significant
+changes (and breakage).
+----------------------------------------------------------------------
+Fri Aug 12 18:05:48 2011                        Michael Jennings (mej)
+
+Fix bug in populating objects from a hashref.  This was causing
+configuration data to be retrievable only in array form.
+----------------------------------------------------------------------
+Mon Aug 15 18:14:36 2011                        Michael Jennings (mej)
+
+Work in progress:  Util.pm tests
+----------------------------------------------------------------------
+Tue Aug 16 09:54:03 2011                        Michael Jennings (mej)
+
+This should fix the index generation.  Don't have unit tests for the
+ObjectSet yet, so I can't say for sure....  :-)
+----------------------------------------------------------------------
+Tue Aug 16 16:15:52 2011                        Michael Jennings (mej)
+
+More work on the Util.pm tests.
+----------------------------------------------------------------------
+Wed Aug 17 17:36:31 2011                        Michael Jennings (mej)
+
+More work on Util.pm tests.  We're up to an even 1600 unit tests after
+only 5 test sets and have already found and fixed a number of issues.
+----------------------------------------------------------------------
+Thu Aug 18 17:59:01 2011                        Michael Jennings (mej)
+
+I couldn't find a reasonable way to generate tainted data, and I can't
+think of a way to test examine_object(), so Util.pm tests are done.
+Next is Logger, then Object.
+----------------------------------------------------------------------
+Fri Aug 19 17:29:29 2011                        Michael Jennings (mej)
+
+An even 1700 tests sounds like a good stopping point for the weekend.
+Logger tests are done, now working on Object tests.
+----------------------------------------------------------------------
+Fri Aug 26 18:08:03 2011                        Michael Jennings (mej)
+
+Object tests are finally done.  I think I've got full coverage now,
+and several bugs were fixed that hadn't appeared yet.  Now at 1774
+tests.
+----------------------------------------------------------------------
+Mon Dec 19 11:55:07 2011                        Michael Jennings (mej)
+
+We're trying out a new concept for calling conventions:  A RetVal
+object that handles both normal return values and error returns
+(a.k.a. Exceptions).
+----------------------------------------------------------------------
+Mon Dec 19 16:33:15 2011                        Michael Jennings (mej)
+
+Fix POD formatting for =cut directive.
+----------------------------------------------------------------------
+Wed Dec 21 15:36:09 2011                        Michael Jennings (mej)
+
+Created a single unified wrapper for object properties (i.e., object
+member variables and the accessor methods that go with them).
+----------------------------------------------------------------------
+Thu Dec 22 11:20:14 2011                        Michael Jennings (mej)
+
+Minor syntax fix for =cut.
+----------------------------------------------------------------------
+Thu Dec 22 14:12:34 2011                        Michael Jennings (mej)
+
+Add static method for retrieving last RetVal.
+----------------------------------------------------------------------
+Wed Jan 18 15:02:37 2012                        Michael Jennings (mej)
+
+Convert the prop() wrapper method to use the parameter count rather
+than references to distinguish between the presence or absence of a
+value.  This removes the need for the "UNDEF" hack-around and makes
+one-liner wrappers possible.
+
+Add unit tests to illustrate possible techniques for using prop().
+The goal is to promote code reuse and cut down on cut-and-pasted
+functions and the errors which can result.
+----------------------------------------------------------------------
+Wed Jan 18 16:10:27 2012                        Michael Jennings (mej)
+
+Rearrange order of prop() parameters to remove need for conditional.
+See updated examples in unit tests.
+----------------------------------------------------------------------
+Wed Jan 18 16:37:49 2012                        Michael Jennings (mej)
+
+Too fancy.  Keep the simple cases simple.  Only accept a single
+scalar.  Anything more complex (e.g., arrays) can be done using a
+custom validator and the existing smart handling of arrays in set().
+----------------------------------------------------------------------
+Mon Jan 23 13:33:24 2012                        Michael Jennings (mej)
+
+Terminal object cleanups.
+----------------------------------------------------------------------
+Tue Jan 24 11:15:25 2012                        Michael Jennings (mej)
+
+Fix search-and-replace error in Term.pm.
+----------------------------------------------------------------------
+Wed Feb  8 14:35:48 2012                        Michael Jennings (mej)
+
+Don't wipe existing object data in set().  Only do that in init().
+
+Split test config file into 2 pieces so we can test loading
+configuration from multiple files.
+----------------------------------------------------------------------
+Thu Feb  9 16:06:27 2012                        Michael Jennings (mej)
+
+Add a unit test to make sure keys found in multiple files are +='d
+properly.
+
+Alter Config::load() API so that multiple files can be specified in a
+single load() invocation.  If alterations to the search path are
+required, they must be done using set_path() before load() is invoked,
+which means you won't be able to pass the filenames directly to
+new().  (This was determined to be a reasonable trade-off.)  load()
+now returns the number of files successfully parsed.
+
+NOTE:  Still need to fix a bug in the caching mechanism.  Previously,
+the += operator would only append to values found in the file being
+parsed.  Now it will add to the existing value found in the object,
+but the *entire* result winds up in the cache, not just what was in
+the current file.  Shouldn't be an issue in the time it'll take to
+complete the work.
+----------------------------------------------------------------------
+Fri Feb 10 11:12:04 2012                        Michael Jennings (mej)
+
+Added a unit test to flag the "bug" I mentioned in yesterday's commit,
+and it turns out that it doesn't adversely affect any desired/correct
+behavior.  So rather than do a big revamp, we've decided to leave the
+unit tests in place and will maintain the current (technically wrong
+but behaviorally correct) code until such time as the unit tests fail
+or other problems arise which require us to revisit.
+----------------------------------------------------------------------
+Thu Feb 23 14:17:57 2012                            Jason Stover (jms)
+
+Added -e flag to wwconfig. For use with Bourne output, and will print
+the export lines. Otherwise just print the [VAR]=[VAL] lines.
+
+Intial start of SYSCONFDIR/warewulf/wwfunctions for Bash shell scripts
+to break apart a bunch of the replicated code (mkchroot, etc..). Maybe
+usefull down the road for other things.
+----------------------------------------------------------------------
+Wed Feb 29 11:20:30 2012                        Michael Jennings (mej)
+
+Fair warning:  There (may) be dragons.
+
+Fundamentally revamping the external interface to NetDev object access
+via Node objects.  The goal here was to make naming, invocation, and
+internal handling more consistent.  This is still pending review and
+subject to change.  There are also some subtle bugfixes and cleanups
+of documentation as well as some consolidation of functionality.
+----------------------------------------------------------------------
+Wed Feb 29 12:40:55 2012                        Michael Jennings (mej)
+
+Update "node" CLI to match API changes.
+
+Minor optimizations, cleanups, and typo fixes.
+
+Added "--dump" option to "object" CLI for deep-dive object diagnosis.
+Not for the faint of heart.  ;-)
+----------------------------------------------------------------------
+Thu Mar  1 18:40:22 2012                        Michael Jennings (mej)
+
+Bump version to 3.2.
+
+Update some documentation.  Fix some typos.  Minor optimizations.
+
+Add Warewulf::Term::yesno() to encapsulate some commonly-used
+functionality.
+
+RFE from Greg:  When debugging, add caller information to warning and
+error messages too.
+----------------------------------------------------------------------
+Fri Mar  9 15:40:26 2012                        Michael Jennings (mej)
+
+Work in progress:  Cleaning up and optimizing MySQL.pm.
+----------------------------------------------------------------------
+Mon Mar 12 10:47:48 2012                        Michael Jennings (mej)
+
+Fix database.conf permissions.  Try a better technique for getting the
+SVN revision.
+----------------------------------------------------------------------
+Tue Mar 13 14:35:50 2012                        Michael Jennings (mej)
+
+Perform bitmask in property method rather than relying on callers.
+----------------------------------------------------------------------
+Tue Mar 13 15:49:01 2012                        Michael Jennings (mej)
+
+Completed optimization work for MySQL.pm.
+----------------------------------------------------------------------
+Wed Mar 14 15:45:31 2012                        Michael Jennings (mej)
+
+Cleanups and fixes to file handling, especially with respect to the
+file permissions.  Feedback also requested on the confirmation
+change.
+----------------------------------------------------------------------
+Sat Mar 17 21:13:56 2012                        Michael Jennings (mej)
+
+Major refactoring of the File CLI.  Consolidated and cleaned up the
+code, fixed a bug that prevented "new" from working, and redid the
+interactive stuff to use a new Cli object method.
+
+Also fixed a typo in the "node" help output.
+
+This has been tested locally and seems to work, but changes this big
+may have hidden issues, so please report any problems you encounter.
+:-)
+----------------------------------------------------------------------
+Tue Mar 20 17:56:36 2012                        Michael Jennings (mej)
+
+Cleaned up CLI help and added some short options to the file and node
+commands.
+
+Fixed bug with FQDN handling in CLI.
+
+Refactored and cleaned up the object command.  Now subcommands are
+used just like with file and node.  This means that "object -p :all"
+is now "object print -p :all" etc.  Additionally, "object dump" is now
+documented and "object print" can show subobjects (e.g., netdevs).
+Object members are sorted intelligently.  "object new" is no longer
+allowed.
+
+Fixed a bug in Logger that prevented multiple arguments to the
+*print() functions.
+----------------------------------------------------------------------
+Thu Jul 26 16:04:20 2012                        Michael Jennings (mej)
+
+Added a few RetVal unit tests to identify a hidden issue.
+
+Fixed invocation of RetVal static methods via -> instead of ::.
+
+Added some function return wrappers to validate or RetVal-ize
+arbitrary functions' return values.
+----------------------------------------------------------------------
+Sat Jul 28 08:56:34 2012                        Michael Jennings (mej)
+
+Don't assume parameters exist when they're not required.
+----------------------------------------------------------------------
+Wed Aug 15 14:04:38 2012                        Michael Jennings (mej)
+
+This should be a more efficient method of computing the MD5 checksum.
+----------------------------------------------------------------------
+Thu Aug 23 13:53:29 2012                        Michael Jennings (mej)
+
+Update unit tests for new Object::get() logic.
+----------------------------------------------------------------------
+Wed Sep 19 10:45:26 2012                        Michael Jennings (mej)
+
+Parallel command should be able to be anything.
+----------------------------------------------------------------------
+Fri Oct 12 09:00:06 2012                        Michael Jennings (mej)
+
+Update docs and (hopefully) resolve TODOs.
+----------------------------------------------------------------------
+Fri Mar  8 14:18:27 2013                        Michael Jennings (mej)
+
+Fix some issues spotted by Matias Cabral <matias.a.cabral@intel.com>
+that resulted in Perl errors when deleting object members directly
+(something one should never do, but it shouldn't generate warnings
+either).
+
+Also fixed the autogen.sh script to correctly pass configure
+arguments.
+----------------------------------------------------------------------
+Tue Mar 12 12:54:35 2013                        Michael Jennings (mej)
+
+Validate addresses more carefully rather than just assuming they
+resolved successfully.  Noted by Matias Cabral
+<matias.a.cabral@intel.com>.
+----------------------------------------------------------------------
+Mon Nov 18 10:52:20-0600 2013                       Jason Stover (jms)
+
+Add in Object->disable(). This allows a object to be disabled from
+normal Warewulf processing. Node handling added in currently.
+
+Example:
+  # wwsh node set -D eth0 --hwaddr=00:11:22:33:44:55 comp0001
+  # wwsh node set --disable=1 comp0001
+  # wwsh node set -D eth0 --hwaddr=00:11:22:33:44:55 newnode
+
+When disbled, the node is written into dynamic_hosts but a PXE file
+is not written out. Any existing PXE file is not deleted. Checks
+in the cgi-bin files have been modified to pull all nodes based on
+the supplied hwaddr, and skip nodes that are disabled.
+----------------------------------------------------------------------
+Tue Dec 10 16:20:24-0600 2013                       Jason Stover (jms)
+
+Move Warewulf::Object->disable() to Warewulf::Node->enabled()
+
+Example:
+  # wwsh node set --enabled=false n0000
+
+Warewulf::Node->enabled() defaults to returning 1 (true). So... a
+quick code example would be:
+
+  use Warewulf::Node;
+  my $n = Warewulf::Node->new();
+  $n->nodename("testnode");
+  $n->enabled("false");
+
+  if($n->enabled()) {
+    print "Node is enabled";
+  } else {
+    print "Node is disabled";
+  }
+----------------------------------------------------------------------
+Tue Oct 21 12:34:03-0500 2014                       Jason Stover (jms)
+
+Add --help option to wwsh command. Prints out a basic help.
+----------------------------------------------------------------------

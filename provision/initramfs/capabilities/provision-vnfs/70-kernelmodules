@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+
+KVERSION=`uname -r`
+
+if [ -d "/lib/modules/$KVERSION" ]; then
+    if [ ! -d "$NEWROOT/lib/modules/$KVERSION" ]; then
+        mkdir -p $NEWROOT/lib/modules/$KVERSION
+    fi
+    cp -r /lib/modules/$KVERSION/* $NEWROOT/lib/modules/$KVERSION
+fi
+
+if [ -d "/lib/firmware/$KVERSION" ]; then
+    if [ ! -d "$NEWROOT/lib/firmware/$KVERSION" ]; then
+        mkdir -p $NEWROOT/lib/firmware/$KVERSION
+    fi
+    cp -r /lib/firmware/$KVERSION/* $NEWROOT/lib/firmware/$KVERSION
+fi
+
+if [ -x "$NEWROOT/sbin/depmod" ]; then
+    chroot $NEWROOT /sbin/depmod -a
+fi
+
+exit 0

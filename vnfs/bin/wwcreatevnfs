@@ -1,0 +1,45 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+VNFSDIR=$1
+
+if [ -z "$VNFSDIR" ]; then
+    echo "USAGE: $0 /path/to/vnfsdir"
+    exit 1
+fi
+
+VNFS=$VNFSDIR/vnfs.img
+TMPDIR=`mktemp -d /var/tmp/tmp.vnfs.XXXXXXX`
+
+echo "Creating image $VNFS"
+
+HYBRIDIZE_FILE="$VNFSDIR/hybridize"
+
+HYBRIDIZE=`grep -Ev '^#|^[[:space:]]*$' $HYBRIDIZE_FILE | sed -e 's/^\///g'`
+
+EXCLUDES="--exclude-from=$HYBRIDIZE_FILE"
+
+cd $VNFSDIR/rootfs
+mkdir -p $TMPDIR
+rsync -qaRSH $EXCLUDES . $TMPDIR
+
+for i in $HYBRIDIZE; do
+   for file in `(cd $VNFSDIR/rootfs; find $i -maxdepth 0 ) 2>/dev/null`; do
+      ln -s $VNFSDIR/rootfs/$file $TMPDIR/$file
+   done
+done
+
+cd $TMPDIR
+
+find . | cpio -o -H newc | gzip -9 > $VNFSDIR/vnfs.img~
+
+mv $VNFSDIR/vnfs.img~ $VNFSDIR/vnfs.img
+
+rm -rf $TMPDIR
+

@@ -1,0 +1,138 @@
+Fri Oct 29 03:40:31 2010                        Michael Jennings (mej)
+
+Update provision code after Logger refactoring.
+----------------------------------------------------------------------
+Sat Oct 30 01:31:24 2010                        Michael Jennings (mej)
+
+Add copyrights to perl scripts.
+----------------------------------------------------------------------
+Mon Mar 14 17:49:00 2011                        Michael Jennings (mej)
+
+Add SVN revision number to release field.  Clean up spec.
+----------------------------------------------------------------------
+Thu Apr 21 16:55:02 2011                        Michael Jennings (mej)
+
+Another attempt to improve --root regexp.
+----------------------------------------------------------------------
+Fri Jun  3 20:12:58 2011                        Michael Jennings (mej)
+
+Initial work on cleaning up the autotools stuff.  Still more can be
+done here though.
+----------------------------------------------------------------------
+Thu Jul 14 14:26:59 2011                        Michael Jennings (mej)
+
+Oops, one too many.
+----------------------------------------------------------------------
+Mon Jul 18 15:50:42 2011                        Michael Jennings (mej)
+
+Fix usage of svnversion since it no longer errors properly.
+----------------------------------------------------------------------
+Tue Jul 19 14:37:15 2011                        Michael Jennings (mej)
+
+Replace use of Digest::file with Digest::MD5.
+----------------------------------------------------------------------
+Fri Aug 12 17:37:13 2011                        Michael Jennings (mej)
+
+Adjust version due to incompatible changes.
+----------------------------------------------------------------------
+Mon Sep 26 16:38:59 2011                        Michael Jennings (mej)
+
+Port of my IPoIB provisioning patch to newer busybox.
+----------------------------------------------------------------------
+Tue Sep 27 12:48:39 2011                        Michael Jennings (mej)
+
+Clean up spec file, correct typos.
+----------------------------------------------------------------------
+Mon Oct 10 17:01:26 2011                        Michael Jennings (mej)
+
+I think this is closer to what was intended.
+----------------------------------------------------------------------
+Tue Oct 11 10:55:42 2011                        Michael Jennings (mej)
+
+Set svn:ignore for provision tree.
+----------------------------------------------------------------------
+Mon Dec 19 16:37:42 2011                        Michael Jennings (mej)
+
+Fix POD formatting for =cut directive.
+----------------------------------------------------------------------
+Tue Feb  7 11:12:14 2012                        Michael Jennings (mej)
+
+Refactored wwnodescan to use tcpdump to listen for broadcast DHCP
+requests from unconfigured hosts and add them as new Warewulf nodes.
+Also added a test mode and fixed the output levels.
+----------------------------------------------------------------------
+Fri Mar  2 13:04:03 2012                        Michael Jennings (mej)
+
+Bump version to 3.2.
+
+Significant changes to wwnodescan.  Added a "replace" option to update
+old nodes with new MAC addresses.  Added checks for node name, IP
+address, and MAC address conflicts.  Added calculation of the maximum
+IP address in the range provided rather than just counting up
+infinitely.
+----------------------------------------------------------------------
+Mon Mar 12 13:16:56 2012                        Michael Jennings (mej)
+
+Improved SVN revision detection.
+----------------------------------------------------------------------
+Thu Mar 15 15:50:52 2012                        Michael Jennings (mej)
+
+Sanitize shell variable names when provisioning configuration data.
+Issue pointed out by Brian Pape <bpape@ats.ucla.edu>.
+----------------------------------------------------------------------
+Fri Mar 23 12:19:11 2012                        Michael Jennings (mej)
+
+Patch from Jason Stover <jason.stover@gmail.com> for my overzealous
+migration of objects to the new API.  ;-)
+----------------------------------------------------------------------
+Tue Apr  3 19:05:31 2012                        Michael Jennings (mej)
+
+Add some missing newlines.
+----------------------------------------------------------------------
+Tue Jun 19 12:37:17 2012                        Michael Jennings (mej)
+
+Make sure /dev/tty exists and is writeable before writing to it.
+----------------------------------------------------------------------
+Thu Jul 26 18:35:40 2012                        Michael Jennings (mej)
+
+Efficiency improvement on file object retrieval.
+----------------------------------------------------------------------
+Thu Jul 26 18:36:25 2012                        Michael Jennings (mej)
+
+Redundant.  /warewulf/bin is already put into $PATH by "functions"
+file.  If that's not working, we need to figure out why.  :-)
+----------------------------------------------------------------------
+Tue Aug 14 14:50:07 2012                        Michael Jennings (mej)
+
+Bump SVN version to 3.3.
+
+Add "autoconfig" mode to wwnodescan which allows pre-population of the
+data store with node objects without MAC addresses and subsequent
+automatic assignment of newly-booted nodes' MAC addresses to the
+previously defined nodes.
+----------------------------------------------------------------------
+Fri Sep 14 10:58:40 2012                        Michael Jennings (mej)
+
+New option to specify max node count to create/populate.
+
+Cleaned up help display.
+
+Properly handle missing network device on unconfigured node.
+----------------------------------------------------------------------
+Mon Oct 29 14:39:59 2012                        Michael Jennings (mej)
+
+Add helpful LARTing if autoconfig mode appears to be what is desired.
+----------------------------------------------------------------------
+Mon Oct 29 15:44:59 2012                        Michael Jennings (mej)
+
+Allow -x to work with -r as well as -a.
+----------------------------------------------------------------------
+Mon Mar 11 16:47:40 2013     Jason Stover(jms) Matias Cabral(macabral)
+
+Implementation of MIC support for Warewulf. 85-michost
+----------------------------------------------------------------------
+Tue Dec 30 14:07:26-0600 2014                       Jason Stover (jms)
+
+Add in stateful provisioning options to Provision Cli Module. This
+really still needs more testing.
+----------------------------------------------------------------------

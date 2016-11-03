@@ -1,0 +1,643 @@
+#!/usr/bin/perl -Tw
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+use Getopt::Long;
+use Warewulf::Init;
+use Warewulf::Logger;
+use Warewulf::DataStore;
+use Warewulf::Util;
+use Warewulf::Config;
+use Warewulf::Node;
+use Warewulf::DSO::Node;
+use Warewulf::Bootstrap;
+use Warewulf::Vnfs;
+use Warewulf::Network;
+
+my $net;
+my $datastore;
+my $opt_debug;
+my $opt_verbose;
+my $opt_ipaddr;
+my $opt_netmask;
+my $opt_netdev;
+my $opt_vnfs;
+my $opt_bootstrap;
+my $opt_groups;
+my $opt_cluster;
+my $opt_domain;
+my $opt_help;
+my $opt_autoconfig;
+my $opt_maxnodes;
+my $opt_replace;
+my $ipaddr_bin;
+my $ipaddr_max;
+my $opt_scriptfile;
+my $opt_tcpdump;
+my @nodenames;
+my %seen;
+my $vnfsid;
+my $bootstrapid;
+
+my $help = "USAGE: $0 [options] nodes....
+    SUMMARY:
+        Scan for new systems making DHCP requests.
+    
+    GENERAL OPTIONS:
+        -h, --help              Show the help/utilization summary
+        -d, --debug             Display debugging information
+        -v, --verbose           Be more verbose in output
+        -f, --file <file>       Create Warewulf script instead of auto-import
+        -l, --listen <iface>    Interface to listen on (tcpdump -D for list)
+        -c, --tcpdump <cmd>     Specify the full path to the tcpdump command
+        -T, --tshark <cmd>      Specify the full path to the tshark command (Only IB Mode)
+        -x, --max [<cnt>]       Exit after <cnt> new nodes (0 for auto)
+
+    MODES:
+        -t, --test              Test mode; do not modify data store
+        -r, --replace           Replace existing nodes (by name)
+        -a, --autoconfig        Assign HW addresses to unassigned nodes
+        -I, --infiniband        Use tshark to look for Client Identifier, compatible with Mellanox FlexBoot.
+
+    SETTINGS:
+        -n, --netdev <dev>      Network device for the new node(s)
+        -i, --ipaddr <addr>     IP address for the new node(s)
+        -m, --netmask <mask>    Netmask for the new node(s)
+        -V, --vnfs <vnfs>       VNFS for the node(s)
+        -b, --bootstrap <name>  Bootstrap for the node(s)
+        -g, --groups <groups>   Groups for the node(s)
+
+    NODES:
+        You can scan for any number of nodes; this program will exit after all
+        specified nodes have been found.  The IP address provided will be
+        incremented for each node found, and nodes will be added in the order
+        given on the command line.
+
+    DEFAULTS:
+        As with all object types, you can create a template node object called
+        DEFAULT whose attributes will be used as the default values for all
+        new nodes.  You can override some of these defaults using the options
+        shown above.
+
+    EXAMPLES:
+        # wwnodescan --ipaddr 10.0.1.10 --netmask 255.255.0.0 --vnfs=sl6.vnfs \
+            --bootstrap=`uname -r` n0000 n0001
+
+        # wwsh node new DEFAULT --groups=grp1,test
+        # wwsh provision node DEFAULT --vnfs=sl6.vnfs --bootstrap=`uname -r`
+        # wwnodescan --ipaddr 10.0.1.100 --netmask 255.255.0.0 n00[02-19]
+
+";
+
+$ENV{"PATH"} = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
+&set_log_level("NOTICE");
+
+Getopt::Long::Configure("bundling");
+
+GetOptions(
+    'h|help'        => \$opt_help,
+    'd|debug'       => \$opt_debug,
+    'v|verbose'     => \$opt_verbose,
+    't|test'        => \$opt_testmode,
+    'r|replace'     => \$opt_replace,
+    'a|autoconfig'  => \$opt_autoconfig,
+    'I|infiniband'  => \$opt_infiniband,
+    'x|max:0'       => \$opt_maxnodes,
+    'i|ipaddr=s'    => \$opt_ipaddr,
+    'm|netmask=s'   => \$opt_netmask,
+    'n|netdev=s'    => \$opt_netdev,
+    'V|vnfs=s'      => \$opt_vnfs,
+    'b|bootstrap=s' => \$opt_bootstrap,
+    'c|cluster=s'   => \$opt_cluster,
+    'domain=s'      => \$opt_domain,
+    'g|groups=s'    => \$opt_groups,
+    'f|file=s'      => \$opt_scriptfile,
+    'l|listen=s'    => \$opt_listen,
+    'C|tcpdump=s'   => \$opt_tcpdump,
+    'T|tshark=s'    => \$opt_tshark,
+);
+
+if (!defined($opt_maxnodes)) {
+    $opt_maxnodes = -1;
+}
+
+if (! $opt_autoconfig) {
+    if ($opt_help || !scalar(@ARGV)) {
+        print $help;
+        exit(0);
+    }
+    @nodenames = &expand_bracket(@ARGV);
+    if ($opt_maxnodes == 0) {
+        $opt_maxnodes = scalar(@nodenames);
+    }
+} elsif (scalar(@ARGV)) {
+    @nodenames = &expand_bracket(@ARGV);
+}
+
+if ($opt_verbose) {
+    &set_log_level("INFO");
+}
+
+if ($opt_debug) {
+    &set_log_level("DEBUG");
+}
+
+if (! &uid_test(0)) {
+    &eprint("Must be root to run $0\n");
+    exit(1);
+}
+
+$net = Warewulf::Network->new();
+
+if ($opt_testmode) {
+    if (! $opt_ipaddr) {
+        $opt_ipaddr = "10.0.0.0";
+    }
+    if (! $opt_netmask) {
+        $opt_netmask = "255.0.0.0";
+    }
+    if (! $opt_netdev) {
+        $opt_netdev = "eth0";
+    }
+} else {
+    $datastore = Warewulf::DataStore->new();
+
+    if ($opt_vnfs) {
+        my $vnfs = $datastore->get_objects("vnfs", "name", $opt_vnfs)->get_object(0);
+
+        if ($vnfs) {
+            $vnfsid = $vnfs->get("_id");
+        } else {
+            &eprint("VNFS \"$opt_vnfs\" does not exist\n");
+            exit(1);
+        }
+    }
+
+    if ($opt_bootstrap) {
+        my $bootstrap = $datastore->get_objects("bootstrap", "name", $opt_bootstrap)->get_object(0);
+
+        if ($bootstrap) {
+            $bootstrapid = $bootstrap->get("_id");
+        } else {
+            &eprint("BOOTSTRAP \"$opt_bootstrap\" does not exist\n");
+            exit(1);
+        }
+    }
+
+    if ($opt_scriptfile) {
+        if ($opt_scriptfile =~ /^([a-zA-Z0-9_\.\-\/]+)$/) {
+            open(SCRIPTFILE, "> $1") or die "Could not write to $1: $!\n";
+            print SCRIPTFILE "#!/bin/env wwsh\n\n";
+        } else {
+            &eprint("Script filename has illegal characters\n");
+            exit(1);
+        }
+    }
+
+    if (! $opt_replace && ! $opt_autoconfig) {
+        if (! $opt_ipaddr) {
+            &eprint("Starting IP address is required (e.g., --ipaddr 10.0.1.0).\n");
+            exit(1);
+        }
+
+        if (! $opt_netmask) {
+            &eprint("Netmask is required (e.g., --netmask 255.255.0.0).\n");
+            exit(1);
+        }
+
+        if (! $opt_netdev) {
+            &iprint("Assuming the nodes are booting over eth0");
+            $opt_netdev = "eth0"
+        }
+    }
+}
+
+if (! $opt_listen && $opt_infiniband) {
+    $opt_listen = "ib0";
+}
+elsif (! $opt_listen) {
+    $opt_listen = "any";
+}
+
+&iprint("Listening on $opt_listen for DHCP requests\n");
+
+if ($opt_autoconfig && $opt_maxnodes == 0) {
+    my $nodeset;
+
+    $nodeset = $datastore->get_objects("node", "_hwaddr", "UNDEF");
+    $nodeset->del("nodename", "DEFAULT");
+
+    # Automatically set maximum based on total number of unconfigured nodes
+    # plus the number of names specified on the command line, if any.
+    $opt_maxnodes = $nodeset->count() + scalar(@nodenames);
+    if ($opt_maxnodes == 0) {
+        &eprint("Automatic detection of max node count found no unconfigured nodes.\n");
+        exit(1);
+    }
+}
+
+if ($opt_cluster) {
+    # -c used to set $opt_tcpdump.  Now it's -C for $opt_tcpdump and -c for $opt_cluster.
+    # Help in the transition by detecting and warning of mistakes when possible.
+    if ((-x $opt_cluster) || (index($opt_cluster, ' '))) {
+        # They must've meant -C, so fix it.
+        $opt_tcpdump = $opt_cluster;
+        undef $opt_cluster;
+        &wprint("Invalid value for -c/--cluster:  \"$opt_tcpdump\"  Assuming you meant -C/--tcpdump.\n");
+    }
+}
+
+# The --tcpdump option can take just an executable or an entire command line.  We
+# only want to modify the command if it wasn't specified at all or if only a path
+# to an executable was specified (i.e., it does not contain a space).
+if ((! $opt_tcpdump) || index($opt_tcpdump, ' ') == -1) {
+    my $default_tcpdump_params = "-i $opt_listen -nn -e -l 'dst port bootps and src 0.0.0.0'";
+
+    if ($opt_tcpdump) {
+        $opt_tcpdump = "$opt_tcpdump $default_tcpdump_params";
+    } else {
+        $opt_tcpdump = "/usr/sbin/tcpdump $default_tcpdump_params";
+    }
+}
+if ($opt_tcpdump =~ /^([^\`\$]+)$/) {
+    $opt_tcpdump = $1;
+} else {
+    &eprint("Invalid value passed to --tcpdump:  \"$opt_tcpdump\"\n");
+    exit(1);
+}
+
+
+
+if ((! $opt_tshark) || index($opt_tshark, ' ') == -1) {
+    my $default_tshark_params = "-i $opt_listen -l -f 'dst port 67 and src 0.0.0.0' -e frame.number -e bootp.option.type -e bootp.option.value -T fields -E separator=, -E aggregator=, -Y 'bootp.option.type == 61' -n 2>/dev/null";
+
+    if ($opt_tshark) {
+        $opt_tshark = "$opt_tshark $default_tshark_params";
+    } else {
+        $opt_tshark = "/usr/sbin/tshark $default_tshark_params";
+    }
+} 
+if ($opt_tshark =~ /^([^\`\$]+)$/) {
+    $opt_tshark = $1;
+} else {
+    &eprint("Invalid value passed to --tshark:  \"$opt_tshark\"\n");
+    exit(1);
+}
+
+# Turn the IP address into an integer so we can increment it easily.
+if ($opt_ipaddr) {
+    $ipaddr_bin = $net->ip_serialize($opt_ipaddr);
+} else {
+    $ipaddr_bin = 0;
+}
+
+# Calculate the maximum possible IP address in our range (based on netmask).
+if ($opt_netmask) {
+    my $netmask_bin = $net->ip_serialize($opt_netmask);
+
+    $ipaddr_max = ($ipaddr_bin & $netmask_bin) | (~$netmask_bin);
+} else {
+    $ipaddr_max = 0xffffffff;
+}
+
+
+if ($opt_infiniband) {
+    
+     &dprint("Using tshark command line:  \"$opt_tshark\"\n");
+     
+     # Check the Tshark version as we're relying on output format that was added after 1.5.0.
+    my ($tshark_bin) = split(" ", $opt_tshark);
+    if (! open(TSHARKVER, "exec $tshark_bin -v 2>/dev/null |")) {
+        &eprint("Unable to run \"$tshark_bin -v\" -- $!\n");
+        exit(1);
+    }
+    
+    my $tshark_ver;
+    while (my $line = <TSHARKVER>) {
+        chomp($line);
+        if ($line =~ /^TShark ((\d+).(\d+).(\d+))/) {
+            $tshark_ver = $1;
+            my $tshark_maj_ver = $2;
+            my $tshark_min_ver = $3;
+            
+            if ($tshark_maj_ver == 1 && $tshark_min_ver >= 10) {
+                last;
+            } elsif ($tshark_maj_ver > 1) {
+                last;
+            } else {
+                &eprint("Found TShark version \"$tshark_ver\", wwnodescan requires version >= 1.10.0\n");
+                exit(1);
+            }
+        }
+    }
+    
+    if (! $tshark_ver) {
+        &eprint("Could not parse a TShark version from the output of \"$tshark_bin -v\", wwnodescan requires version >= 1.10.0\n");
+        exit(1);
+    }
+    
+    &dprint("Found tshark version: \"$tshark_ver\"\n");
+    close(TSHARKVER);
+    
+    if (! open(CAPTURE, "exec $opt_tshark 2>&1 |")) {
+        &eprint("Unable to run \"$opt_tshark\" -- $!\n");
+        exit(1);
+    }
+} else {
+    &dprint("Using tcpdump command line:  \"$opt_tcpdump\"\n");
+    if (! open(CAPTURE, "exec $opt_tcpdump 2>&1 |")) {
+        &eprint("Unable to run \"$opt_tcpdump\" -- $!\n");
+        exit(1);
+    }
+}
+&iprintf("Scanning for node(s) (%s)...\n", (($opt_maxnodes < 0) ? ("Ctrl-C to exit") : ("maximum of $opt_maxnodes")));
+while (my $line = <CAPTURE>) {
+    chomp($line);
+    &dprint("From capture:  \"$line\"\n");
+    if (($line =~ /^\s*$/) || ($line =~ /(full protocol decode|capture size|Capturing on|Running as user)/)) {
+        next;
+    }
+    if ($line =~ /[^:]((([[:xdigit:]]{2}:){5}|([[:xdigit:]]{2}:){19})[[:xdigit:]]{2})([^:]|$)/) {
+        my $hwaddr = $1;
+        my ($cluster, $domain) = ("", "");
+        my ($node, $name, $ip, $hwprefix);
+        
+        if ($opt_infiniband && length($hwaddr) == 59) {
+            $hwprefix = substr($hwaddr,0,35);
+            $hwaddr = substr($hwaddr,-23);
+            &dprint("Found Infiniband Port GUID $hwaddr and prefix $hwprefix\n");
+        } elsif ($opt_infiniband) {
+            &dprint("Looking for an 20-byte IB Hardware address, but found $hwaddr. Ignoring.\n");
+            next;
+        }
+        
+        if (exists($seen{$hwaddr})) {
+            &dprint("Already handled node with hardware address $hwaddr.  Ignoring.\n");
+            next;
+        }
+        $seen{$hwaddr} = 1;
+        $name = shift(@nodenames) || "";
+        $ip = $net->ip_unserialize($ipaddr_bin);
+
+        if (! $opt_testmode) {
+            # Check to see if hardware address is already associated with a node.
+            if ($datastore->get_objects("node", "_hwaddr", $hwaddr)->count()) {
+                &iprint("Node is known ($hwaddr)\n");
+                next;
+            }
+
+            # Avoid IP address conflicts.
+            while ($node = $datastore->get_objects("node", "_ipaddr", $ip)->get_object(0)) {
+                my $hwaddrs_aref = $node->get("_hwaddr");
+
+                if (!defined($hwaddrs_aref) || (ref($hwaddrs_aref) ne "ARRAY")) {
+                    &eprintf("Node %s (node #%d) already uses IP address $ip but with no hardware address.\n",
+                             scalar($node->name()), $node->id());
+                    &eprint("You probably need to use autoconfig mode (-a or --autoconfig).  Aborting.\n");
+                    exit(1);
+                }
+                &wprintf("Node %s (node #%d, hardware address %s) already uses IP address $ip; skipping.\n",
+                         scalar($node->name()), $node->id(), ($hwaddrs_aref->[0] || "unknown"));
+                $ip = $net->ip_unserialize(++$ipaddr_bin);
+                if ($ipaddr_bin > $ipaddr_max) {
+                    &eprint("Unable to add new node $hwaddr -- Reached end of IP range (%s)\n",
+                            $net->ip_unserialize($ipaddr_max));
+                    exit(1);
+                }
+            }
+
+            if ($opt_replace) {
+                $node = $datastore->get_objects("node", "name", $name)->get_object(0);
+                if ($node) {
+                    my $devname = $opt_netdev || "";
+                    my $old_hwaddr;
+                    my $old_hwprefix;
+
+                    # The node already exists, so replace its old info with the new info.
+                    $name = $node->name();
+                    $old_hwaddr = $node->hwaddr($devname);
+                    $old_hwprefix = $node->hwprefix($devname);
+                    
+                    if ($node->hwaddr($devname, $hwaddr)) {
+                        if ($ipaddr_bin) {
+                            my $old_ipaddr = $node->ipaddr($devname);
+
+                            # Only update the IP address if a starting IP was supplied.
+                            $node->ipaddr($devname, $ip);
+                            &nprintf("Updated $name.%s.ipaddr:  $old_ipaddr -> $ip\n",
+                                     ($devname || "<default>"));
+                        }
+                        &nprintf("Updated $name.%s.hwaddr:  $old_hwaddr -> $hwaddr\n",
+                                 ($devname || "<default>"));
+                        if ($hwprefix && $node->hwprefix($devname, $hwprefix)) {
+                            &nprintf("Updated $name.%s.hwprefix:  $old_hwprefix -> $hwprefix\n",
+                                     ($devname || "<default>"));         
+                        }
+                        $datastore->persist($node);
+                        if (--$opt_maxnodes == 0) {
+                            &iprint("Configured all nodes requested.  Exiting.\n");
+                            exit(0);
+                        }
+                    }
+                    next;
+                }
+                # ELSE:  Fall through to adding a new node.
+            } elsif ($opt_autoconfig) {
+                my $nodeset;
+
+                $nodeset = $datastore->get_objects("node", "_hwaddr", "UNDEF");
+                # FIXME: $nodeset->del("nodename", "DEFAULT");
+                while (defined($node = $nodeset->get_object(0))) {
+                    if ($node->nodename() eq "DEFAULT") {
+                        $nodeset->del($node);
+                        next;
+                    }
+                    # FIXME:  Other sanity checks?
+                    last;
+                }
+
+                if ($node) {
+                    my $nodename = $node->name();
+                    my $netdevs = $node->netdevs();
+                    my $netdevs_count = $netdevs->count();
+                    my $netdev;
+
+                    &dprintf("Autoconfig mode:  Got node $nodename (%d) with no MAC address and %d netdevs.\n",
+                             $node->id(), $netdevs_count);
+                    if (! $netdevs_count) {
+                        # No network devices present?!
+                        if (! $opt_netdev) {
+                            &eprintf("Node $nodename has no network devices and --netdev was not specified.\n");
+                            exit(1);
+                        }
+                        $netdev = $node->netdev_get_add($opt_netdev);
+                        &wprintf("No network devices found on node $nodename.  Assuming %s.\n", $netdev->name());
+                    } else {
+                        my @uninit_netdevs;
+
+                        @uninit_netdevs = grep { !defined($_->get("hwaddr")); } $netdevs->get_list();
+                        if (scalar(@uninit_netdevs)) {
+                            $netdev = $uninit_netdevs[0];
+                        }
+                    }
+                    if ($netdev) {
+                        $node->hwaddr($netdev->get("name"), $hwaddr);
+                        &nprintf("Configured $nodename.%s.hwaddr:  $hwaddr\n", ($netdev->get("name") || "<default>"));
+                        $datastore->persist($node);
+                        if (--$opt_maxnodes == 0) {
+                            &iprint("Configured all nodes requested.  Exiting.\n");
+                            exit(0);
+                        }
+                        next;
+                    } else {
+                        &wprint("No network devices found on node $nodename with unconfigured hardware address.\n");
+                    }
+                }
+                # ELSE:  Fall through to adding a new node.  But first, make sure we CAN!
+                if (! $name || ! $opt_netdev) {
+                    &wprint("Autoconfiguration mode fallback unavailable; name(s) and/or network device not specified.\n");
+                    # We can't do anything with this node.
+                    next;
+                }
+            } else {
+                # Avoid node name conflicts
+                while ($node = $datastore->get_objects("node", "name", $name)->get_object(0)) {
+                    &wprintf("Node $name already exists (node #%d, hardware address %s); skipping.\n",
+                             $node->id(), ($node->get("_hwaddr")->[0] || "unknown"));
+                    $name = shift(@nodenames);
+                    if (! $name) {
+                        &eprint("Unable to add new node $hwaddr -- Node name range exhausted.\n");
+                        exit(1);
+                    }
+                }
+            }
+        }
+
+        # If we get here, we're adding a new node.
+        if (! $name) {
+            if (scalar(@nodenames)) {
+                $name = shift(@nodenames);
+            } else {
+                &eprint("Unable to add new node $hwaddr -- Node name range not specified.\n");
+                exit(1);
+            }
+        }
+        if (index($name, '.')) {
+            if ($opt_cluster) {
+                if ($opt_domain) {
+                    &eprintf("Node name (\"%s\") cannot contain dots if both cluster (%s) and domain (%s) are given.\n",
+                             $name, $opt_cluster, $opt_domain);
+                } else {
+                    # We have a cluster but no domain.  Suffix must be the domain.
+                    ($domain = $name) =~ s/^[^\.]+\.//;
+                }
+            } elsif ($opt_domain) {
+                # We have a domain but no cluster.  Suffix must be the cluster.
+                if ($name =~ /^([^\.]+)\.([^\.]+)$/) {
+                    ($name, $cluster) = ($1, $2);
+                } else {
+                    &eprint("Detected invalid cluster name suffix on node name \"$name\" (contains dots).\n");
+                }
+            } else {
+                # Neither cluster name nor domain name specified.  Try to detect heuristically.
+                if ($name =~ /^([^\.]+)\.([^\.]+)$/) {
+                    # Single dot.  Assume <nodename>.<cluster>
+                    ($name, $cluster) = ($1, $2);
+                } elsif ($name =~ /^([^\.]+)\.([^\.]+\.[^\.]+)$/) {
+                    # Two dots.  Assume <nodename>.<domain>
+                    ($name, $domain) = ($1, $2);
+                } elsif ($name =~ /^([^\.]+)\.([^\.]+)\.(.+)$/) {
+                    # Three or more dots.  Assume <nodename>.<cluster>.<domain>
+                    ($name, $cluster, $domain) = ($1, $2, $3);
+                } else {
+                    # I don't believe this is actually reachable, but just in case....
+                    &eprint("Node name \"$name\" contains unparseable dotted notation.  Removing all suffixes.\n");
+                }
+            }
+            if (index($name, '.')) {
+                # If name still contains dots, remove them.  There was an error above.
+                $name =~ s/\..+$//g;
+            }
+            &wprint("Auto-detected \"$name\", cluster \"$cluster\", domain \"$domain\"\n");
+        }
+        # Values from CLI override all above logic.
+        if ($opt_cluster) {
+            $cluster = $opt_cluster;
+        }
+        if ($opt_domain) {
+            $domain = $opt_domain;
+        }
+
+        if ($opt_scriptfile) {
+            my $entry;
+
+            $entry = sprintf("node new %s --netdev=%s --ipaddr=%s --hwaddr=%s%s%s%s%s%s%s%s",
+                             $name, $opt_netdev, $ip, $hwaddr,
+                             (($opt_netmask) ? (" --netmask=$opt_netmask") : ("")),
+                             (($cluster) ? (" --cluster=$cluster") : ("")),
+                             (($domain) ? (" --domain=$domain") : ("")),
+                             (($opt_groups) ? (" --groups=$opt_groups") : ("")),
+                             (($hwprefix) ? (" --hwprefix=$hwprefix") : ("")),
+                             (($bootstrapid) ? (" -s bootstrapid=$bootstrapid") : ("")),
+                             (($vnfsid) ? (" -s vnfsid=$vnfsid") : ("")));
+            if ($opt_testmode) {
+                &nprint("[TEST] Add to script $opt_scriptfile:  $entry\n");
+            } else {
+                &dprint("Entry for $opt_scriptfile:  $entry\n");
+                print SCRIPTFILE "$entry\n";
+                &nprint("Added to script file:  $name:  $ip/$opt_netmask/$hwaddr\n");
+            }
+        } elsif ($opt_testmode) {
+            &nprint("[TEST] Add to data store:  $name:  $ip/$opt_netmask/$hwaddr\n");
+        } elsif (! $opt_netdev) {
+            &eprint("Unable to add node $hwaddr as $name; -n/--netdev required when adding new nodes.\n");
+            unshift(@nodenames, $name);
+            $opt_maxnodes++;
+        } else {
+            my $new_node = Warewulf::Node->new();
+
+            $new_node->name($name, ($cluster || undef), ($domain || undef));
+            $new_node->set("bootstrapid", $bootstrapid);
+            $new_node->set("vnfsid", $vnfsid);
+            if (!($new_node->hwaddr($opt_netdev, $hwaddr)
+                  && $new_node->ipaddr($opt_netdev, $ip)
+                  && $new_node->netmask($opt_netdev, $opt_netmask))) {
+                &eprint("Failed to add node due to invalid/missing network device name ($opt_netdev).\n");
+                next;
+            }
+            
+            if ($hwprefix) {
+                $new_node->hwprefix($opt_netdev, $hwprefix);
+            }
+            if ($opt_groups) {
+                $new_node->groups(split(",", $opt_groups));
+            }
+
+            $datastore->persist($new_node);
+
+            &nprint("Added to data store:  $name:  $ip/$opt_netmask/$hwaddr\n");
+        }
+
+        if ((--$opt_maxnodes == 0) || (scalar(@nodenames) == 0)) {
+            &iprint("Configured all nodes requested.  Exiting.\n");
+            last;
+        }
+
+        $ipaddr_bin++;
+    } else {
+        &dprint(" -> Does not contain a hardware address?!\n");
+    }
+}
+close(CAPTURE);
+if ($opt_scriptfile && ! $opt_testmode) {
+    if (!close(SCRIPTFILE)) {
+        &eprint("Error saving script $opt_scriptfile:  $!\n");
+    }
+}
+
+

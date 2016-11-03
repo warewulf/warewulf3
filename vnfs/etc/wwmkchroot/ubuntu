@@ -1,0 +1,39 @@
+# -*-Shell-script-*-
+# 
+# wwmkchroot file for Ubuntu distributions
+#
+# Based off original mkchroot-ubuntu.sh
+
+DESC="Ubuntu distributions"
+
+PKGLIST="--components=main,restricted,universe --variant=minbase \
+         --include=openssh-server,openssh-client,dhcp-client,pciutils,strace,nfs-common,nfs-kernel-server,ethtool,iproute,iputils-ping,iputils-arping,net-tools,linux-image-server"
+
+UBUMIRROR="http://us.archive.ubuntu.com/ubuntu/"
+SUITE=karmic
+
+build_vnfs()
+{
+    if [ ! -z $1 ]; then
+        SUITE=$1;
+    fi
+
+    echo "Running debootstrap for minimal Ubuntu $SUITE"
+    echo "debootstrap --variant=minbase $SUITE $VNFSDIR"
+
+    debbootstrap $PKGLIST $SUITE $VNFSDIR $UBUMIRROR
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create chroot";
+        exit 1;
+    fi
+
+    vnfs_generate_fstab
+
+    vnfs_generate_ssh
+
+    vnfs_setup_auth
+
+}
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

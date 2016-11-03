@@ -1,0 +1,119 @@
+
+APT_CONF="root/ww-apt.conf"
+DEB_SRCS="root/sources.list"
+DEB_ISOS="root/iso.list"
+APT_CMD="apt-get -c $CHROOTDIR/$APT_CONF -o Dir::Etc::SourceList=/$CHROOTDIR/"
+
+distro_check() {
+    if ! [ -x "/usr/bin/dpkg" ] ; then
+        echo "ERROR: Could not locate dpkg"
+        return 1
+    fi
+    if ! dpkg -s debootstrap 2>&1 | grep Status | grep -v deinstall > /dev/null; then
+        echo "ERROR: Could not query dpkg for debootstrap"
+        return 1
+    fi
+    return 0
+}
+
+set_overlay() {
+    if [ ! -d "$CHROOTDIR" -o ! -x "$CHROOTDIR/sbin/init" ]; then
+        echo "ERROR: This is an overlay that must work on an existing chroot!"
+        return 1
+    fi
+    if [ ! -f "$CHROOTDIR/etc/os-release" ]; then
+        echo "ERROR: This must be a Debian compatible chroot!"
+        return 1
+    fi
+    if [ -z "$INSTALL_ISO" ]; then
+        SOURCESPATH="$DEB_SRCS"
+    else
+        SOURCESPATH="$DEB_ISOS"
+    fi
+
+    APT_CMD="${APT_CMD}${SOURCESPATH}"
+    $APT_CMD update
+    PKGR_CMD="$APT_CMD install $PKGLIST"
+    return 0
+}
+
+configure_pam() {
+    # add broken_shadow to pam.d/common-account
+    if [ -f "$CHROOTDIR/etc/pam.d/common-account" ]; then
+        sed -i -e '/^account.*pam_unix\.so\s*$/s/\s*$/\ broken_shadow/' $CHROOTDIR/etc/pam.d/common-account
+    fi
+}
+
+prechroot() {
+    if [ -z "$DEB_MIRROR" ]; then
+        echo "ERROR: You must define the \$DEB_MIRROR variable in the template"
+        cleanup
+        return 1
+    fi
+    if [ -z "$SUITE" ]; then
+        SUITE="jessie"
+    fi
+    if [ -z "$ARCH" ]; then
+        ARCH="i386"
+    fi
+
+    mkdir -p $CHROOTDIR/etc
+    cp -rap /etc/apt $CHROOTDIR/etc
+
+    DEB_SRCS_DIRNAME=`dirname $DEB_SRCS`
+    mkdir -m 0755 -p $CHROOTDIR/$DEB_SRCS_DIRNAME
+
+    > $CHROOTDIR/$APT_CONF
+    echo "APT{ Get{ Assume-Yes \"true\";" >> $CHROOTDIR/$APT_CONF
+    echo "AllowUnauthenticated \"true\"; }; };" >> $CHROOTDIR/$APT_CONF
+    echo "Dir \"$CHROOTDIR/\" { State "var/lib/apt/"" >> $CHROOTDIR/$APT_CONF
+    echo "{ status \"$CHROOTDIR/var/lib/dpkg/status\"; }; };" >> $CHROOTDIR/$APT_CONF
+    echo "DPkg{ Chroot-Directory \"$CHROOTDIR/\"; };" >> $CHROOTDIR/$APT_CONF
+
+    > $CHROOTDIR/$DEB_SRCS
+    echo "deb $DEB_MIRROR $SUITE main contrib non-free" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb-src $DEB_MIRROR $SUITE main contrib non-free" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb http://security.debian.org/ ${SUITE}/updates main contrib" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb-src http://security.debian.org/ ${SUITE}/updates main contrib" >> $CHROOTDIR/$DEB_SRCS
+
+    if [ -z "$INSTALL_ISO" ]; then
+        SOURCESPATH="$DEB_SRCS"
+        PKGR_CMD="debootstrap --arch=$ARCH --variant=minbase $SUITE $CHROOTDIR $DEB_MIRROR"
+    else
+        SOURCESPATH="$DEB_ISOS"
+        > $CHROOTDIR/$SOURCESPATH
+        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
+            if [ -z "$INSTALLISOS" ]; then
+                INSTALLISOS="true"
+                DEB_MIRROR="file://$i"
+                echo "deb file:$i/ $SUITE main contrib" >> $CHROOTDIR/$SOURCESPATH
+            else
+                echo "deb file:$i/ $SUITE main contrib" >> $CHROOTDIR/$SOURCESPATH
+            fi
+        done
+        PKGR_CMD="debootstrap --no-check-gpg $SUITE $CHROOTDIR $DEB_MIRROR"
+    fi
+    return 0
+}
+
+postchroot() {
+    # copy a more robust sources.list to our chroot
+    cp $CHROOTDIR/$DEB_SRCS $CHROOTDIR/etc/apt/
+
+    # debootstrap created our base chroot and now
+    # we install all the required packages into it
+    APT_CMD="${APT_CMD}${SOURCESPATH}"
+    $APT_CMD update
+    $APT_CMD install $PKGLIST
+
+    touch $CHROOTDIR/fastboot
+    return 0
+}
+
+finalize() {
+    $APT_CMD clean
+    return 0
+}
+
+
+# vim: filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

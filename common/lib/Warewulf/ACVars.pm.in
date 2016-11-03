@@ -1,0 +1,196 @@
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+#
+# $Id: Config.pm 577 2011-08-11 23:41:04Z mej $
+#
+
+package Warewulf::ACVars;
+
+use File::Basename;
+
+our @ISA = ();
+our $AUTOLOAD;
+our $VERSION = "@VERSION@";
+
+my $prefix = "@prefix@";
+my $exec_prefix = "@exec_prefix@";
+my $datarootdir = "@datarootdir@";
+my $singleton = {
+    "PROGNAME"     => basename($0),
+    "VERSION"      => $VERSION,
+    "PREFIX"       => "@prefix@",
+    "STATEDIR"     => "@localstatedir@",
+    "SYSCONFDIR"   => "@sysconfdir@",
+    "LIBDIR"       => "@libdir@",
+    "DATAROOTDIR"  => "@datarootdir@",
+    "DATADIR"      => "@datadir@",
+    "LIBEXECDIR"   => "@libexecdir@",
+    "PERLMODDIR"   => "@PERL_VENDORLIB@"
+};
+
+=head1 NAME
+
+Warewulf::ACVars - Warewulf autoconf configuration object
+
+=head1 SYNOPSIS
+
+    use Warewulf::ACVars;
+
+    # Module/function usage
+    foreach my $key (Warewulf::ACVars::vars()) {
+        printf("$key: %s\n", Warewulf::ACVars::get($key));
+    }
+    # Variable names are also valid function names
+    $libdir = Warewulf::ACVars::libdir();
+
+    # OO Usage:  Static method call on class
+    $prefix = Warewulf::ACVars->get("prefix");
+    # Same, but using the variable name as a method name
+    $libdir = Warewulf::ACVars->libdir();
+
+    # OO Usage:  Invoking methods on an instance.
+    $acvars = Warewulf::ACVars->new();
+    $prefix = $acvars->get("prefix");
+    # Same, but using the variable name as a method name
+    $libdir = $acvars->libdir();
+
+
+=head1 DESCRIPTION
+
+This module is auto-generated at build time to contain the configure
+options with which Warewulf was built. Including this file will
+provide an interface to obtain these configuration values at runtime.
+Below is a list of configuration variables supported.
+
+    PROGNAME
+    VERSION
+    PREFIX
+    STATEDIR
+    SYSCONFDIR
+    LIBDIR
+    DATAROOTDIR
+    DATADIR
+    LIBEXECDIR
+    PERLMODDIR
+
+As shown above, variables can be retrieved using any of the following
+techniques:
+
+=over 4
+
+=item * Pass the variable name to the get() function of the
+Warewulf::ACVars module
+
+=item * Pass the variable name to the get() static method of the
+Warewulf::ACVars class
+
+=item * Pass the variable name to the get() method of a
+Warewulf::ACVars object instance
+
+=item * Call the variable name as a function of the Warewulf::ACVars
+module
+
+=item * Call the variable name as a static method of the
+Warewulf::ACVars class
+
+=item * Call the variable name as a method of a Warewulf::ACVars
+object instance
+
+=back
+
+All of these calling conventions return the same results.  Variable
+names, even when used as functions/methods, are case insensitive.
+
+=head1 METHODS
+
+=over 4
+
+=item new()
+
+Returns the Warewulf::ACVars singleton object.
+
+=cut
+
+sub
+new()
+{
+    my ($proto) = @_;
+    my $class = ref($proto) || $proto;
+
+    if (!UNIVERSAL::isa($singleton, $class)) {
+        bless($singleton, $class);
+    }
+    return $singleton;
+}
+
+=item get($varname)
+
+Returns the value of the requested variable.  See above for list of
+valid variable names.  Using the variable name as a subroutine or
+method call is shorthand for the get() method.  In other words, you
+can do $acvars->prefix() (or even Warewulf::ACVars::prefix()) as
+shorthand for $acvars->get("prefix").
+
+Returns undef if $varname is not recognized.
+
+=cut
+
+sub
+get($)
+{
+    my ($self, $varname) = @_;
+
+    if (! $varname) {
+        $varname = $self;
+    }
+    $self = $singleton;
+    $varname = uc($varname);
+    return ((exists($self->{$varname})) ? ($self->{$varname}) : (undef));
+}
+
+=item vars()
+
+Returns a list of valid variable names (all uppercase).  See above for
+list.
+
+=cut
+
+sub
+vars()
+{
+    return keys(%{$singleton});
+}
+
+
+# This gets called in place of any undefined object methods.
+sub
+AUTOLOAD
+{
+    my $name = $AUTOLOAD;
+
+    return if ($name =~ /DESTROY/i);
+
+    # $name is the method name that was called.
+    $name =~ s/.*://;
+
+    return get($name);
+}
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright (c) 2001-2003 Gregory M. Kurtzer
+
+Copyright (c) 2003-2011, The Regents of the University of California,
+through Lawrence Berkeley National Laboratory (subject to receipt of any
+required approvals from the U.S. Dept. of Energy).  All rights reserved.
+
+=cut
+
+
+1;

@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+if [ -n "$1" ]; then
+    if ! logger -t wwlogger "$1"; then
+        echo "Failed to spawn logger" >&2
+    fi
+else
+    echo "USAGE: wwlogger 'message to send'"
+fi

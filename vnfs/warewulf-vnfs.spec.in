@@ -1,0 +1,56 @@
+%{!?_rel:%{expand:%%global _rel 0.r%(test "@SVNVERSION@" != "0000" && echo "@SVNVERSION@" || svnversion | sed 's/[^0-9].*$//' | grep '^[0-9][0-9]*$' || git svn find-rev `git show -s --pretty=format:%h` || echo 0000)}}
+%define debug_package %{nil}
+
+Summary: Warewulf VNFS Module
+Name: warewulf-vnfs
+Version: @PACKAGE_VERSION@
+Release: %{_rel}%{?dist}
+License: US Dept. of Energy (BSD-like)
+Group: System Environment/Clustering
+URL: http://warewulf.lbl.gov/
+Source: %{name}-%{version}.tar.gz
+ExclusiveOS: linux
+Requires: warewulf-common
+BuildRequires: warewulf-common
+Conflicts: warewulf < 3
+BuildArch: noarch
+BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
+# Previous version had an architecture in its release. This is necessary for
+# YUM to properly update a package of a different BuildArch...
+Obsoletes: warewulf-vnfs < 3.2-0
+
+%description
+Warewulf >= 3 is a set of utilities designed to better enable
+utilization and maintenance of clusters or groups of computers.
+
+This is the VNFS module which supports the creation and management of
+Virtual Node FileSystem objects.
+
+
+%prep
+%setup
+
+
+%build
+%configure
+%{__make} %{?mflags}
+
+
+%install
+%{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
+
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+
+%files
+%defattr(-,root,root)
+%doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO LICENSE
+%config(noreplace) %{_sysconfdir}/warewulf/vnfs.conf
+%config(noreplace) %{_sysconfdir}/warewulf/bootstrap.conf
+%{_libexecdir}/warewulf/*
+%{_bindir}/*
+
+
+%changelog

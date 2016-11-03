@@ -1,0 +1,105 @@
+REPO_NAME="SLES12-12-0-sp1"
+ZYP_CONF="/root/yum-ww.conf"
+ZYP_CMD="zypper -c $CHROOTDIR/$ZYP_CONF --root $CHROOTDIR -n --gpg-auto-import-keys"
+
+distro_check() {
+    if ! rpm -q zypper >/dev/null 2>&1 ; then
+        echo "ERROR: Could not query RPM for Zypper"
+        return 1
+    fi
+    return 0
+}
+
+set_overlay() {
+    if [ ! -d "$CHROOTDIR" -o ! -x "$CHROOTDIR/sbin/init" ]; then
+        echo "ERROR: This is an overlay that must work on an existing chroot!"
+        return 1
+    fi
+    if [ ! -f "$CHROOTDIR/etc/SuSE-release" ]; then
+        echo "ERROR: This must be a SuSE compatible chroot!"
+        return 1
+    fi
+    PKGR_CMD="$ZYP_CMD install $PKGLIST"
+    return 0
+}
+
+prechroot() {
+    if [ -n "$OS_MIRROR" ]; then
+        ZYP_MIRROR="$OS_MIRROR"
+    fi
+    if [[ -z "$ZYP_MIRROR" && -z "$INSTALL_ISO" ]]; then
+        echo "ERROR: You must define the \$ZYP_MIRROR variable in the template"
+        cleanup
+        return 1
+    fi
+
+    VERSION=`rpm -qf /etc/SuSE-release  --qf '%{VERSION}\n'`
+
+    mkdir -p $CHROOTDIR
+    mkdir -p $CHROOTDIR/etc
+    mkdir -p $CHROOTDIR/etc/zypp
+    mkdir -p $CHROOTDIR/dev
+
+    cp -rap /etc/zypp/zypper.conf /etc/zypp/repos.d $CHROOTDIR/etc
+    sed -i -e "s/\$releasever/$VERSION/g" `find $CHROOTDIR/etc/zypp* -type f`
+
+    ZYP_CONF_DIRNAME=`dirname $ZYP_CONF`
+    mkdir -m 0755 -p $CHROOTDIR/$ZYP_CONF_DIRNAME
+
+    > $CHROOTDIR/$ZYP_CONF
+    echo "[main]" >> $CHROOTDIR/$ZYP_CONF
+    echo '#cachedir=/var/cache/yum/$basearch/$releasever' >> $CHROOTDIR/$ZYP_CONF
+    echo "#keepcache=0" >> $CHROOTDIR/$ZYP_CONF
+    echo "#debuglevel=2" >> $CHROOTDIR/$ZYP_CONF
+    echo "#logfile=/var/log/yum.log" >> $CHROOTDIR/$ZYP_CONF
+    echo "#exactarch=1" >> $CHROOTDIR/$ZYP_CONF
+    echo "#obsoletes=1" >> $CHROOTDIR/$ZYP_CONF
+    echo "#gpgcheck=0" >> $CHROOTDIR/$ZYP_CONF
+    echo "#plugins=1" >> $CHROOTDIR/$ZYP_CONF
+    echo "#reposdir=0" >> $CHROOTDIR/$ZYP_CONF
+    echo "" >> $CHROOTDIR/$ZYP_CONF
+
+    cp -RLp /dev/zero $CHROOTSDIR/.
+
+    if [ -z "$INSTALL_ISO" ]; then
+        echo "[$REPO_NAME]" >> $CHROOTDIR/$ZYP_CONF
+        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$ZYP_CONF
+        echo "baseurl=$ZYP_MIRROR" >> $CHROOTDIR/$ZYP_CONF
+        echo "enabled=1" >> $CHROOTDIR/$ZYP_CONF
+        echo "type=rpm-md" >> $CHROOTDIR/$ZYP_CONF
+        echo "gpgcheck=0" >> $CHROOTDIR/$ZYP_CONF
+    else
+        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
+            if [ -z "$INSTALLDIRS" ]; then
+                if [ -d $i/repodata ]; then
+                    # RHEL 6.x
+                    INSTALLDIRS="file://$i"
+                elif [ -d $i/Server/repodata ]; then
+                    # RHEL 5.x
+                    INSTALLDIRS="file://$i/Server"
+                fi
+            else
+                INSTALLDIRS="$INSTALLDIRS,file://$i"
+            fi
+        done
+        echo "[$REPO_NAME]" >> $CHROOTDIR/$ZYP_CONF
+        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$ZYP_CONF
+        echo "baseurl=$INSTALLDIRS" >> $CHROOTDIR/$ZYP_CONF
+        echo "enabled=1" >> $CHROOTDIR/$ZYP_CONF
+        echo "type=rpm-md" >> $CHROOTDIR/$ZYP_CONF
+        echo "gpgcheck=0" >> $CHROOTDIR/$ZYP_CONF
+
+        ZYP_MIRROR=$INSTALLDIRS
+    fi
+
+    PKGR_CMD="$ZYP_CMD install $PKGLIST"
+    return 0
+}
+
+postchroot() {
+    touch $CHROOTDIR/fastboot
+    return 0
+}
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

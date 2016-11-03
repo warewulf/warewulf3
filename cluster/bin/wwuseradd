@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2012, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+#
+# $Id: wwuseradd 1038 2012-08-02 21:18:25Z gmk $
+#
+
+
+if ! which wwsh >/dev/null 2>&1; then
+   echo "ERROR: wwsh not in PATH!" >&2
+   exit 1
+fi
+
+if [ ! -x "/usr/sbin/useradd" ]; then
+   echo "ERROR: Can not execute /usr/sbin/useradd" >&2
+   exit 1
+fi
+
+echo "Adding user to this master";
+if /usr/sbin/useradd $@; then
+    #FIXME: echo'ing command like this gets rid of excess white space
+    PASSWDID=`echo \`wwsh object print -p id passwd\``
+    GROUPID=`echo \`wwsh object print -p id group\``
+    echo "Syncing user data to Warewulf"
+    wwsh file sync passwd group
+    echo "Updating nodes..."
+    wwsh ssh --lookup=fileids "[$PASSWDID,$GROUPID]" /warewulf/bin/wwgetfiles
+fi

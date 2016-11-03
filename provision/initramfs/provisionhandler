@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+
+. /etc/functions
+umask 027
+
+if [ -d "/warewulf/provision/" ]; then
+    if [ ! -d /var/log/warewulf/provision ]; then
+        mkdir -p /var/log/warewulf/provision
+    fi
+    for i in `find /warewulf/provision/ -type f | sort -n`; do
+        if [ -x "$i" -a -f "$i" ]; then
+            NAME=`basename $i | sed -e 's/^[0-9]*-\(.*\)/\1/'`
+            wwlogger "Running provision script: $NAME"
+            msg_white " * $NAME "
+            usleep 250000
+            echo -ne $GRAY
+            sh -x $i 2> /var/log/warewulf/provision/$NAME.log
+            RETVAL=$?
+            echo -ne $NORMAL
+            if [ $RETVAL -eq 0 ]; then
+                wwsuccess
+            elif [ $RETVAL -eq 1 ]; then
+                wwskipped
+            elif [ $RETVAL -eq 2 ]; then
+                wwfailure
+                wwlogger "Provision script error: $NAME (RETVAL=$RETVAL)"
+            else
+                wwlogger "Provision script error: $NAME (RETVAL=$RETVAL)"
+                wwfailure
+                wwreboot
+            fi
+        fi
+    done
+fi
+

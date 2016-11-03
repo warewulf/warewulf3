@@ -1,0 +1,44 @@
+# -*-Shell-script-*-
+# 
+# wwmkchroot file for Red Hat based distributions
+#
+# Based off original mkchroot-rh.sh
+
+DESC="Red Hat based distributions"
+VERSION=`rpm -qf /etc/redhat-release  --qf '%{VERSION}\n'`
+
+PKGLIST="SysVinit basesystem bash redhat-release chkconfig coreutils e2fsprogs \
+    ethtool filesystem findutils gawk grep initscripts iproute iputils \
+    mingetty mktemp net-tools nfs-utils pam portmap procps psmisc rdate \
+    sed setup shadow-utils rsyslog tcp_wrappers compat-termcap tzdata util-linux \
+    words zlib tar less gzip which util-linux module-init-tools udev \
+    openssh-clients openssh-server passwd dhclient pciutils vim-minimal \
+    shadow-utils strace vixie-cron cronie crontabs"
+
+build_vnfs()
+{
+
+    echo "Creating yum configuration based on master"
+    cp -rap /etc/yum.conf /etc/yum.repos.d $VNFSDIR/etc
+    sed -i -e "s/\$releasever/$VERSION/g" `find $VNFSDIR/etc/yum* -type f`
+
+    echo "Starting package installation"
+    yum --tolerant --installroot $VNFSDIR -y install $PKGLIST
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create chroot"
+        exit 1
+    fi
+
+    vnfs_generate_fstab 
+
+    echo "NETWORKING=yes" > $VNFSDIR/etc/sysconfig/network
+
+    vnfs_generate_ssh 
+
+    vnfs_setup_auth 
+
+    touch $VNFSDIR/fastboot
+
+}
+

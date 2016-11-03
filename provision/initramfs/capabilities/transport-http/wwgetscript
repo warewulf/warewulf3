@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+. /warewulf/transports/http/functions
+
+
+case $1 in
+    pre)
+        TYPE="pre"
+    ;;
+    post)
+        TYPE="post"
+    ;;
+    runtime)
+        TYPE="runtime"
+    ;;
+    *)
+        echo "What type of script do you wish to download? ('pre' or 'post)"
+        exit 2
+    ;;
+esac
+
+while true; do
+    for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
+        if wget -q -O - "http://$master/WW/script?hwaddr=$WWINIT_HWADDR&type=$TYPE" 2>/dev/null; then
+            exit 0
+        fi
+    done
+    echo -n "." 1>&2
+    throttled_sleep
+done
+

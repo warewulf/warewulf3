@@ -1,0 +1,261 @@
+#!/bin/bash
+#
+# Warewulf Copyright (c) 2001-2003 Gregory M. Kurtzer
+# 
+# Warewulf Copyright (c) 2003-2013, The Regents of the University of
+# California, through Lawrence Berkeley National Laboratory (subject to
+# receipt of any required approvals from the U.S. Dept. of Energy).
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# (1) Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+# 
+# (2) Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+# 
+# (3) Neither the name of the University of California, Lawrence Berkeley
+# National Laboratory, U.S. Dept. of Energy nor the names of its contributors
+# may be used to endorse or promote products derived from this software
+# without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+# 
+# You are under no obligation whatsoever to provide any bug fixes, patches,
+# or upgrades to the features, functionality or performance of the source
+# code ("Enhancements") to anyone; however, if you choose to make your
+# Enhancements available either publicly, or directly to Lawrence Berkeley
+# National Laboratory, without imposing a separate written license agreement
+# for such Enhancements, then you hereby grant the following license: a
+# non-exclusive, royalty-free perpetual license to install, use, modify,
+# prepare derivative works, incorporate into other computer software,
+# distribute, and sublicense such enhancements or derivative works thereof,
+# in binary and source code form.
+#
+## Copyright (c) 2013, Intel(R) Corporation #{
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted provided that the following conditions are met:
+##
+##    * Redistributions of source code must retain the above copyright notice,
+##      this list of conditions and the following disclaimer.
+##    * Redistributions in binary form must reproduce the above copyright
+##      notice, this list of conditions and the following disclaimer in the
+##      documentation and/or other materials provided with the distribution.
+##    * Neither the name of Intel(R) Corporation nor the names of its
+##      contributors may be used to endorse or promote products derived from
+##      this software without specific prior written permission.
+##
+## THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+## AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+## IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+## ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+## LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+## CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+## SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+## INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+## CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+## POSSIBILITY OF SUCH DAMAGE.
+##}
+#
+# Start Warewulf Firstboot
+#
+# chkconfig: 2345 05 05
+# description: Start the Warewulf Firstboot Checks
+#
+#
+### BEGIN INIT INFO
+# Provides: wwfirstboot
+# Required-Start: 
+# Required-Stop:
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Start the firstboot checks
+# Description: Start the Warewulf firstboot checks
+### END INIT INFO
+
+#
+# wwfirstboot is a mechinism to run commands on a node when they
+# first start. This includes disk partitioning/formating for
+# persistant storage, etc...
+#
+
+if [ ! -z $DEBUGWW ]; then
+    set -x;
+fi
+
+. /etc/init.d/functions
+
+SUBSYSFILE="/var/lock/subsys/wwfirstboot";
+CONFIG="/etc/sysconfig/wwfirstboot.conf";
+
+wwfbdir="/usr/libexec/warewulf/wwfirstboot";
+
+# What "run" are we doing.
+# PRIMARY   == Initial call from chkconfig setup, starting at S05
+# SECONDARY == Ran from /etc/rc.d/rc.local as the very last thing
+#   when the system boots. Primary *should* be the default.
+RUN="PRIMARY";
+
+if [[ ! -d `dirname $SUBSYSFILE` ]]; then
+    # This should *never* happen ... but if for some reason it
+    # makes it here and /var/lock/subsys does *not* exist...
+    mkdir -p `dirname $SUBSYSFILE`;
+fi
+
+if [[ ! -f $SUBSYSFILE ]]; then
+    touch $SUBSYSFILE;
+fi
+
+if [ ! -f $CONFIG ]; then
+    echo "No Firstboot configuration found. Skipping";
+    logger wwfirstboot ": WARNING - No Firstboot configuration found. Skipping";
+    exit 0;
+fi
+
+. $CONFIG
+
+if [ ! -d $wwfbdir ]; then
+    msg_red "ERROR: Cannot find $wwfbdir";
+    failure; echo;
+    logger wwfirstboot ": ERROR - Cannot find $wwfbdir";
+    return 1;
+fi
+
+
+start()
+{
+    echo "RUNNING" > $SUBSYSFILE;
+    if [ ! -z $1 ]; then
+        RUN=$(echo $1 | tr '[a-z]' '[A-Z]');
+    fi
+
+    # Check to see if status passed is either 'PRIMARY' or 'SECONDARY'
+    if [[ "x${RUN}" != "xPRIMARY" && "x${RUN}" != "xSECONDARY" ]]; then
+        msg_status;
+        msg_red "ERROR: Unknown status $RUN:";
+        failure; echo
+        logger wwfirstboot ": ERROR - Unknown status $RUN";
+        return 1;
+    fi
+
+    msg_blue "Starting wwfirstboot $RUN configuration:\n";
+
+    if [[ -z ${SKIP} || "x${SKIP}" == "xtrue" ]]; then
+        msg_status;
+        msg_red "SKIP Undefinded or set to true:";
+        warning; echo;
+        logger wwfirstboot ": SKIP Undefined or set to true";
+        return 0;
+    fi
+
+    # See if we have any files that are to run secondary
+    if grep -q -li "^#STATUS: SECONDARY" $wwfbdir/*.wwfb; then
+        # Check if we've already modified rc.local
+        if ! egrep -q '^## WWFIRSTBOOT' /etc/rc.d/rc.local; then
+            cat >> /etc/rc.d/rc.local <<-EOF
+
+## WWFIRSTBOOT secondary execution
+/etc/init.d/wwfirstboot start secondary
+
+EOF
+        fi
+    fi
+
+    wwfb_files=$(LC_COLLATE=C grep -li "^#STATUS: $RUN" $wwfbdir/*.wwfb | sort | uniq);
+    WAS_ERROR=0;
+    for file in $wwfb_files; do
+        # If file isn't executable, continue
+        [ ! -x $file ] && continue;
+
+        name=$(basename $file .wwfb);
+        echo "RUNNING: $name" > $SUBSYSFILE;
+        msg_status;
+        msg_green "Running $name:\n";
+
+        #TODO: Change files so they're executed instead of sourced.
+        #env /bin/sh $file;
+        source $file;
+        RETVAL=$?;
+
+        if [[ $RETVAL -eq 0 || $RETVAL -eq 1 ]]; then
+            if [ -n "$DEBUGWW" ]; then
+                echo "DEBUG: Return value of 0 or 1";
+            fi
+        else
+            echo "Lethal error thrown by module: $name";
+            logger wwfirstboot "ERROR: Lethal error thrown by module: $name";
+            ERROR_NAME=$name;
+            WAS_ERROR=1;
+            break;
+        fi
+    done
+
+    if [ ${WAS_ERROR} -ne 0 ]; then
+        echo "ERROR: $ERROR_NAME" > $SUBSYSFILE;
+    else
+        echo "DONE" > $SUBSYSFILE;
+    fi
+
+    return $RETVAL;
+}
+
+stop()
+{
+    if [[ -f $SUBSYSFILE ]]; then
+        /bin/rm -f $SUBSYSFILE;
+    fi
+    return 0;
+}
+
+status()
+{
+    RETVAL=0
+    echo -n "WWFIRSTBOOT STATUS: ";
+    if [[ -f $SUBSYSFILE ]]; then
+        cat $SUBSYSFILE;
+    else
+        echo "Unknown";
+        RETVAL=1;
+    fi
+
+    return $RETVAL;
+}
+
+ret=0;
+while [ "$#" -gt "0" ]; do
+    case $1 in
+    start)
+        shift;
+        start $@;
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo $"Usage: $0 {start [secondary]|stop|status}"
+        exit 4
+    esac
+    ret=$?
+    shift
+done
+exit $ret
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

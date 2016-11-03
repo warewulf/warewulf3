@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+if [ -f "/etc/network.conf" ]; then
+    . /etc/network.conf
+fi
+
+if [ -f "/warewulf/config" ]; then
+    . /warewulf/config
+fi
+
+START=0
+BACKOFF=2
+INTERVALS=30
+COUNT=1
+export START BACKOFF INTERVALS COUNT
+
+if [ -z "$WWMASTER" ]; then
+    WWMASTER=`sed -e '/ wwmaster=/!d;s/.*wwmaster=\([^ ]*\).*/\1/' /proc/cmdline`
+    export WWMASTER
+fi
+
+if [ -z "$WWMASTER" ]; then
+    if [ -n "$DHCP_SERVER" ]; then
+        WWMASTER=$DHCP_SERVER
+    else
+        echo "ERROR: Could not identify master node!"
+        exit 2
+    fi
+fi
+
+
+throttled_sleep() {
+    if [ $COUNT -ge $INTERVALS ]; then
+        exit 2
+    fi
+    COUNT=`expr $COUNT + 1`
+    START=`expr $START + $BACKOFF`
+    sleep $START
+}
+

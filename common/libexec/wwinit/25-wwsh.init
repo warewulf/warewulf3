@@ -1,0 +1,30 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2012, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: ALL
+#INIT: TESTING
+
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+wwprint "Confirming that wwsh accepts some basic commands\n"
+
+wwrun wwsh quit || exit 255
+wwrun wwsh help || exit 255
+wwrun wwsh node new testnode0000 || exit 255
+wwrun wwsh node list || exit 255
+wwrun wwsh node delete testnode0000 || exit 255
+
+exit 0
+# vim: filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

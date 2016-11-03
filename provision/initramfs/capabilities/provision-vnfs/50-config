@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+if [ -d "$NEWROOT/etc/sysconfig" ]; then
+    cp /tmp/ifcfg-* $NEWROOT/etc/sysconfig/network-scripts/ 2>/dev/null
+
+    if [ -n "$HOSTNAME" ]; then
+        grep -v "^HOSTNAME=" $NEWROOT/etc/sysconfig/network > /tmp/network_withouthostname
+        cat /tmp/network_withouthostname > $NEWROOT/etc/sysconfig/network
+        rm -f /tmp/network_withouthostname
+        echo "HOSTNAME=$HOSTNAME" >> $NEWROOT/etc/sysconfig/network
+    fi
+else
+    if [ -n "$HOSTNAME" ]; then
+        echo "$HOSTNAME" > $NEWROOT/etc/hostname
+    fi
+    cp /tmp/interfaces $NEWROOT/etc/network/ 2>/dev/null
+fi
+
+if [ -z "$WWNOFSTABUPDATE" ]; then
+    if [ -f "$NEWROOT/etc/fstab" ]; then
+        > $NEWROOT/etc/fstab_
+        cat $NEWROOT/etc/fstab | while read i; do
+            if [ "x$i" == "x#GENERATED_ENTRIES#" ]; then
+                cat /tmp/fstab >> $NEWROOT/etc/fstab_
+            else
+                echo "$i" >> $NEWROOT/etc/fstab_
+            fi
+
+        done
+        cat $NEWROOT/etc/fstab_ > $NEWROOT/etc/fstab
+        rm -f $NEWROOT/etc/fstab_
+    else
+        cp /tmp/fstab $NEWROOT/etc/fstab
+    fi
+fi
+

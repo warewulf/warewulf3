@@ -1,0 +1,101 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2012, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: ALL
+#INIT: AUTH
+#INIT: MASTER
+#INIT: PROVISION
+
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+wwreqroot
+
+
+RETVAL=1
+
+if [ ! -d "$HOME/.ssh" ]; then
+    install -d -m 700 $HOME/.ssh
+fi
+
+wwprint "Checking ssh keys for root"
+if ! wwtest test -f "$HOME/.ssh/cluster"; then
+    wwprint "Generating ssh keypairs for local cluster access:\n"
+    if ! wwrun ssh-keygen -t dsa -f $HOME/.ssh/cluster -N ''; then
+        exit 255
+    fi
+    wwprint "Updating authorized keys"
+    cat $HOME/.ssh/cluster.pub >> $HOME/.ssh/authorized_keys
+    chmod 0600 $HOME/.ssh/authorized_keys
+    reply_ok
+    RETVAL=0
+fi
+
+wwprint "Checking root's ssh config"
+if ! wwtest test -f "$HOME/.ssh/config"; then
+    wwprint "Creating ssh configuration for root"
+    echo "Host *" >> $HOME/.ssh/config
+    echo "   IdentityFile ~/.ssh/identity" >> $HOME/.ssh/config
+    echo "   IdentityFile ~/.ssh/id_rsa" >> $HOME/.ssh/config
+    echo "   IdentityFile ~/.ssh/id_dsa" >> $HOME/.ssh/config
+    echo "   IdentityFile ~/.ssh/cluster" >> $HOME/.ssh/config
+    echo "   StrictHostKeyChecking=no" >> $HOME/.ssh/config
+    chmod 0600 $HOME/.ssh/config
+    RETVAL=0
+    reply_done
+fi
+
+
+wwprint "Checking for default RSA1 host key for nodes"
+if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key"; then
+    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
+    wwprint "Creating default node ssh_host_key:\n"
+    if ! wwrun ssh-keygen -q -t rsa1 -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key -C '' -N ''; then
+        exit 255
+    fi
+    RETVAL=0
+fi
+
+wwprint "Checking for default RSA host key for nodes"
+if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key"; then
+    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
+    wwprint "Creating default node ssh_host_rsa_key:\n"
+    if ! wwrun ssh-keygen -q -t rsa -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key -C '' -N ''; then
+        exit 255
+    fi
+    RETVAL=0
+fi
+
+wwprint "Checking for default DSA host key for nodes"
+if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_dsa_key"; then
+    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
+    wwprint "Creating default node ssh_host_dsa_key:\n"
+    if ! wwrun ssh-keygen -q -t dsa -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_dsa_key -C '' -N ''; then
+        exit 255
+    fi
+    RETVAL=0
+fi
+
+wwprint "Checking for default ECDSA host key for nodes"
+if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key"; then
+    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
+    wwprint "Creating default node ssh_host_ecdsa_key:\n"
+    if ! wwrun ssh-keygen -q -t ecdsa -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key -C '' -N ''; then
+        exit 255
+    fi
+    RETVAL=0
+fi
+
+
+exit $RETVAL

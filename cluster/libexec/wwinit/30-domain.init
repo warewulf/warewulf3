@@ -1,0 +1,46 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2012, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: ALL
+#INIT: PROVISION
+#INIT: VNFS
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+if [ ! -f "$WAREWULF_SYSCONFDIR/warewulf/defaults/node.conf" ]; then
+    wwprint "Could not find default node configuration file!" warn
+    reply_error
+    exit 1
+fi
+
+if egrep -q "^\sdomain\s=\s*\w+" $WAREWULF_SYSCONFDIR/warewulf/defaults/node.conf; then
+    wwprint "Default domain already set for nodes"
+    reply_skipped
+    exit 1
+fi
+
+HOSTNAME=`hostname`
+DOMAIN=`echo $HOSTNAME | sed -e 's/^[^\.]*\.//'`
+
+if [ -z "$DOMAIN" -o "$HOSTNAME" == "$DOMAIN" ]; then
+    DOMAIN="cluster"
+fi
+
+wwprint "Setting default node domain to: \"$DOMAIN\""
+
+if ! wwaction sed -i -e "s/#*[ ]*domain =.*/domain = $DOMAIN/" $WAREWULF_SYSCONFDIR/warewulf/defaults/node.conf; then
+    exit 255
+fi
+
+exit 0

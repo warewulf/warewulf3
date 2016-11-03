@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+. /warewulf/transports/http/functions
+
+while true; do
+    for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
+        if wget -q -O - "http://$master/WW/nodeconfig?hwaddr=$WWINIT_HWADDR" 2>/dev/null; then
+            exit 0
+        fi
+    done
+    echo -n "." 1>&2
+    throttled_sleep
+done

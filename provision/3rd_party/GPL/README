@@ -1,0 +1,20 @@
+Warewulf distributes some third-party software as a convenience to our
+users.  While Warewulf itself is licensed under a DOE license (a
+derivative of the BSD license), the third-party software may have different
+licensing terms, including the GNU General Public License (GPL).
+
+As it is not a derivative work of these other products, the Warewulf code
+is not subject to the terms of these other licenses.  However, since the
+distribution contains all these separately-licensed works, each license
+must be respected and followed when redistributing Warewulf packages.
+
+The Warewulf developers on behalf of Lawrence Berkeley National Laboratory
+have contacted the upstream maintainers of these projects and notified them
+of our intentions.
+
+
+Signed-off-by:
+
+Bradley M. Kuhn, Executive Director, Software Freedom Conservancy, Busybox
+H. Peter Anvin, Syslinux Project
+Theodore Ts'o, E2fsprogs

@@ -1,0 +1,414 @@
+#!/bin/sh
+# -*-Shell-script-*-
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2013, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+
+mkdir /proc 2>/dev/null
+mkdir /sys  2>/dev/null
+mkdir /tmp  2>/dev/null
+mkdir /var  2>/dev/null
+mkdir /usr  2>/dev/null
+
+mount -t proc none /proc >/dev/null 2>&1
+mount -t sysfs none /sys >/dev/null 2>&1
+
+. /etc/functions
+
+NEWROOT=/newroot
+export NEWROOT
+
+# Old habits die hard.
+DESTDIR=$NEWROOT
+export DESTDIR
+
+dmesg -n 1 >/dev/null 2>&1
+clear
+
+msg_blue "Now Booting Warewulf...\n"
+echo
+
+if [ -n "$WWHOSTNAME" ]; then
+    HOSTNAME="$WWHOSTNAME"
+    export HOSTNAME
+    msg_white "Setting the hostname ($HOSTNAME): "
+    hostname $HOSTNAME
+    wwsuccess
+fi
+
+if [ -x "/sbin/mdev" ]; then
+   echo /sbin/mdev > /proc/sys/kernel/hotplug
+   /sbin/mdev -s
+fi
+
+if [ -f "/etc/wwmodprobe" ]; then
+    msg_white  "Loading drivers: "
+    grep -v "^#" /etc/wwmodprobe | while read i; do
+        if modprobe $i 2>/dev/null; then
+            name=`echo "$i" | cut -d " " -f 1`
+            msg_gray "$name "
+        fi
+    done
+    wwsuccess
+fi
+
+msg_white "Detecting hardware: "
+for module in `/sbin/detect`; do
+    if modprobe $module 2>/dev/null; then
+        name=`echo "$module" | cut -d " " -f 1`
+        msg_gray "$name "
+    fi
+done
+wwsuccess
+
+ifup() {
+    DEVICE=$1
+    HWADDR=$2
+    # Device name to use in the generated init config files
+    OSDEVICE=$3
+
+    RETVAL=1
+    msg_white "Checking for network device: $DEVICE ($OSDEVICE)"
+    if ifconfig $DEVICE up >/dev/null 2>&1; then
+        wwsuccess
+        if [ -n "$WWMTU" ]; then
+            msg_white "Setting the MTU to: $WWMTU "
+            if ifconfig $DEVICE mtu $WWMTU >/dev/null 2>&1; then
+                wwsuccess
+            else
+                wwfailure
+            fi
+        fi
+        if [ -n "$WWIPADDR" -a -n "$WWNETMASK" -a -n "$WWMASTER" ]; then
+            msg_white "Configuring $DEVICE ($OSDEVICE) statically: "
+            msg_gray "($WWIPADDR/$WWNETMASK)"
+            if ifconfig $DEVICE $WWIPADDR netmask $WWNETMASK up; then
+                wwsuccess
+                if [ -n "$WWGATEWAY" ]; then
+                    msg_white "Configuring gateway: "
+                    msg_gray "($WWGATEWAY)"
+                    if route add default gw $WWGATEWAY; then
+                        wwsuccess
+                    else
+                        wwfailure
+                    fi
+                fi
+
+                if [ -z "$WWNETCFGFILE" ]; then
+                    msg_white "Creating network initialization files: "
+                    msg_gray "($OSDEVICE)"
+                    # Debian based /etc/network/interfaces
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/interfaces
+                    echo "auto lo" >> /tmp/interfaces
+                    echo "iface lo inet loopback" >> /tmp/interfaces
+                    echo '' >> /tmp/interfaces
+                    echo "auto $OSDEVICE" >> /tmp/interfaces
+                    echo "iface $OSDEVICE inet static" >> /tmp/interfaces
+                    echo "    address $WWIPADDR" >> /tmp/interfaces
+                    echo "    netmask $WWNETMASK" >> /tmp/interfaces
+                    if [ -n "$WWGATEWAY" ]; then
+                        echo "    gateway $WWGATEWAY" >> /tmp/interfaces
+                    fi
+                    if [ -n "$HWADDR" ]; then
+                        echo "    hwaddress ether $HWADDR" >> /tmp/interfaces
+                    fi
+
+                    # RHEL based ifcfg
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$OSDEVICE
+                    echo "DEVICE=$OSDEVICE" >> /tmp/ifcfg-$OSDEVICE
+                    echo "BOOTPROTO=static" >> /tmp/ifcfg-$OSDEVICE
+                    echo "ONBOOT=yes" >> /tmp/ifcfg-$OSDEVICE
+                    echo "IPADDR=$WWIPADDR" >> /tmp/ifcfg-$OSDEVICE
+                    echo "NETMASK=$WWNETMASK" >> /tmp/ifcfg-$OSDEVICE
+                    if [ -n "$WWGATEWAY" ]; then
+                        echo "GATEWAY=$WWGATEWAY" >> /tmp/ifcfg-$OSDEVICE
+                    fi
+                    if [ -n "$HWADDR" ]; then
+                        echo "HWADDR=$HWADDR" >> /tmp/ifcfg-$OSDEVICE
+                    fi
+
+                    if [ -n "$WWMTU" ]; then
+                        echo "MTU=$WWMTU" >> /tmp/ifcfg-$OSDEVICE  # RHEL
+                        echo "    mtu $WWMTU" >> /tmp/interfaces # DEB
+                    fi
+                    wwsuccess
+                fi
+
+                COUNT=0
+                msg_white  "Trying to reach the master node at $WWMASTER "
+                while [ $COUNT -le $WWNETRETRY ]; do
+                    if ping -c 1 $WWMASTER >/dev/null 2>&1; then
+                        wwsuccess
+                        return 0
+                    fi
+                    msg_white "."
+                    COUNT=`expr $COUNT + 1`
+                    sleep 1
+                done
+                wwfailure
+            else
+                wwfailure
+            fi
+        fi
+
+        COUNT=0
+        msg_white "Configuring $DEVICE via DHCP: "
+        while [ $COUNT -le $WWNETRETRY ]; do
+            udhcpc --now --quit -i $DEVICE -t 1 -T 1 -A 1 -s /sbin/dhcp-script >/dev/null
+            if [ "$?" -eq 0 ]; then
+                . /etc/network.conf
+                msg_gray "($IPADDR/$NETMASK)"
+                wwsuccess
+
+                if [ -z "$WWNETCFGFILE" ]; then
+                    msg_white "Creating network initialization files: "
+                    msg_gray "($OSDEVICE)"
+                    # DEB
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/interfaces
+                    echo "auto lo" >> /tmp/interfaces
+                    echo "iface lo inet loopback" >> /tmp/interfaces
+                    echo '' >> /tmp/interfaces
+                    echo "auto $OSDEVICE" >> /tmp/interfaces
+                    echo "iface $OSDEVICE inet static" >> /tmp/interfaces
+                    echo "    address $WWIPADDR" >> /tmp/interfaces
+                    echo "    netmask $WWNETMASK" >> /tmp/interfaces
+                    if [ -n "$WWGATEWAY" ]; then
+                        echo "    gateway $WWGATEWAY" >> /tmp/interfaces
+                    fi
+                    if [ -n "$HWADDR" ]; then
+                        echo "    hwaddress ether $HWADDR" >> /tmp/interfaces
+                    fi
+
+                    # RHEL
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$OSDEVICE
+                    echo "DEVICE=$OSDEVICE" >> /tmp/ifcfg-$OSDEVICE
+                    echo "BOOTPROTO=static" >> /tmp/ifcfg-$OSDEVICE
+                    echo "ONBOOT=yes" >> /tmp/ifcfg-$OSDEVICE
+                    echo "IPADDR=$IPADDR" >> /tmp/ifcfg-$OSDEVICE
+                    echo "NETMASK=$NETMASK" >> /tmp/ifcfg-$OSDEVICE
+                    echo "GATEWAY=$GATEWAY" >> /tmp/ifcfg-$OSDEVICE
+                    echo "HWADDR=$HWADDR" >> /tmp/ifcfg-$OSDEVICE
+                fi
+    
+                if [ -n "$WWMTU" ]; then
+                    echo "MTU=$WWMTU" >> /tmp/ifcfg-$OSDEVICE  # RHEL
+                    echo "    mtu $WWMTU" >> /tmp/interfaces # DEB
+                fi
+                return 0
+            fi
+            msg_white "."
+            COUNT=`expr $COUNT + 1`
+            sleep 1
+        done
+        wwfailure
+    else
+        wwskipped
+    fi
+    # If we have gotten here, give up for this device, and bring device down
+    # just in case its present.
+    ifconfig $DEVICE down >/dev/null 2>&1
+    return 255
+}
+
+
+# Bring up networks
+msg_white "Bringing up local loopback network:"
+if ifconfig lo 127.0.0.1 netmask 255.255.255.0 up >/dev/null 2>&1; then
+    wwsuccess
+else
+    wwfailure
+fi
+
+# First try to find interface based on WWHWADDR
+for i in `echo /sys/class/net/* | xargs -n1 /usr/bin/basename | grep -v lo`; do
+    HWADDR=`cat /sys/class/net/$i/address`
+    # Use GUID if IB
+    if [ ${#HWADDR} -eq 59 ]; then
+        HWADDR=`expr substr $HWADDR 37 23`
+    fi
+    if [ $HWADDR == $WWHWADDR ]; then
+        if ifup $i $WWHWADDR $WWNETDEV; then
+            echo "$i" > /tmp/wwdev
+        fi
+        break
+    fi
+done
+
+# If the above doesn't exist or fails, then try brute force
+if [ ! -f /tmp/wwdev ]; then
+    for i in `echo /sys/class/net/* | xargs -n1 /usr/bin/basename | grep -v lo`; do
+        HWADDR=`cat /sys/class/net/$i/address`
+        # Use GUID if IB
+        if [ ${#HWADDR} -eq 59 ]; then
+            HWADDR=`expr substr $HWADDR 37 23`
+        fi
+        if ifup $i $HWADDR $WWNETDEV; then
+            echo "$i" > /tmp/wwdev
+            break
+        fi
+    done
+fi
+
+if [ $WWDEBUG -ge 3 ]; then
+    echo
+    echo "Spawning a debug shell. Exit to continue provisioning."
+    setsid /bin/cttyhack /bin/sh
+    echo "Continuing provisioning process."
+    echo
+fi
+
+if [ ! -f /tmp/wwdev ]; then
+    echo
+    echo "ERROR: Network hardware was not recognized!"
+    echo
+    wwreboot
+fi
+
+NETDEV=`cat /tmp/wwdev`
+msg_white "Probing for HW Address: "
+if [ -f "/sys/class/net/$NETDEV/address" ]; then
+    WWINIT_HWADDR=`cat /sys/class/net/$NETDEV/address`
+    if [ ${#WWINIT_HWADDR} -eq 59 ]; then
+        WWINIT_HWADDR=`expr substr $WWINIT_HWADDR 37 23`
+    fi
+    msg_gray "($WWINIT_HWADDR)"
+    wwsuccess
+else
+    wwfailure
+    wwreboot
+fi
+export WWINIT_HWADDR
+
+mkdir -p /var/log/warewulf
+msg_white "Starting syslogd: "
+if [ -n "$WWMASTER" ]; then
+    if syslogd -O /var/log/warewulf/messages -R $WWMASTER -L; then
+        wwsuccess
+    else
+        wwfailure
+    fi
+else
+    wwskipped
+fi
+
+
+for i in /etc/warewulf/init/*; do
+    if [ -x "$i" -a -f "$i" ]; then
+        sh $i
+    fi
+done
+
+
+msg_white "Getting base node configuration: "
+
+if wwgetnodeconfig > /tmp/nodeconfig; then
+    . /tmp/nodeconfig
+    wwsuccess
+else
+    wwfailure
+    wwreboot
+fi
+
+if [ ! -n "$HOSTNAME" ]; then
+    # We didn't set the hostname above, lets see if we can set it now...
+    if [ ! -n "$WWNAME" ]; then
+        HOSTNAME=`echo "$WWNAME" | sed -e 's/.*\,//'`
+    else
+        HOSTNAME="localhost.localdomain"
+    fi
+    export HOSTNAME
+
+    msg_white "Setting the hostname ($HOSTNAME): "
+    hostname $HOSTNAME
+    wwsuccess
+fi
+
+
+if [ -n "$WWPRESHELL" -a "$WWPRESHELL" != "0" ]; then
+    echo "This node is configured to run a shell before the provision process"
+    echo "due to the 'preshell' Warewulf node configuration... So be it!"
+    echo
+    wwlogger "PRESHELL defined, waiting for local shell to exit"
+    setsid /bin/cttyhack /bin/sh
+fi
+
+wwlogger "Starting the provision handler"
+
+msg_white "Starting the provision handler: \n"
+provisionhandler
+echo
+
+if [ -n "$WWPOSTSHELL" -a "$WWPOSTSHELL" != "0" ]; then
+    echo "This node is configured to run a shell after the provision process"
+    echo "due to the 'postshell' Warewulf node configuration... So be it!"
+    echo
+    wwlogger "POSTSHELL defined, waiting for local shell to exit"
+    setsid /bin/cttyhack /bin/sh
+fi
+
+if [ -x "$NEWROOT/sbin/init" ]; then
+    msg_white "Stopping syslogd: "
+    if killall syslogd >/dev/null 2>&1; then
+        wwsuccess
+    else
+        wwfailure
+    fi
+    if [ -n "$WWPOSTNETDOWN" ]; then
+        NETDEV=`cat /tmp/wwdev`
+        if [ -f "/tmp/ifcfg-$WWNETDEV" ]; then
+            . /tmp/ifcfg-$WWNETDEV
+            if [ -n "$IPADDR" -a -n "$NETMASK" ]; then
+                wwlogger "Deleting network interface address $NETDEV:$IPADDR/$NETMASK ($WWNETDEV)"
+                msg_white "Deleting network interface address $NETDEV:$IPADDR/$NETMASK ($WWNETDEV)"
+                if ip addr del $IPADDR/$NETMASK dev $NETDEV; then
+                    wwsuccess
+                else
+                    wwfailure
+                fi
+            elif [ -n "$IPADDR" ]; then
+                wwlogger "Deleting network interface address $NETDEV:$IPADDR ($WWNETDEV)"
+                msg_white "Deleting network interface address $NETDEV:$IPADDR ($WWNETDEV)"
+                if ip addr del $IPADDR dev $NETDEV; then
+                    wwsuccess
+                else
+                    wwfailure
+                fi
+
+            fi
+
+            wwlogger "Shutting down network interface $NETDEV ($WWNETDEV)"
+            msg_white "Shutting down network interface $NETDEV ($WWNETDEV): "
+            if ifconfig $NETDEV down; then
+                wwsuccess
+            else
+                wwfailure
+            fi
+        else
+            wwfailure "Could not bring down $NETDEV ($WWNETDEV)"
+            msg_white "Could not bring down $NETDEV ($WWNETDEV)"
+            wwfailure
+        fi
+    fi
+
+    mkdir -p $NEWROOT${WWBOOTSTRAPLOGS:-/var/log} >/dev/null 2>&1
+    mv /var/log/warewulf $NEWROOT${WWBOOTSTRAPLOGS:-/var/log}/
+
+    wwlogger "Calling /sbin/init"
+    seq 1 5 | tac | while read i; do
+        echo -ne "\rCalling /sbin/init in $i seconds..."
+        sleep 1
+    done
+    clear
+    exec switch_root $NEWROOT /sbin/init
+fi
+
+wwlogger "Provision process did not complete! Will try again..."
+
+wwreboot
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

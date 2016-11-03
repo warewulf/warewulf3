@@ -1,0 +1,191 @@
+#!/usr/bin/perl -Tw
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+# 
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+# $Id: wwsh 1961 2016-02-26 21:40:47Z gmk $
+#
+
+use Getopt::Long;
+use Term::ReadLine;
+use File::Path;
+use Text::ParseWords;
+use Warewulf::Init;
+use Warewulf::Logger;
+use Warewulf::Util;
+use Warewulf::Config;
+use Warewulf::Term;
+use Warewulf::DataStore;
+use Warewulf::ModuleLoader;
+use Warewulf::EventHandler;
+
+my ($modules, $db, $term, $events);
+my @keywords;
+my %keyword_hash;
+my $retval = 0;
+
+$ENV{"PATH"} = "/bin:/usr/bin:/usr/local/bin";
+
+sub
+run_cmd()
+{
+    my ($command, @ARGS) = @_;
+
+    if ($command) {
+        my ($keyword, @arg) = split(/\s+/, $command, 2);
+        my $run_modules = 0;
+
+        push(@arg, @ARGS);
+
+        if ($keyword) {
+            foreach my $module ($modules->list($keyword)) {
+                if ($module->can("exec")) {
+                    $run_modules++;
+                    if (! $module->exec(@arg) ) {
+                        $retval++;
+                    }
+                } else {
+                    &iprint("Warewulf module '$keyword' does not support exec()\n");
+                }
+            }
+            if ($run_modules == 0) {
+               $retval++;
+               &eprint("Warewulf command '$keyword' not available\n");
+            }
+        }
+        &dprint("Command executed by $run_modules modules\n");
+    }
+}
+
+sub
+print_help()
+{
+    print "wwsh [wwsh options] [command] [object] [command options]\n";
+    print "-"x78, "\n";
+    print "WWSH OPTIONS:\n";
+    print "  -d|--debug        -- Enable Debug Output\n";
+    print "     --help         -- Print this help\n";
+    print "  -v|--verbose      -- Enable Verbose Output\n";
+    print "  -q|--quiet        -- Enable Quiet Mode\n";
+    print "  -y|--yes|--noask  -- Assume 'Yes' to all questions\n";
+    print "\n\n";
+    print "WWSH COMMANDS:\n";
+    print "  help              -- Print command (module) help\n";
+    print "\n";
+    exit 0;
+}
+
+######################################################################
+
+my $opt_debug;
+my $opt_verbose;
+my $opt_quiet;
+my $opt_noask;
+my $opt_help;
+
+Getopt::Long::Configure ("bundling", "passthrough");
+
+GetOptions(
+    'd|debug'       => \$opt_debug,
+    'help'          => \$opt_help,
+    'v|verbose'     => \$opt_verbose,
+    'q|quiet'       => \$opt_quiet,
+    'noask'         => \$opt_noask,
+    'y|yes'         => \$opt_noask,
+);
+
+
+&set_log_level("NOTICE");
+$term = Warewulf::Term->new();
+
+&print_help if $opt_help;
+
+if ($opt_debug) {
+    &set_log_level("DEBUG");
+} elsif ($opt_verbose) {
+    &set_log_level("INFO");
+} elsif ($opt_quiet) {
+    $term->interactive(0);
+    &set_log_level("WARNING");
+}
+
+# We first need to initialize the Datastore and then test to make sure we have
+# a successful connection before building more objects and going further.
+$db = Warewulf::DataStore->new();
+
+if (! defined($db)) {
+    &eprint("Failed initialization of the data store!\n");
+    exit 1;
+}
+
+$events = Warewulf::EventHandler->new();
+$modules = Warewulf::ModuleLoader->new("Cli");
+
+
+foreach my $module ($modules->list()) {
+    push(@keywords, $module->keyword());
+    $term->complete($module->keyword(), $module);
+}
+
+# Make sure all keywords are unique
+%keyword_hash = map { $_, 1 } @keywords;
+@keywords = sort keys %keyword_hash;
+
+
+if (exists($ENV{"HOME"}) and $ENV{"HOME"} =~ /^([a-zA-Z0-9\/\._\-]+)$/) {
+    my $home = $1;
+    if (! -d "$home/.wwsh") {
+        mkpath("$home/.wwsh");
+    }
+}
+
+$events->eventloader();
+$events->handle("WWSH.START");
+
+if ((scalar(@ARGV) == 1) && (-f $ARGV[0])) {
+    &iprint("Running non-interactively from file\n");
+    $term->interactive(0);
+    open(INPUT, $ARGV[0]);
+    while(my $line = <INPUT>) {
+        chomp($line);
+        $line =~ s/[^\\]?#.*$//; # There may be nothing in front of the #
+        $line =~ s/\s+$//; # Get rid of the trailing whitespace. Warewulf/Util.pm doesn't like it
+
+        &run_cmd(&quotewords('\s+', 1, $line));
+    }
+} elsif (@ARGV) {
+    if ($opt_noask) {
+        $term->interactive(0);
+    }
+    &iprint("Running non-interactively from directly passed argument\n");
+    &run_cmd(@ARGV);
+} elsif ($term->interactive()) {
+    $term->history_load("$ENV{HOME}/.wwsh/history");
+
+    while ( defined ($_ = $term->get_input((exists($set{"CMD"}) ? "Warewulf > $set{CMD}: " : "Warewulf> ")))) {
+        chomp;
+        $term->history_add($_);
+        &run_cmd(&quotewords('\s+', 1, $_));
+    }
+
+    $term->history_save();
+    print "\n";
+} else {
+    &iprint("Running non-interactively\n");
+    $term->interactive(0);
+    while (<>) {
+        my $line;
+
+        chomp($line = $_);
+        $line =~ s/[^\\]?#.*$//; # There may be nothing in front of the #
+        $line =~ s/\s+$//; # Get rid of the trailing whitespace. Warewulf/Util.pm doesn't like it
+        &run_cmd(&quotewords('\s+', 1, $line));
+    }
+}
+
+
+$events->handle("WWSH.END");
+exit($retval);

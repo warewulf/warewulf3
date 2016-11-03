@@ -1,0 +1,53 @@
+Thu Aug 30 16:39:49-0500 2012                       Jason Stover (jms)
+
+ICR-2667:
+  Add in bin/disk.sh as a temporary placeholder. It's a basic working
+  shell script which will read a wwfirstboot config, and generate a 
+  sfdisk script to partition the given disk. Minor testing, but I 
+  want to at least get this state into the repo.
+----------------------------------------------------------------------
+Wed Sep 05 16:36:02-0500 2012                       Jason Stover (jms)
+
+ICR-2667:
+  Additional modifications to the wwfirstboot configuration file, and
+  the disk.sh testing script.
+
+  etc/sysconfig/wwfirstboot:: Entries for color output
+  bin/disk.sh:: Some more additions.
+----------------------------------------------------------------------
+Fri Sep 07 15:04:50-0500 2012                       Jason Stover (jms)
+
+ICR-2667:
+  Finalized form of the wwfirstboot script. warewulf-cluster.spec is
+  configured to build a 'warewulf-cluster-node' package, that we will
+  install into the VNFS structure. This will give us the ability to
+  partition/format drives, seperate of the warewulf setup-filesystems
+  capability.
+----------------------------------------------------------------------
+Mon Oct 01 09:25:10-0500 2012                       Jason Stover (jms)
+
+ICR-2667:
+  - Fixes to wwfirstboot to remove bc dependency.
+  - wwfirstboot will now stop processing PART_# entries once an entry
+    with a size of 'fill' is seen
+  - Clean up/Expansion of README.node 
+----------------------------------------------------------------------
+Mon Nov 19 14:57:36 2012                        Michael Jennings (mej)
+
+Only add entries for the file we create.
+----------------------------------------------------------------------
+Fri Dec 14 16:50:18-0600 2012                       Jason Stover (jms)
+
+Rework wwfirstboot to allow for multiple steps to be done during the
+system initialization.
+----------------------------------------------------------------------
+Fri Dec 14 16:50:18-0600 2012                       Jason Stover (jms)
+
+Rework wwfirstboot to allow for multiple steps to be done during the
+system initialization.
+----------------------------------------------------------------------
+Mon Mar 11 16:47:40 2013     Jason Stover(jms) Matias Cabral(macabral)
+
+Implementation of MIC support for Warewulf. 99-michost.wwfb
+----------------------------------------------------------------------
+

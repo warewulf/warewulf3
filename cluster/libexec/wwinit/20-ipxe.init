@@ -1,0 +1,27 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2012, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: IPXE
+
+UNDIONLYURL="http://boot.ipxe.org/undionly.kpxe"
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+wwprint "Downloading undionly.kpxe from the iPXE project. iPXE is licensed under GPLv2: http://ipxe.org/licensing.\n"
+
+if [[ ! -e $WAREWULF_DATADIR/warewulf/undionly.kpxe ]]; then
+    wwrun curl -o $WAREWULF_DATADIR/warewulf/undionly.kpxe $UNDIONLYURL || exit 255
+fi
+
+exit 0

@@ -1,0 +1,111 @@
+#!/bin/bash
+#
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+# $Id: wwmkchroot 913 2012-04-19 00:33:31Z gmk $
+
+prefix="@prefix@"
+exec_prefix="@exec_prefix@"
+libexecdir="@libexecdir@"
+
+
+usage() {
+    echo "$0 [options] TEMPLATE_NAME PATH"
+    echo
+    echo "OPTIONS:"
+    echo "    -d        Debug output"
+    echo "    -h        Show usage"
+    echo
+    echo "TEMPLATE_NAME (select one of the following):"
+    for i in $libexecdir/warewulf/wwmkchroot/*.tmpl; do
+        NAME=`basename $i | sed -e 's/\.tmpl$//'`
+        DESC=`grep '^#DESC: ' $i | sed -e 's/#DESC: //'`
+        printf "   * %-20s %s\n" "$NAME" "$DESC"
+    done
+    echo
+    echo "PATH:"
+    echo "   This is the location where the VNFS will be created"
+    echo
+    echo "EXAMPLES:"
+    echo
+    echo " # wwmkchroot rhel-generic /var/chroots/rhel"
+    echo " # wwmkchroot debian8-64 /var/chroots/deb8"
+    echo
+}
+
+
+### Argument processing
+while getopts "a:dhv" opt; do
+    case $opt in
+        d)
+            VERBOSE=1
+            set -x
+        ;;
+        v)
+            VERBOSE=1
+        ;;
+        h)
+            usage
+            exit 0
+        ;;
+        a)
+            var=$OPTARG
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+export VNFSTEMPLATE=$1
+shift
+export CHROOTDIR=$1
+shift
+
+if [ -z "$VNFSTEMPLATE" ]; then
+    usage
+    exit 1
+fi
+
+#### Loading templates
+if [ -d "$libexecdir/warewulf/wwmkchroot" ]; then
+    pushd $libexecdir/warewulf/wwmkchroot >/dev/null
+    test -n "$VERBOSE" && echo "Loading general template functions"
+    if [ -f "./functions" ]; then
+        . "./functions"
+    else
+        echo "$0: Error: Can not find $libexecdir/warewulf/wwmkchroot/functions"
+        exit 1;
+    fi
+
+    test -n "$VERBOSE" && echo "Loading $VNFSTEMPLATE template"
+    if [ -f "$VNFSTEMPLATE.tmpl" ]; then
+        . "$VNFSTEMPLATE.tmpl"
+    else
+        echo "$0: Error: Can not find $libexecdir/warewulf/wwmkchroot/$VNFSTEMPLATE.tmpl"
+        exit 1
+    fi
+    popd >/dev/null
+else
+    echo "ERROR: Template directory ($libexecdir/warewulf/wwmkchroot) does not exist!"
+    exit 1
+fi
+
+if [ -z "$CHROOTDIR" ]; then
+    echo "ERROR: You must define the directory to build the chroot"
+    usage
+    exit 1
+fi
+#### Running template functions
+test -n "$VERBOSE" && echo "Starting template functions"
+for function in $FUNCTIONS; do
+    test -n "$VERBOSE" && echo "Running: $function"
+    $function || exit 1
+done
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

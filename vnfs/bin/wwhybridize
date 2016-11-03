@@ -1,0 +1,315 @@
+#!/usr/bin/perl -w
+# 
+# Author: Daryl W. Grunau
+# 
+# This program has been approved for release from Los Alamos National
+# Laboratory by LA-CC Number 10-066, and authored by an employee of
+# LANS LLC, operator of the Los Alamos National Laboratory
+# under Contract No. DE-AC52-06NA25396 with the U.S. Department of Energy.
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+$| = 1;
+(my $prog = $0) =~ s|.*/||;
+
+use 5.005;			# for 'qr//'
+use Pod::Usage;
+use Getopt::Long;
+use File::Find ();
+use Cwd 'abs_path';
+use Encode;
+
+&Getopt::Long::config(
+   'require_order',		# don't mix non-options with options
+   'auto_abbrev',		# allow unique option abbreviation
+   'bundling',			# allow bundling of options
+);
+
+our $opt_man;			# help
+our $opt_help;			# print the manpage
+our $opt_debug;			# print debug output
+our $opt_output='-';		# output file (default: STDOUT)
+our $opt_RAM_list;		# RAM file list
+
+pod2usage(2) unless &GetOptions(
+   'm|man'		=> \$opt_man,
+   'h|help'		=> \$opt_help,
+   'd|debug'		=> \$opt_debug,
+   'o|output=s'		=> \$opt_output,
+   'f|r|l|ram-list=s'	=> \$opt_RAM_list,
+);
+
+pod2usage(1) if (defined($opt_help));
+if ($opt_man) {				# print the man page
+   $ENV{'LANG'} = 'C';
+   if ($< && $>) {			# no root privs
+      pod2usage(-verbose => 2);
+   } else {
+      my $id = getpwnam("nobody") || getpwnam("nouser") || -2;
+      eval {
+	 $> = $id;			# drop euid first
+	 $< = $id;			# drop ruid
+      };
+      if (!$@ && $< && $>) {		# success!
+	 pod2usage(-verbose => 2)
+      } else {				# failure!
+	 pod2usage(1);
+      }
+   }
+}
+
+pod2usage("$prog: no vnfs directory specified!")
+   unless (scalar @ARGV);
+our $vnfs_root = shift(@ARGV);
+-d $vnfs_root || die "$prog: $vnfs_root: $!\n";
+$vnfs_root =~ s/\/+$//;			# strip off one or more trailing "/"
+
+# XXX: pre-process the kver from the vnfs_root and substitute in the
+# whitelist.
+our $KVER = undef;
+if (-d "$vnfs_root/lib/modules") {
+   if (opendir (KVER, "$vnfs_root/lib/modules")) {
+      our @Versions = grep { $_ !~ /^\.{1,2}$/ } readdir(KVER);
+      closedir KVER;
+      if ((scalar @Versions) == 1) {	# a unique kver in the vnfs_root
+	 $KVER = $Versions[0];
+	 print STDERR "debug: $vnfs_root: KVER = $KVER\n"
+	    if ($opt_debug);
+      }
+   }
+}
+
+pod2usage("$prog: no ram file list specified!")
+   unless (defined($opt_RAM_list));
+
+# Process the whitelist for valid entries.  Identify dirnames containing
+# whitelist files.  If a file here is actually a symlink, both the symlink
+# AND the absolute path to the target must exist in the ramdisk!!!
+our %WhiteList = ();
+our %WhiteDirs = ();
+open(LIST, $opt_RAM_list) || die "$prog: unable to open $opt_RAM_list: $!\n";
+while (defined(my $entry = <LIST>)) {
+   chomp $entry;
+   next if ($entry =~ /^#/);		# comments
+   $entry =~ s/#.*$//;			# strip off trailing comments
+   $entry =~ s/\s+$//;			# strip off trailing spaces
+   $entry =~ s/\/+$//;			# strip off one or more trailing "/"
+   $entry =~ s/\/{2,}/\//g;		# reduce multiple "/" to single
+   next if ($entry =~ /^\s*$/);		# white space
+   die "$prog: $opt_RAM_list: error: line $. does not specify a fully-qualified path.\n"
+      unless ($entry =~ /^\//);
+   if (defined($KVER)) {
+      $entry =~ s/\@KVER\@/$KVER/g;	# substitute @KVER@
+   } elsif ($entry =~ /\@KVER\@/) {
+      die "$prog: KVER: substitute requested but no unique version found.\n"
+   }
+   unless (-e "$vnfs_root$entry") {	# skip non-existent vnfs entries
+      print STDERR "debug: $vnfs_root$entry: No such file or directory, skipping.\n"
+	 if ($opt_debug);
+      next;
+   }
+   $WhiteList{$entry}++;
+   if (-l "$vnfs_root$entry") {		# the entry is a symlink!
+      (my $_dir = "$vnfs_root$entry") =~
+	 s/^(.*)\/[^\\]+$/$1/;		# strip off the non-directory part
+      my $referent = decode_utf8(readlink("$vnfs_root$entry"));
+      if ((my $a_referent = abs_path("$_dir/$referent"))) {
+	 ($referent = $a_referent) =~ s/^\Q$vnfs_root\E//;	# strip off "$vnfs_root"
+      } else {	# the referent is not relative to $vnfs_root, rather to "/"!
+	 unless ($referent =~ /^\//) {
+	    warn "$prog: $vnfs_root$entry -> $referent:\n\t does not specify a fully-qualified path; skipping\n";
+	    next;
+	 }
+	 unless (-e "$vnfs_root$referent") {	# skip non-existent vnfs entries
+	    warn "$prog: $vnfs_root$entry -> $referent:\n\t does not exist in the vnfs; skipping\n";
+	    next;
+	 }
+      }
+      $WhiteList{$referent}++;
+      print STDERR "debug: (L) $vnfs_root$entry -> $vnfs_root$referent\n"
+	 if ($opt_debug);
+
+      if (-d "$vnfs_root$referent") {
+	 $WhiteDirs{$referent}++;
+	 File::Find::find			# find symlinks beneath
+	    (					# the whitelist directory
+	       {				# whose referents point
+		  wanted => \&wanted,		# outside the directory's
+		  no_chdir => 1,		# root.
+	       },
+	       "$vnfs_root$referent"
+	    );
+      }
+   }
+
+   if (-d "$vnfs_root$entry") {
+      $WhiteDirs{$entry}++;
+      File::Find::find				# find symlinks beneath
+	 (					# the whitelist directory
+	    {					# whose referents point
+	       wanted => \&wanted,		# outside the directory's
+	       no_chdir => 1,			# root.
+	    },
+	    "$vnfs_root$entry"
+	 );
+   }
+}
+close(LIST);
+
+# Preen all but topmost whitelist directory entries
+foreach my $dirent (keys %WhiteDirs) {
+   (my $parent = $dirent) =~ s/^(.*)\/[^\\]+$/$1/;	# strip last component
+   while ($parent ne '') {
+      delete $WhiteDirs{$dirent} if (exists $WhiteDirs{$parent});
+      $dirent = $parent;
+      $parent =~ s/^(.*)\/[^\\]+$/$1/;
+   }
+}
+
+our $list_re = join ('|', map { quotemeta } keys %WhiteList);
+$list_re = qr/^($list_re)$/o;		# whitelist files as a regexp
+
+our $dirs_re = join ('\/|', map { quotemeta } keys %WhiteDirs) . '\/';
+$dirs_re = qr/^($dirs_re)/o;		# whitelist directories as a regexp
+
+# Process the vnfs_root subdirectory structure containing whitelist files.
+# Whitelist directories are never opendir'd so none of their subcontents
+# will show up in the blacklist!
+our %BlackList = ();			# symlink files
+foreach my $dirent (keys %WhiteList) {
+   next if ($dirent =~ /$dirs_re/);	# preen subdir files of whitelist dirs
+   $dirent =~ s/^(.*)\/[^\\]+$/$1/;	# strip off the last component
+   while ($dirent ne '') {
+      opendir (DIR, "$vnfs_root$dirent") ||
+	 die "$prog: unable to opendir '$vnfs_root$dirent': $!\n";
+F:    while (defined(my $f = readdir(DIR))) {
+	 next F if ($f =~ /^\.{1,2}$/);	# strip "." and ".."
+	 my $file = "$dirent/$f";
+	 next F if ($file =~ /$list_re/);# skip whitelist files
+	 $BlackList{$file}++;
+      }
+      closedir(DIR);
+      $dirent =~ s/^(.*)\/[^\\]+$/$1/;
+   }
+}
+
+# Process the vnfs_root topdir containing whitelist files.
+opendir (DIR, $vnfs_root) ||
+   die "$prog: unable to opendir '$vnfs_root': $!\n";
+while (defined(my $f = readdir(DIR))) {
+   next if ($f =~ /^\.{1,2}$/);		# strip "." and ".."
+   my $file = "/$f";
+   next if ($file =~ /$list_re/);	# skip whitelist files
+   $BlackList{$file}++;
+}
+closedir(DIR);
+
+# Ensure that the complete path to whitelist files never appear in the
+# blacklist.
+foreach my $entry (keys %WhiteList) {
+   while ($entry ne '') {
+      if (exists $BlackList{$entry}) {
+	 delete $BlackList{$entry};
+	 print STDERR "debug: preening $entry from blacklist.\n"
+	    if ($opt_debug);
+      }
+      $entry =~ s/^(.*)\/[^\\]+$/$1/;
+   }
+}
+
+open (OUTPUT, ">$opt_output") || die "$prog: unable to open '$opt_output': $!\n";
+select((select($opt_output), $| = 1)[0]);
+print OUTPUT join("\n", sort keys %BlackList) . "\n";
+close OUTPUT;
+
+exit 0;
+
+sub wanted {
+   my ($dev,$ino,$mode,$nlink,$uid,$gid,$ref);
+
+   (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+   -l _ &&
+   ($ref = readlink($_)) &&
+   ($ref = abs_path("$File::Find::dir/$ref")) &&
+    $ref !~ /^\Q$File::Find::topdir\E/ &&	# referent is outside the whitelist dir
+   ($ref =~ s/^\Q$vnfs_root\E//) &&		# strip off "$vnfs_root"
+   ($WhiteList{$ref}++) &&
+    $opt_debug &&
+    print STDERR "debug: (W) $_ -> $vnfs_root$ref\n"
+}
+
+# Documentation
+
+=head1 NAME
+
+B<hybridize> - generate an optimal Warewulf hybridize list
+
+=head1 SYNOPSIS
+
+B<hybridize> [B<--help>] [B<--man>]
+
+B<hybridize> [B<--debug>] [B<--output> I<file>] B<--ram-list> <I<file>> I</path/to/vnfs/root>
+
+=head1 DESCRIPTION
+
+B<hybridize> generates a list of files and/or directories suitable for
+building hybrid VNFS capsules.  The list is optimal in the sense
+that it contains a minimal set of symbolic links back into the VNFS while
+ensuring that entries from I<file> reside in RAM.  The generated list is
+unique to the I</vnfs/root> provided on the command line.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-h,--help>
+
+Show command usage and exit.
+
+=item B<-m,--man>
+
+Print the hybridize(1) manpage and exit.
+
+=item B<-d,--debug>
+
+Print runtime discovery and decision events to STDERR as B<hybridize> runs.
+
+=item B<-o,--output> I<file>
+
+Print the hybridize list to I<file> (default: STDOUT), overwriting I<file>
+if it pre-exists.
+
+=item B<-f,-l,-r,--ram-list> I<file>
+
+Identify the list of files that must exist in RAM from the contents of
+I<file>.  Entries are listed one per line followed by an optional hash
+comment, "#", which is stripped off from ram-list processing.  Blank-empty
+and/or hash-commented lines are treated likewise.  Directory entries may be
+specified in I<file>, implying to B<hybridize> that it, and its entire
+subcontents will reside in RAM.  Additionally, if the keyword "@KVER@" is
+found in I<file> it will be substituted with the (unique) kernel version
+located in the I</vnfs/root> provided on the command line.  The ram-list
+I<file> is a MANDATORY option to B<hybridize>.
+
+=back
+
+=head1 AUTHOR
+
+Daryl W. Grunau <dwg@lanl.gov>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2010 by Daryl W. Grunau
+
+This program has been approved for release from Los Alamos National
+Laboratory by LA-CC Number 10-066, and authored by an employee of
+LANS LLC, operator of the Los Alamos National Laboratory
+under Contract No. DE-AC52-06NA25396 with the U.S. Department of Energy.
+
+=cut
+

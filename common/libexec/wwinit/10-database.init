@@ -1,0 +1,134 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2012, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: ALL
+#INIT: DATASTORE
+#INIT: DATABASE
+
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+wwreqroot
+
+DATASTORE=`egrep "^database driver\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
+DBNAME=`egrep "^database name\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
+DBUSER=`egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
+DBPASS=`egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
+DBROOTUSER=`egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
+DBROOTPASS=`egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
+APIVERSION="1"
+
+SCHEMA="CREATE TABLE IF NOT EXISTS meta (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
+    name VARCHAR(64),
+    value VARCHAR(256),
+    PRIMARY KEY (id)
+);
+CREATE TABLE IF NOT EXISTS datastore (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
+    type VARCHAR(64),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    serialized BLOB,
+    data BLOB,
+    INDEX (id),
+    PRIMARY KEY (id)
+) ENGINE=INNODB;
+CREATE TABLE IF NOT EXISTS binstore (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
+    object_id INT UNSIGNED,
+    chunk LONGBLOB,
+    FOREIGN KEY (object_id) REFERENCES datastore (id),
+    INDEX (id),
+    PRIMARY KEY (id)
+) ENGINE=INNODB;
+CREATE TABLE IF NOT EXISTS lookup (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
+    object_id INT UNSIGNED,
+    field VARCHAR(64) BINARY,
+    value VARCHAR(64) BINARY,
+    FOREIGN KEY (object_id) REFERENCES datastore (id),
+    INDEX (id),
+    UNIQUE KEY (object_id, field, value),
+    PRIMARY KEY (id)
+) ENGINE=INNODB;"
+
+
+if [ "$DATASTORE" = "mysql" ]; then
+    if wwpackage_check mysql-server; then
+        wwservice_activate mysqld mysql
+    elif wwpackage_check mariadb-server; then
+        wwservice_activate mariadb
+    else
+        wwprint "No database package seems to exist for mysql!\n" error
+        exit 255
+    fi
+else
+    wwprint "Skipping configuration of datastore driver: $DATASTORE\n"
+fi
+
+if ! echo "use $DBNAME;" | mysql 2>/dev/null; then
+    wwrun mysqladmin create "$DBNAME" || exit 255
+fi
+
+DBVERS=`echo "select value from meta where name = 'dbvers' LIMIT 1;" | mysql -s "$DBNAME" 2>/dev/null`
+if [ -n "$DBVERS" ]; then
+    wwprint "Database version: $DBVERS\n"
+else
+    wwprint "Database version: UNDEF (need to create database)\n"
+fi
+
+if [ -z "$DBVERS" ]; then
+    wwprint "Creating database schema"
+    if echo "$SCHEMA" | mysql "$DBNAME"; then
+        reply_success
+    else
+        reply_error
+        exit 255
+    fi
+    wwprint "Setting the DB SCHEMA version to $APIVERSION"
+    if echo "insert into meta (name, value) VALUES ('dbvers', '$APIVERSION');" | mysql "$DBNAME"; then
+        reply_success
+    else
+        reply_error
+        exit 255
+    fi
+elif [ $DBVERS -lt $APIVERSION ]; then
+    wwprint "Updating database schema"
+    echo "UPDATE meta SET value=$APIVERSION WHERE name = 'dbvers';" | mysql "$DBNAME"
+    replay_skipped
+fi
+
+if [ -n "$DBUSER" -a "$DBUSER" != "root" ]; then
+    wwprint "Updating database permissions for base users"
+    if echo "GRANT SELECT ON $DBNAME.* TO $DBUSER@localhost IDENTIFIED BY '$DBPASS';" | mysql $DBNAME; then
+        reply_success
+    else
+        reply_error
+    fi
+fi
+
+if [ -n "$DBROOTUSER" -a "$DBROOTUSER" != "root" ]; then
+    wwprint "Updating database permissions for root user"
+    if echo "GRANT ALL PRIVILEGES ON $DBNAME.* TO $DBROOTUSER@localhost IDENTIFIED BY '$DBROOTPASS';" | mysql $DBNAME; then
+        reply_success
+    else
+        reply_error
+    fi
+fi
+
+
+
+exit 0
+
+# vim: filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

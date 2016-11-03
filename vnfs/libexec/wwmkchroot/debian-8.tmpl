@@ -1,0 +1,16 @@
+#DESC: A base 64 bit Debian jessie chroot
+
+# The general Deb include has all of the necessary functions, but requires
+# some basic variables specific to each chroot type to be defined.
+. include-deb
+
+ARCH="amd64"
+SUITE="jessie"
+DEB_MIRROR="http://http.us.debian.org/debian/"
+
+# Install additional packages with debootstrap
+PKGLIST="openssh-server openssh-client isc-dhcp-client,pciutils strace,nfs-common \
+ethtool iproute iputils-ping iputils-arping net-tools firmware-bnx2 linux-image-amd64"
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

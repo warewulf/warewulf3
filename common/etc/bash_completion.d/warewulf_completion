@@ -1,0 +1,69 @@
+#
+# Copyright (c) 2014, Same license as Warewulf
+#
+
+_wwsh()
+{
+    local cur second third 
+
+    COMPREPLY=()
+    cur=${COMP_WORDS[COMP_CWORD]}
+    second=${COMP_WORDS[1]}
+    third=${COMP_WORDS[2]}
+ 
+    # first level commands
+    if [ $COMP_CWORD -eq 1 ]; then
+        COMPREPLY=( $( compgen -W "node vnfs bootstrap object provision" -- $cur ) )
+
+    elif [ $COMP_CWORD -eq 2 ]; then
+        # Completion for 2nd level subcommands ie "wwsh vnfs"
+
+        case "${second}" in
+            "bootstrap")
+                COMPREPLY=( $( compgen -W "delete rebuild build export import list print help" -- $cur ) );;
+            "node")
+                COMPREPLY=( $( compgen -W "new set delete list print help" -- $cur ) );;
+            "vnfs")
+                COMPREPLY=( $( compgen -W "list import export delete print help" -- $cur ) );;
+            "provision")
+                COMPREPLY=( $( compgen -W "list print set help" -- $cur ) );;
+        esac
+		
+    elif [ $COMP_CWORD -eq 3 ]; then
+        # Completion for 3rd level subcommands ie "wwsh node list" 
+		
+        case "${second}" in
+            "bootstrap")
+                case "${third}" in
+                    "list"|"print"|"delete"|"rebuild"|"build")
+                        COMPREPLY=( $( compgen -W "$(wwsh bootstrap -1 list)" -- $cur ) );;
+                esac
+                ;;
+            "node")
+                case "${third}" in
+                    "list"|"set"|"delete"|"print")
+                        COMPREPLY=( $( compgen -W "$(wwsh node -1 list)" -- $cur ) );;
+                esac
+                ;;
+            "vnfs")
+                case "${third}" in
+                    "list"|"print"|"delete")
+                        COMPREPLY=( $( compgen -W "$(wwsh vnfs -1 list)" -- $cur ) );;
+                esac
+                ;;
+            "provision")
+                case "${third}" in
+                    "list"|"set"|"print")
+                        COMPREPLY=( $( compgen -W "$(wwsh node -1 list)" -- $cur ) );;
+                esac
+                ;;
+        esac
+    fi
+
+    return 0
+}
+
+complete -o filenames -F _wwsh wwsh
+
+# vim: filetype=sh:syntax=sh:expandtab:ts=4:sw=4:
+

@@ -1,0 +1,39 @@
+# -*-Shell-script-*-
+# 
+# wwmkchroot file for Debian distributions
+#
+# Based off original mkchroot-debian.sh
+
+DESC="Debian distributions"
+
+PKGLIST="--components=main,contrib,non-free --variant=minbase \
+         --include=openssh-server,openssh-client,isc-dhcp-client,pciutils,strace,nfs-common,ethtool,iproute,iputils-ping,iputils-arping,net-tools,firmware-bnx2,linux-image-2.6.32-5-amd64"
+
+DEBMIRROR="http://ftp.us.debian.org/debian"
+SUITE=squeeze
+
+build_vnfs()
+{
+    if [ ! -z $1 ]; then
+        SUITE=$1;
+    fi
+
+    echo "Running debootstrap for minimal Debian $SUITE";
+    echo "debootstrap --variant=minbase $SUITE $VNFSDIR";
+
+    debbootstrap $PKGLIST $SUITE $VNFSDIR $DEBMIRROR;
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create chroot";
+        exit 1;
+    fi
+
+    vnfs_generate_fstab
+
+    vnfs_generate_ssh
+
+    vnfs_setup_auth
+
+}
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

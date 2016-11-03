@@ -1,0 +1,52 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2012, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: ALL
+#INIT: MASTER
+#INIT: PROVISION
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+wwreqroot
+
+
+RETVAL=1
+
+
+HOSTNAME=`hostname`
+HOSTNAME_S=`hostname -s`
+
+IPADDR=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network->new()->ipaddr(Warewulf::Config->new("provision.conf")->get("network device"));'`
+
+if [ -n "$IPADDR" ]; then
+    if ! grep -q "^$IPADDR" /etc/hosts; then
+        HOSTS_NEW=`mktemp`
+        if [ "$HOSTNAME" != "$HOSTNAME_S" ]; then
+            printf "%-23s %s %s\n" $IPADDR $HOSTNAME_S $HOSTNAME >> $HOSTS_NEW
+            RETVAL=0
+        elif [ -n "$HOSTNAME" ]; then
+            printf "%-23s %s\n" $IPADDR $HOSTNAME >> $HOSTS_NEW
+            RETVAL=0
+        fi
+        if [ -f "$HOSTS_NEW" ]; then
+            # Make sure the master entry is on top
+            cat /etc/hosts >> $HOSTS_NEW
+            cat $HOSTS_NEW > /etc/hosts
+            rm -f $HOSTS_NEW
+        fi
+    fi
+fi
+
+
+exit $RETVAL

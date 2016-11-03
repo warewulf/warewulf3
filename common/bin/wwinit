@@ -1,0 +1,138 @@
+#!/bin/bash
+#
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2012, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+# $Id: wwinit 913 2012-04-19 00:33:31Z gmk $
+
+if ! which wwconfig >/dev/null 2>&1; then
+    echo "ERROR: wwconfig is not in path!"
+    exit 255
+fi
+
+if ! which wwsh >/dev/null 2>&1; then
+    echo "ERROR: wwsh is not in path!"
+    exit 255
+fi
+
+eval `wwconfig -sea`
+
+WWINITDIR="$WAREWULF_LIBEXECDIR/warewulf/wwinit"
+WWFUNCTIONS="$WAREWULF_SYSCONFDIR/warewulf/functions"
+WWTMPDIR=`mktemp -d -t wwinit.XXXXXXXXX`
+SHELL="/bin/bash"
+
+export WWINITDIR WWFUNCTIONS WWTMPDIR
+
+if [ ! -d "$WWINITDIR" ]; then
+    echo "ERROR: $WWINITDIR is not found"
+    exit 255
+fi
+
+if [ ! -f "$WWFUNCTIONS" ]; then
+    echo "ERROR: $WWFUNCTIONS is not found"
+    exit 255
+fi
+
+usage() {
+    echo "$0 [options] [initialization(s)]"
+    echo
+    echo "OPTIONS:"
+    echo "    -d        Debug output"
+    echo "    -v        Verbose output"
+    echo "    -h        Usage summary"
+    echo
+    echo "INITIALIZATIONS:"
+    grep -h "^#INIT: " $WWINITDIR/*.init | sort | uniq | while read i; do
+        NAME=`echo $i | sed -e 's/^#INIT: //'`
+        echo "   * $NAME"
+    done
+
+    for i in $WWINITDIR/*.init; do
+        NAME=`basename $i | sed -e 's/^[0-9]*\-//' | sed -e 's/\.init$//'`
+        echo "$NAME"
+    done | sort | uniq | while read i; do
+        echo "   * $i"
+    done
+
+    echo
+    echo "EXAMPLES:"
+    echo
+    echo " # wwinit ALL"
+    echo " # wwinit TEST database"
+    echo
+}
+
+
+### Argument processing
+while getopts "a:dhv" opt; do
+    case $opt in
+        d)
+            VERBOSE=1
+            DEBUG=1
+            set -x
+        ;;
+        v)
+            VERBOSE=1
+        ;;
+        h)
+            usage
+            exit
+        ;;
+        a)
+            var=$OPTARG
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+if [ -z "$1" ]; then
+    usage
+    exit
+fi
+
+for arg in $@; do
+    wwinit_files="$wwinit_files $( grep -i -l "^#INIT: $arg\$" $WWINITDIR/*.init )"
+
+    for i in $WWINITDIR/*-${arg}.init; do
+        if [ -f "$i" ]; then
+            wwinit_files="$wwinit_files $i";
+        fi
+    done
+done
+
+if [ -z "$wwinit_files" -o "$wwinit_files" == " " ]; then
+    echo "No modules found to run"
+    exit 1
+fi
+
+# Eliminate duplicated files
+wwinit_files=$( find $wwinit_files | sort | uniq );
+
+for file in $wwinit_files; do
+    test -n "$VERBOSE" && echo "VERBOSE:  Running module: $file"
+    if [ -n "$DEBUG" ]; then
+        $SHELL -x $file "$@"
+        RETVAL=$?
+    else
+        $SHELL $file $init "$@"
+        RETVAL=$?
+    fi
+    if [ $RETVAL -eq 0 ]; then
+        test -n "$VERBOSE" && echo "VERBOSE:  Module ran successfully"
+    elif [ $RETVAL -eq 1 ]; then
+        test -n "$VERBOSE" && echo "VERBOSE:  Module did nothing"
+    else
+        echo "Lethal error thrown by module: $file"
+        break
+    fi
+done
+
+rm -rf $WWTMPDIR
+echo "Done."
+exit $RETVAL

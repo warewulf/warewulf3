@@ -1,0 +1,80 @@
+#!/usr/bin/perl -Tw
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+# 
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+# $Id: wwconfig 1960 2016-02-25 21:53:52Z gmk $
+#
+
+use Warewulf::Init;
+use Warewulf::ACVars;
+use Getopt::Long;
+
+Getopt::Long::Configure ("bundling");
+
+my @VARS;
+my ($opt_help, $opt_sh, $opt_csh, $opt_all, $opt_exp);
+
+GetOptions(
+    'h|help'        => \$opt_help,
+    's|sh'          => \$opt_sh,
+    'c|csh'         => \$opt_csh,
+    'a|all'         => \$opt_all,
+    'e|exp'         => \$opt_exp,
+);
+
+if ($opt_all) {
+    @VARS = Warewulf::ACVars::vars();
+} elsif (@ARGV) {
+    @VARS = @ARGV;
+} else {
+    $opt_help = 1;
+}
+
+if ($opt_help) {
+    print "USAGE: $0 [options] [paramaters]\n";
+    print "\n";
+    print "   Options:\n";
+    print "      -h, --help     Show this help summary\n";
+    print "      -a, --all      Print all evnironment variables\n";
+    print "      -s, --sh       Print output in Bourne shell format\n";
+    print "      -e, --exp      Also print out export lines. For use with Bourne shell format.\n";
+    print "      -c, --csh      Print output in C shell format\n";
+    print "\n";
+    print "   Paramaters:\n";
+    print "\n";
+    print "      PROGNAME       Program name\n";
+    print "      VERSION        Program version\n";
+    print "      PREFIX         The compile-time prefix\n";
+    print "      DATAROOTDIR    The compile-time data root directory\n";
+    print "      DATADIR        The compile-time data directory\n";
+    print "      LIBDIR         The compile-time lib directory\n";
+    print "      LIBEXECDIR     The compile-time libexec directory\n";
+    print "      PERLMODDIR     The compile-time Perl module directory\n";
+    print "      STATEDIR       The compile-time local state directory\n";
+    print "      SYSCONFDIR     The compile-time system configuration directory\n";
+    print "\n";
+
+    exit;
+}
+
+foreach my $key (@VARS) {
+    my $val;
+
+    $key = uc($key);
+    $val = Warewulf::ACVars::get($key);
+
+    if ($opt_sh) {
+        print "WAREWULF_$key=\"$val\"\n";
+        print "export WAREWULF_$key\n" if $opt_exp;
+    } elsif ($opt_csh) {
+        print "setenv WAREWULF_$key \"$val\"\n";
+    } else {
+        print(((scalar(@ARGV) == 1) ? ("") : ("$key: ")) . "$val\n");
+    }
+}
+
+# vim:filetype=perl:syntax=perl:expandtab:ts=4:sw=4:

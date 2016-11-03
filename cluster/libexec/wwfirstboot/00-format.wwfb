@@ -1,0 +1,331 @@
+#!/bin/sh
+#
+# Warewulf Copyright (c) 2001-2003 Gregory M. Kurtzer
+# 
+# Warewulf Copyright (c) 2003-2011, The Regents of the University of
+# California, through Lawrence Berkeley National Laboratory (subject to
+# receipt of any required approvals from the U.S. Dept. of Energy).
+# All rights reserved.
+# 
+#########################
+# Copyright (c) 2013, Intel(R) Corporation #{
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#    * Redistributions of source code must retain the above copyright notice,
+#      this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#    * Neither the name of Intel(R) Corporation nor the names of its
+#      contributors may be used to endorse or promote products derived from
+#      this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#########################}
+
+## 00-format.wwfb
+##
+## Partition/Format a given disk on node bootup
+##
+## 00-format.wwfb is a replacement/complement for filesystem provisioning 
+## on the compute nodes. It replaces/complements the FILESYSTEM variable 
+## that is normally used to, to make it possible to selectivly format
+## partitions (besides swap space), between reboots so we have
+## persistant storage on nodes that lasts between reboots, yet the
+## node configuration does not need to be changed.
+##
+#STATUS: primary
+
+if [[ -z ${DISK} ]]; then
+    msg_status;
+    msg_red "DISK to configure undefined:";
+    failure; echo;
+    logger wwfirstboot "ERROR - DISK to configure undefined";
+    return 1;
+fi
+
+if ! echo $DISK | egrep ^/dev >/dev/null; then
+    DISK=/dev/$DISK;
+fi
+
+# Check for md# device .... Exit if we're give one
+if echo $DISK | egrep -q '^/dev/md[0-9]*'; then
+    msg_status;
+    msg_red "DISK set as software raid device... ($DISK)";
+    failure; echo;
+    logger wwfirstboot "ERROR - DISK set as software raid device... ($DISK)";
+    return 1;
+fi
+
+if [[ ! -b ${DISK} ]]; then
+    msg_status;
+    msg_red "${DISK} does not appear to be a block special device.";
+    failure; echo;
+    logger wwfirstboot "ERROR - $DISK does not appear to be a block special device.";
+    return 1;
+fi
+
+if [[ -d /var/lock/subsys && -f $SUBSYSFILE ]]; then
+    echo "Running: 00-format.wwfb" > $SUBSYSFILE;
+fi
+
+msg_status;
+msg_yellow "Configuring $DISK\n"
+
+SIZE=`fdisk -l $DISK | grep "Disk $DISK" | awk '{print $5}'`
+UNIT=`fdisk -l $DISK | grep ^Unit | awk '{print $9}'`
+
+msg_status;
+msg_yellow "DISK SIZE - $SIZE bytes ($(($SIZE/1024/1024/1024))GB)\n"
+
+#XXX: We use $(( )) instead of piping through 'bc' just incase bc isn't
+#  installed
+CYLINDERS=$(($SIZE/255/63/512))
+
+msg_status;
+msg_yellow "CYLINDERS - $CYLINDERS\n";
+
+sfdisk_script=`mktemp`;
+disk_fstab="/tmp/disk.fstab";
+disk_fs="/tmp/disk.fs";
+
+> $sfdisk_script;
+> $disk_fstab;
+> $disk_fs;
+
+sfdisk -d $DISK > /tmp/${DISK##/dev/}_sfdisk.dump
+
+if [ $? -ne 0 ]; then
+    msg_status;
+    msg_red "Disk dump of $DISK failed. Exiting....";
+    failure; echo;
+    logger -t wwfirstboot "Error: sfdisk dump of $DISK filed";
+    return 1;
+fi
+
+msg_status;
+msg_yellow "WARNING -- Clearing partition table\n";
+dd if=/dev/zero of=${DISK} bs=512 count=1 &>/dev/null;
+
+vartmp=`mktemp`;
+
+# Don't put this in the for loop command. Subshells opening messing things up
+# when trying to pass values back and forth. -jms
+set | egrep ^PART_ | sort > $vartmp;
+
+for v in `cat $vartmp`; do
+    var=$(echo $v|cut -f1 -d '=');
+    val=$(echo $v|cut -f2 -d '=');
+    cyl="";
+    ptype="L";
+
+    #XXX: The values for this while loop are being redirected below from the
+    # ending done. This is to work around bash opening a subshell, and then
+    # not being able to break out of the loops. -jms
+    while read size type mp perms; do
+        test -z $size && break;
+
+        if [ "x${size}" == "xfill" ]; then
+            cyl='';
+        else
+            cyl=$(($size*1024*1024/$UNIT));
+            cyl=$(($cyl+1)); # Increment to be sure we cover the space
+        fi
+
+        if [ "x${type}" == "xswap" ]; then
+            ptype="S";
+        fi
+
+        # Our Partition number is the '#' part of the PART_# variables
+        PARTNUM=`echo $var | cut -f 2 -d '_'`;
+
+        if [[ ${PARTNUM} -gt 4 ]]; then
+            msg_status;
+            msg_red "Warning: Ignoring PART_${PARTNUM}. Will only do 4 primary partitions.\n";
+            continue;
+        fi
+        echo ",${cyl},${ptype}" >> $sfdisk_script;
+
+
+        if [ "x${type}" == "xswap" ]; then
+            echo -e "${DISK}${PARTNUM}\tswap\tswap\tdefaults\t0 0" >> $disk_fstab;
+        else
+            echo -e "${DISK}${PARTNUM}\t${mp}\t${type}\tdefaults\t0 0" >> $disk_fstab;
+        fi
+        echo "${size}:${type}:${mp:-none}:${perms:-none}:${PARTNUM}" >> ${disk_fs};
+
+        if [ ! -d ${mp} ]; then
+            msg_blue "  Creating Mountpoint: ${mp}\n";
+            echo -n "  "; msg_status;
+            msg_white "mkdir -m ${perms} -p ${mp}\n";
+            mkdir -m ${perms} -p ${mp};
+
+            echo -n "  "; msg_status;
+            msg_white "chmod ${perms} ${mp}\n";
+            chmod ${perms} ${mp}
+        fi
+
+        # If we're going to fill the disk then we need to stop processing things,
+        # and continue on our way.
+        if [ "x${size}" == "xfill" ]; then
+            msg_status;
+            msg_yellow "Partition found with 'fill' size. Skipping any other partition defines.\n";
+            break 2;
+        fi
+    done< <(echo $val | tr ':' ' ')  # while read
+
+done  # for v
+
+# Lets actually partition the disk. Keep a backup of the table "Just Incase". Won't
+# help any if we format though.
+cat $sfdisk_script | sfdisk -O /tmp/${DISK##/dev/}_runtime.save -H 255 -S 63 -C $CYLINDERS $DISK &> /dev/null
+
+if [ ! -f /etc/fstab.wwfb_orig ]; then
+    cp -a /etc/fstab /etc/fstab.wwfb_orig;
+    chmod 600 /etc/fstab.wwfb_orig;
+fi
+
+# If we happen to be stateful, get rid of the old /etc/fstab before generating the
+# new one. Won't matter much on a hybrid setup as root will be in RAM.
+FSTAB=`mktemp`;
+awk '/^#### Added in by wwfirstboot ####/ { exit; } { print; }' /etc/fstab > $FSTAB
+cp $FSTAB /etc/fstab;
+/bin/rm -f $FSTAB;
+
+echo "#### Added in by wwfirstboot ####" >> /etc/fstab;
+echo "#### Generated: $(date --utc) " >> /etc/fstab;
+cat $disk_fstab >> /etc/fstab;
+
+cat ${disk_fs} | tr ':' ' ' | while read size type mp perms pnum; do
+    # Always format swap space...
+    if [ "x${type}" == "xswap" ]; then
+        logger -t wwfirstboot "SWAP Space found. Formatting and running swapon for ${DISK}${pnum}";
+        msg_status;
+        msg_green "SWAP Space found. Formatting and running swapon for ${DISK}${pnum}\n";
+        swapoff ${DISK}${pnum} &>/dev/null; sleep 1;
+        mkswap ${DISK}${pnum} &>/dev/null; sleep 1;
+        swapon ${DISK}${pnum} &>/dev/null; sleep 1;
+        continue;
+    fi
+
+    # Be sure our partition isn't mounted
+    umount ${DISK}${pnum} &>/dev/null;
+    if [[ ! -z ${FORMAT} && "x${FORMAT}" != "xnever" ]]; then
+
+        # Always Format?
+        if [ "x${FORMAT}" == "xalways" ]; then
+            logger -t wwfirstboot "WARNING: Format set to always... We're formatting the partition."
+            msg_status;
+            msg_red "FORMAT set to always in config file.\n";
+            msg_status;
+            msg_red "Destroying data on ${DISK}${pnum} ....    ";
+
+            mkfs.${type} -q ${DISK}${pnum};
+            mount ${mp};
+
+            if [ $? -ne 0 ]; then
+                logger -t wwfirstboot "ERROR: Could not mount ${DISK}${pnum} after formatting."
+                echo "  "; msg_status;
+                msg_red "ERROR: Could not mount ${DISK}${pnum} after formatting."
+                failure; echo
+                return 1;
+            fi
+
+            # Create the timestamp file
+            date +%s > ${mp}/.wwfirstboot_timestamp;
+            chmod 600 ${mp}/.wwfirstboot_timestamp;
+
+            continue;
+        fi
+
+        # Test mounting our partition
+        if ! mount -t ${type} ${DISK}${pnum} ${mp} 2>/dev/null 1>/dev/null; then
+            # Unable to mount. Assume it isn't formatted
+            msg_status;
+            msg_yellow "Formatting Partition number ${pnum} as ${type}";
+            warning; echo;
+            sleep 1;
+            mkfs.${type} -q ${DISK}${pnum};
+            mount ${mp};
+
+            if [ $? -ne 0 ]; then
+                logger -t wwfirstboot "ERROR: Could not mount ${DISK}${pnum} after formatting."
+                echo -n "  "; msg_status;
+                msg_red "ERROR: Could not mount ${DISK}${pnum} after formatting."
+                failure; echo
+                return 1;
+            fi
+
+            # Create the timestamp file
+            date +%s > ${mp}/.wwfirstboot_timestamp;
+            chmod 600 ${mp}/.wwfirstboot_timestamp;
+
+        elif [ "x$FORMAT" == "xfirst" ]; then
+            # We, supposedly, mounted the partition. Lets see if our statefile exists, and
+            # if it doesn't: unmount, format, re-mount.
+            msg_status;
+            msg_red "Format on first boot only\n";
+            echo -n "    ";
+            msg_yellow "- Looking for existance of: ${mp}/.wwfirstboot_timestamp\n";
+
+            if [ ! -f ${mp}/.wwfirstboot_timestamp ]; then
+                logger -t wwfirstboot "${mp}/.wwfirstboot_timestamp not found. Assuming we need to format.";
+                echo -n "    "; msg_status;
+                msg_red "${mp}/.wwfirstboot_timestamp *not* found...";
+                warning; echo;
+                umount ${mp};
+                echo -n "    "; msg_status;
+                msg_red "Formatting ..... ";
+                mkfs.${type} -q ${DISK}${pnum};
+
+                if ! mount ${mp} 2>/dev/null 1>/dev/null; then
+                    msg_status;
+                    msg_red "Mount of ${mp} Failed!"
+                    failure; echo;
+                    logger -t wwfirstboot "Error: Mount of ${mp} failed after format.";
+                    return 1;
+                else
+                    # Create the timestamp file
+                    date +%s > ${mp}/.wwfirstboot_timestamp;
+                    chmod 600 ${mp}/.wwfirstboot_timestamp;
+
+                fi
+            else
+                echo -n "    "; msg_status;
+                msg_green "${mp}/.wwfirstboot_timestamp was found.";
+                success; echo;
+            fi
+        fi
+    else
+        msg_status;
+        msg_yellow "FORMAT not set, or set to never format. Drive setup may be\n";
+        msg_status;
+        msg_yellow "incomplete. Attemping mount of ${DISK}${pnum} to ${mp}.\n";
+        logger -t wwfirstboot "Warning: FORMAT not set, or set to never format. Drive setup may be incomplete.";
+        mount ${mp};
+    fi
+
+    # Set perms again after mount for the new FS.
+    chmod ${perms} ${mp};
+done;
+
+# Clean up
+/bin/rm -f $sfdisk_script;
+/bin/rm -f $disk_fstab;
+/bin/rm -f $disk_fs;
+/bin/rm -f $vartmp;
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:
+

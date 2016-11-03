@@ -1,0 +1,21 @@
+#DESC: A base 32 bit Debian wheezy chroot
+
+# The general Deb include has all of the necessary functions, but requires
+# some basic variables specific to each chroot type to be defined.
+. include-deb
+
+# NOTE: cross architecture support is available when creating 32 bit
+# vnfs on 64 bit host. However, the warewulf-provision source will
+# need to have been compiled with CFLAGS=-m32 and LDFLAGS=-m32
+# in order for the proper bootstrap to be generated from a
+# cross arch chroot.
+ARCH="i386"
+
+SUITE="wheezy"
+DEB_MIRROR="http://http.us.debian.org/debian/"
+
+# Install additional packages with debootstrap
+PKGLIST="openssh-server openssh-client isc-dhcp-client pciutils strace nfs-common \
+ethtool iproute iputils-ping iputils-arping net-tools firmware-bnx2 linux-image-686"
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

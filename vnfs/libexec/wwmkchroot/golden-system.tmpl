@@ -1,0 +1,96 @@
+#DESC: Build a local chroot from a golden system
+
+
+
+
+sanity_check() {
+    if [ -z "$SOURCEADDR" ]; then
+        echo "ERROR: You must define the envrionment variable 'SOURCEADDR' to"
+        echo "ERROR: the hostname or IP address of the golden server source."
+        return 1
+    fi
+
+    return 0
+}
+
+
+buildchroot() {
+    if [ -z "$CHROOTDIR" ]; then
+        echo "ERROR: CHROOTDIR is undefined. This is an internal problem."
+        return 1
+    fi
+    if [ "$CHROOTDIR" == "/" ]; then
+        echo "ERROR: What the heck are you doing? CHROOTDIR=/? Really?"
+        return 1
+    fi
+    if ! cd $CHROOTDIR; then
+        echo "ERROR: Could not change directory into $CHROOTDIR"
+        return 1
+    fi
+    rsync -e ssh -avh \
+        --exclude=/home/* \
+        --exclude=/proc/* \
+        --exclude=/sys/* \
+        --exclude=/tmp/* \
+        --exclude=/mnt/* \
+        --exclude=/var/tmp/* \
+        --exclude=/var/log/* \
+        --exclude=/var/run/* \
+        --exclude=/var/lib/ntp/* \
+        root@$SOURCEADDR:/ .
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create chroot"
+        return 1
+    fi
+
+    return 0
+}
+
+
+postchroot() {
+    touch $CHROOTDIR/fastboot
+    if grep -q rename_device $CHROOTDIR/etc/sysconfig/network-scripts/network-functions; then
+        echo "" >> $CHROOTDIR/etc/sysconfig/network-scripts/network-functions
+        echo "# This is a kludge added by Warewulf so devices don't get renamed (broke things with IB)" >> $CHROOTDIR/etc/sysconfig/network-scripts/network-functions
+        echo "rename_device() { return 0; }" >> $CHROOTDIR/etc/sysconfig/network-scripts/network-functions
+    fi
+    return 0
+}
+
+
+configure_fstab() {
+    WWIPADDR=`perl -e '
+        use Warewulf::Network;
+        use Warewulf::Config;
+
+        my $config = Warewulf::Config->new("provision.conf");
+        my $netobj = Warewulf::Network->new();
+        my $netdev = $config->get("network device");
+        my $ipaddr = $netobj->ipaddr("$netdev");
+
+        print "$ipaddr\n";
+    '`
+
+    mv $CHROOTDIR/etc/fstab $CHROOTDIR/etc/fstab.orig
+    echo "#GENERATED_ENTRIES#" > $CHROOTDIR/etc/fstab
+    grep -v ' / ' $CHROOTDIR/etc/fstab.orig >> $CHROOTDIR/etc/fstab
+
+    grep "^#WWEXPORT:" /etc/exports  | while read i; do
+        SHARE=`echo $i | cut -d : -f 2`
+        echo "$WWIPADDR:$SHARE $SHARE nfs defaults 0 0" >> $CHROOTDIR/etc/fstab
+        mkdir -p $CHROOTDIR/$SHARE
+    done
+    return 0
+}
+
+configure_network() {
+    return 0
+}
+
+configure_timezone() {
+    return 0
+}
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

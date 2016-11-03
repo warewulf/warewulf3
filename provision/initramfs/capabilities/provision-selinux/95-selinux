@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+if [ ! -d $NEWROOT/selinux ]; then
+    mkdir -m 0755 -p $NEWROOT/selinux;
+fi
+
+
+if [ -n "$WWSELINUX" ]; then
+    if [ "$WWSELINUX" -ge 0 ]; then
+        if chroot $NEWROOT /bin/sh -c "/sbin/load_policy -i"; then
+            if chroot $NEWROOT /bin/sh -c "/sbin/restorecon -R /"; then
+                echo $WWSELINUX > $NEWROOT/selinux/enforce
+            fi
+        else
+            echo 0 > $NEWROOT/selinux/enforce
+            echo 1 > $NEWROOT/selinux/disable
+        fi
+    fi
+fi

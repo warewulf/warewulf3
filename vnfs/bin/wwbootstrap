@@ -1,0 +1,323 @@
+#!/usr/bin/perl -Tw
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2013, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+
+use Warewulf::Init;
+use Warewulf::Config;
+use Warewulf::Logger;
+use Warewulf::Util;
+use Getopt::Long;
+use File::Path;
+use File::Basename;
+use File::Copy;
+
+
+&set_log_level("NOTICE");
+
+$ENV{"PATH"} = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
+
+my $randstring = &rand_string("12");
+my $tmpdir = "/var/tmp/wwinitrd.$randstring";
+my $initramfsdir = "$tmpdir/initramfs";
+my $output = "/tmp/$randstring.wwbs";
+my $opt_debug;
+my $opt_verbose;
+my $opt_help;
+my $opt_chroot = "";
+my $opt_output;
+my $opt_config;
+my $opt_name;
+my $kversion;
+my $config;
+my $wwsh_bin;
+
+my $help = "USAGE: $0 [options] kernel_version
+    SUMMARY:
+        This command will create the bootstrap images that nodes use to
+        bootstrap the provisioning process.
+
+    OPTIONS:
+        -c, --chroot    Look into this chroot directory to find the kernel
+        -r, --root      Alias for --chroot
+            --config    What configuration file should be used (don't use
+                        full path, rather just the relative name as would be
+                        found in \$sysconfigdir/warewulf/bootstrap/) other-
+                        wise the default bootstrap.conf is used.
+        -o, --output    Output the bootstrap image to a file at the specified
+                        path location (default automatically imports the
+                        file into Warewulf instead of writing to disk).
+        -n, --name      Specify the name to import this bootstrap into the
+                        data store with (note: only used when automatically
+                        importing into the data store)
+
+    EXAMPLES:
+        # wwbootstrap 2.6.32-71.el6.x86_64
+        # wwbootstrap --config=testbootstrap 2.6.32-71.el6.x86_64
+        # wwbootstrap --chroot=/path/to/chroot 2.6.32-71.el6.x86_64
+        # wwbootstrap --output=test-bootstrap.wwbs 2.6.32-71.el6.x86_64
+
+";
+
+Getopt::Long::Configure ("bundling");
+
+GetOptions(
+    'h|help'        => \$opt_help,
+    'd|debug'       => \$opt_debug,
+    'v|verbose'     => \$opt_verbose,
+    'c|chroot=s'    => \$opt_chroot,
+    'r|root=s'      => \$opt_chroot,
+    'f|file=s'      => \$opt_output,
+    'o|output=s'    => \$opt_output,
+    'n|name=s'      => \$opt_name,
+    'config=s'      => \$opt_config,
+);
+
+
+if ($opt_debug) {
+    &set_log_level("DEBUG");
+}
+
+if ($opt_help or ! @ARGV) {
+    print $help;
+    exit;
+}
+
+if ($opt_config) {
+    $config = Warewulf::Config->new($opt_config);
+} else {
+    $config = Warewulf::Config->new("bootstrap.conf");
+
+}
+
+if ($opt_name) {
+    if ($opt_name =~ /^([a-zA-Z0-9\-_\.]+)$/) {
+        $opt_name = $1;
+    } else {
+        &eprint("Name '$opt_name' contains illegal characters!\n");
+        exit 1;
+    }
+}
+
+$opt_kversion = shift(@ARGV);
+
+
+&dprint("Checking for bootstrap kernel version\n");
+if (! $opt_kversion) {
+    &eprint("What is the kernel version for the bootstrap you wish to create?\n");
+    exit 1;
+} elsif ($opt_kversion =~ /^([a-zA-Z0-9_\-\.]+)$/) {
+    &dprint("Got kernel version: $opt_kversion\n");
+    $opt_kversion = $1;
+} else {
+    &eprint("Illegal characters in kernel version!\n");
+    exit 1;
+}
+
+if ($opt_chroot and $opt_chroot =~ /^(?:\/|([a-zA-Z0-9_\-\.\/]+)(?<!\/)\/*)$/) {
+    $opt_chroot = "$1/";
+    &iprint("Using root directory: $opt_chroot\n");
+} elsif ($opt_chroot) {
+    &eprint("Root directory name contains illegal characters!\n");
+    exit 1;
+} else {
+    $opt_chroot = "/";
+    &iprint("Using root directory: $opt_chroot\n");
+}
+
+if ($opt_output) {
+    if ($opt_output =~ /^([a-zA-Z0-9_\-\.\/]+)$/) {
+        $opt_output = $1;
+        &iprint("Writing output file to: $opt_output\n");
+    } else {
+        &eprint("Output file name contains illegal characters: $opt_output\n");
+        exit 1;
+    }
+}
+
+foreach my $dir (split(":", $ENV{"PATH"})) {
+    if ($dir =~ /^([a-zA-Z0-9_\-\.\/]+)$/) {
+        if (-x "$1/wwsh") {
+            $wwsh_bin = "$1/wwsh";
+            last;
+        }
+    }
+}
+
+
+
+mkpath("$tmpdir/initramfs");
+
+if (! -f "$opt_chroot/boot/vmlinuz-$opt_kversion") {
+    &eprint("Can't locate the boot kernel: ". $opt_chroot ."/boot/vmlinuz-$opt_kversion\n");
+    exit 1;
+}
+
+
+
+if ($config->get("drivers")) {
+    my @drivers = $config->get("drivers");
+    my %mod_path;
+    my %mod_deps;
+    my @mod_files;
+    my %included_files;
+    my @driver_files;
+    my $module_count = 0;
+
+    mkpath("$tmpdir/initramfs/lib/modules/$opt_kversion");
+
+    if (-f "$opt_chroot/lib/modules/$opt_kversion/modules.dep") {
+        my $strippath = "/lib/modules/$opt_kversion/";
+        open(DEP, "$opt_chroot/lib/modules/$opt_kversion/modules.dep");
+        while (my $line = <DEP>) {
+            chomp($line);
+            $line =~ s/^\Q$strippath\E//;
+            if ($line =~ /^([^:]+):\s*(.*)$/) {
+                my $path = $1;
+                my @deps = split(/\s+/, $2);
+                my $name = basename($path);
+                $name =~ s/\.ko$//;
+                $mod_path{"$name"} = $path;
+                push(@mod_files, $path);
+                if (@deps) {
+                    foreach my $dep (@deps) {
+                        $dep =~ s/^\Q$strippath\E//;
+                        if ($dep =~ /^([a-zA-Z0-9\.\-_\/]+)$/) {
+                            push(@{$mod_deps{"$path"}}, $1);
+                        }
+                    }
+                }
+            }
+        }
+        close(DEP);
+    } else {
+        &wprint("File not found: $opt_chroot/lib/modules/$opt_kversion/modules.dep\n");
+    }
+
+    foreach my $d (@drivers) {
+        &dprint("Looking for matches to: $d\n");
+        if (exists($mod_path{"$d"})) {
+            &dprint("Including requested driver: $d @ ". $mod_path{"$d"});
+            push(@driver_files, $mod_path{"$d"});
+        } elsif (my @tmp = grep(/^\Q$d\E/, @mod_files)) {
+            &dprint("Including requested path: $d\n");
+            push(@driver_files, @tmp);
+        } else {
+            &dprint("Could not find path to requested driver: $d\n");
+        }
+    }
+
+    # Bootstrapping the included files hash so that dependencies don't get
+    # automatically added if they are already in the list.
+    foreach my $file (@driver_files) {
+        $included_files{"$file"} = 1;
+    }
+
+    foreach my $file (@driver_files) {
+        my $path = dirname($file);
+        if (! -d "$tmpdir/initramfs/lib/modules/$opt_kversion/$path") {
+            mkpath("$tmpdir/initramfs/lib/modules/$opt_kversion/$path");
+        }
+        if (copy("$opt_chroot/lib/modules/$opt_kversion/$file", "$tmpdir/initramfs/lib/modules/$opt_kversion/$file")) {
+            &dprint("Integrated driver: $tmpdir/initramfs/lib/modules/$opt_kversion/$file\n");
+            $module_count++;
+            if (exists($mod_deps{"$file"})) {
+                foreach my $dep (@{$mod_deps{"$file"}}) {
+                    if (! exists($included_files{"$dep"})) {
+                        $included_files{"$dep"} = 1;
+                        &dprint("Including driver dependency ($file): $dep\n");
+                        push(@driver_files, $dep);
+                    }
+                }
+            }
+
+        }
+
+    }
+
+    # manually copy modules.order and modules.builtin from chroot to
+    # suppress warning from depmod
+    copy("$opt_chroot/lib/modules/$opt_kversion/modules.order", "$tmpdir/initramfs/lib/modules/$opt_kversion/modules.order");
+    copy("$opt_chroot/lib/modules/$opt_kversion/modules.builtin", "$tmpdir/initramfs/lib/modules/$opt_kversion/modules.builtin");
+
+    if ($module_count > 0) {
+        &nprint("Number of drivers included in bootstrap: $module_count\n");
+        &dprint("Running depmod\n");
+        system("/sbin/depmod -a -b $tmpdir/initramfs $opt_kversion");
+    }
+}
+
+
+if ($config->get("firmware")) {
+    my $firmware_count = 0;
+    mkpath("$tmpdir/initramfs/lib/firmware");
+    foreach my $f ($config->get("firmware")) {
+        if ($f and $f =~ /^([a-zA-Z0-9\/\*_\-\.]+)/) {
+            my $f_clean = $1;
+            open(FIND, "cd $opt_chroot; find lib/firmware/$f_clean -type f 2>/dev/null |");
+            while(my $firmware = <FIND>) {
+                chomp($firmware);
+                if ($firmware =~ /([a-zA-Z0-9\/_\-\.]+)/) {
+                    $firmware = $1;
+                    my $path = dirname($firmware);
+                    &dprint("Including firmware: $firmware\n");
+                    if (! -d "$tmpdir/initramfs/$path") {
+                        mkpath("$tmpdir/initramfs/$path");
+                    }
+                    if (copy("$opt_chroot/$firmware", "$tmpdir/initramfs/$path")) {
+                        $firmware_count++;
+                    }
+                }
+            }
+            close FIND;
+        }
+    }
+
+    if ($firmware_count > 0) {
+        &nprint("Number of firmware images included in bootstrap: $firmware_count\n");
+    }
+}
+
+
+if ($config->get("modprobe")) {
+    mkpath("$initramfsdir/etc") || die "Can't create directory $initramfsdir/etc";
+    open(MODCONFFILE, ">> $initramfsdir/etc/wwmodprobe") || die "Can't create $initramfsdir/etc/wwmodprobe";
+    print MODCONFFILE "# This file is automatically generated by wwbootstrap and lists\n";
+    print MODCONFFILE "# all modules (and options) that will be manually called by\n";
+    print MODCONFFILE "# /sbin/modprobe.\n";
+    foreach my $modprobe ($config->get("modprobe")) {
+        print MODCONFFILE "$modprobe\n";
+    }
+    close MODCONFFILE;
+}
+
+
+copy("$opt_chroot/boot/vmlinuz-$opt_kversion", "$tmpdir/kernel");
+
+&nprint("Building and compressing bootstrap\n");
+system("(cd $tmpdir; find . | cpio -o --quiet -H newc ) | gzip -c9 > $output");
+system("rm -rf $tmpdir");
+
+if ($opt_output) {
+    move($output, $opt_output);
+    &nprint("Wrote bootstrap to: $opt_output\n");
+} else {
+    &iprint("Importing bootstrap into Warewulf\n");
+    my $name;
+
+    if ($opt_name) {
+        $name = $opt_name;
+    } else {
+        $name = $opt_kversion;
+    }
+    system("$wwsh_bin bootstrap import $output --name=$name");
+    unlink($output);
+}
+
+&nprint("Done.\n");
+

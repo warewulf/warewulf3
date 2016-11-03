@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2013, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+KVERSION=`uname -r`
+IGNOREMOD="ib_mthca@|@ib_ipath@|@iw_cxgb3@|@iw_cxgb4@|@iw_nes@|@mlx4_ib@|@ib_qib"
+
+if [ ! -f /lib/modules/$KVERSION/modules.alias ]; then
+    echo "PCI aliases for this kernel is not available!" 1>&2
+    exit 1
+fi
+
+if [ ! -d /sys/bus/pci/devices ]; then
+    echo "The SYSFS file system is not available!" 1>&2
+    exit 1
+fi
+
+modcheck() {
+    grep -q "/$1.ko:" /lib/modules/$KVERSION/modules.dep
+}
+
+
+WWKMODS=`sed -e '/ wwkmods=/!d;s/.*wwkmods=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWKMODS
+WWIGNOREMOD=`sed -e '/ wwignoremod=/!d;s/.*wwignoremod=\([^ ]*\).*/\1/' /proc/cmdline | sed -e s/,/@\|@/g`
+if [ -z "$WWIGNOREMOD" ]; then
+    WWIGNOREMOD="$IGNOREMOD"
+fi
+export WWIGNOREMOD
+
+if [ -n "$WWKMODS" ]; then
+    for mod in `echo $WWKMODS | sed -e 's/,/ /g'`; do
+        if modcheck $mod; then
+            echo $mod
+        fi
+    done
+fi
+
+
+for pci in /sys/bus/pci/devices/*; do
+    VENDOR_1=`cat $pci/vendor`
+    DEVICE_1=`cat $pci/device`
+    ALIAS=`printf "v%08xd%08x\n" $VENDOR_1 $DEVICE_1`
+    for MODULE in `grep -i "$ALIAS" /lib/modules/$KVERSION/modules.alias | awk '{print $3}'`; do
+        if ! echo "@$MODULE@" | egrep -q "@$WWIGNOREMOD@"; then
+            echo $MODULE
+        fi
+    done
+done

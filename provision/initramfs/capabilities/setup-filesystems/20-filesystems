@@ -1,0 +1,211 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2003 Gregory M. Kurtzer
+#
+# Copyright (c) 2003-2011, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+#
+
+[ -f /etc/functions ] && . /etc/functions
+
+DEFAULTFS="mountpoint=/:type=tmpfs";
+
+# This is also done below, but by that point we need
+# to already have the WWFILESYSTEMS variable setup correctly
+# go through, and make sure there's a '/' filesystem. If not
+# add in the default tmpfs mount
+if [ ! -z "$WWFILESYSTEMS" ]; then
+    ROOTFOUND=0
+    for fs in `echo $WWFILESYSTEMS | sed 's/,/ /g'`; do
+        if echo $fs | grep 'mountpoint=' 2>&1 >/dev/null; then
+            for mnt in `echo $fs | tr ':' ' '`; do
+                tvar=$(echo $mnt | cut -f1 -d=)
+                tval=$(echo $mnt | cut -f2 -d=)
+                if [ "x${tvar}" = "xmountpoint" -a "x${tval}" = "x/" ]; then
+                    wwlogger "Root partition found in WWFILESYSTEMS from node configuration.";
+                    ROOTFOUND=1
+                    break 2 # break out of both for loops
+                fi
+            done
+        fi
+    done
+
+    if [ $ROOTFOUND -ne 1 ]; then
+        wwlogger "No Root partition found. Added tmpfs root mountpoint."
+        WWFILESYSTEMS="${WWFILESYSTEMS},${DEFAULTFS}"
+    fi
+else
+    WWFILESYSTEMS="$DEFAULTFS"
+fi
+
+#WWDISKPARTITION="sda"
+#WWDISKFORMAT="sda1 sda2"
+#WWFILESYSTEMS="mountpoint=/:type=tmpfs,dev=sda1:type=swap:size=1024,dev=sda2:mountpoint=/tmp:perms=1777:type=ext2:size=4096"
+
+TMPDIR=`mktemp -d`
+mkdir $TMPDIR/parts
+mkdir $TMPDIR/disks
+> /tmp/fstab
+> /tmp/mptab
+> /tmp/mtab
+
+# Workaround for bug where mkfs.ext3/4 fails if /etc/mtab is missing:
+# http://sourceforge.net/tracker/index.php?func=detail&aid=3509398&group_id=2406&atid=102406
+# Symlink /tmp/mtab to /etc/mtab 
+# --AJD
+ln -s /tmp/mtab /etc/mtab
+
+if [ -n "$NEWROOT" ]; then
+    if [ ! -d $NEWROOT ]; then
+        mkdir -p $NEWROOT
+    fi
+fi
+
+for FSYS in `echo $WWFILESYSTEMS | sed 's/,/ /g'` ; do
+    ( 
+        TMPFILE=`mktemp`
+        for SETVAR in `echo $FSYS | sed 's/:/ /g'` ; do
+            VAR=`echo $SETVAR | cut -d= -f1 | tr '[a-z]' '[A-Z]'`
+            VAL=`echo $SETVAR | cut -d= -f2-`
+            eval "WWFS_$VAR=\"$VAL\""
+            echo "WWFS_$VAR=\"$VAL\"" >> $TMPFILE
+            echo "export WWFS_$VAR" >> $TMPFILE
+        done
+        if [ -n "$WWFS_TYPE" ]; then
+            if [ -n "$WWFS_PERMS" ]; then
+                WWFS_PERMS=`echo ${WWFS_PERMS} | sed -n '/[0-7]\{4\}/p'`
+            else
+                WWFS_PERMS="default"
+            fi
+            if [ -n "$WWFS_DEV" -a "$WWFS_DEV" != "none" ]; then
+                DISK=`echo $WWFS_DEV | sed -e 's@\([a-z]*\)[0-9]@\1@'`
+                if [ -n "$DISK" ]; then
+                    echo "$WWFS_DEV" >> $TMPDIR/disks/$DISK
+                fi
+                DEV="/dev/$WWFS_DEV"
+                mv $TMPFILE $TMPDIR/parts/$WWFS_DEV
+            else
+                DEV="none"
+            fi
+            if [ "x$WWFS_MOUNTPOINT" == "x/" ]; then
+                echo "$WWFS_MOUNTPOINT $DEV $WWFS_TYPE $WWFS_PERMS ${WWFS_OPTIONS:-defaults}" >> /tmp/mptab
+                echo "$DEV $WWFS_MOUNTPOINT $WWFS_TYPE ${WWFS_OPTIONS:-defaults} 0 0" >> /tmp/fstab
+            elif [ "x$WWFS_MOUNTPOINT" == "xnone" ]; then
+                echo "$DEV ${WWFS_MOUNTPOINT:-none} $WWFS_TYPE ${WWFS_OPTIONS:-defaults} 1 2" >> /tmp/fstab
+            else
+                echo "${WWFS_MOUNTPOINT:-none} $DEV $WWFS_TYPE $WWFS_PERMS ${WWFS_OPTIONS:-defaults}" >> /tmp/mptab
+                echo "$DEV ${WWFS_MOUNTPOINT:-none} $WWFS_TYPE ${WWFS_OPTIONS:-defaults} 1 2" >> /tmp/fstab
+            fi
+        else
+            rm -f $TMPFILE
+        fi
+    )
+done
+
+for DEV in `echo $WWDISKPARTITION | sed 's/,/ /g'` ; do
+    (
+        if [ -f "$TMPDIR/disks/$DEV" ]; then
+            (
+                for part in `cat $TMPDIR/disks/$DEV`; do
+                    if [ -f "$TMPDIR/parts/$part" ]; then
+                        . $TMPDIR/parts/$part
+                        if [ -n "$WWFS_DEV" ]; then
+                            PARTNUM=`echo $WWFS_DEV | sed -e 's@...\([0-9]\)@\1@'`
+                            DISK=`echo $WWFS_DEV | sed -e 's@\([a-z]*\)[0-9]@\1@'`
+                            if [ -z "$PARTED" ]; then
+                                dd if=/dev/zero of=/dev/$DISK count=1 bs=512 >/dev/null 2>&1
+                                PARTED=1
+                            fi
+                            if [ -n "$WWFS_SIZE" ]; then
+                                if [ "x$WWFS_SIZE" = "xfill" ]; then
+                                    SIZE="\n";
+                                else
+                                    SIZE="+${WWFS_SIZE}M"
+                                fi
+                            elif [ -n "$WWFS_END" ]; then
+                                SIZE=$WWFS_END
+                            fi
+                            case $WWFS_TYPE in
+                                swap)
+#                                    echo -ne "n\np\n$PARTNUM\n$WWFS_START\n$WWFS_SIZE\nt\n$PARTNUM\n82\nw\n"
+                                    if [ $PARTNUM -eq 1 ]; then
+                                        echo -ne "n\np\n$PARTNUM\n$WWFS_START\n$SIZE\nt\n82\nw\n" | /sbin/fdisk /dev/$DISK > /dev/null || exit 255
+                                    else
+                                        echo -ne "n\np\n$PARTNUM\n$WWFS_START\n$SIZE\nt\n$PARTNUM\n82\nw\n" | /sbin/fdisk /dev/$DISK > /dev/null || exit 255
+                                    fi
+                                ;;
+                                *)
+#                                    echo -ne "n\np\n$PARTNUM\n$WWFS_START\n$WWFS_SIZE\nw\n"
+                                    echo -ne "n\np\n$PARTNUM\n$WWFS_START\n$SIZE\nw\n" | /sbin/fdisk /dev/$DISK > /dev/null || exit 255
+                                ;;
+                            esac
+                        fi
+                    fi
+                done
+            )
+        fi
+    )
+done
+
+for DEV in `echo $WWDISKFORMAT | sed 's/,/ /g'` ; do
+    (
+        if [ -f "$TMPDIR/parts/$DEV" ]; then
+            . $TMPDIR/parts/$DEV
+            case $WWFS_TYPE in
+                swap)
+                    /sbin/mkswap /dev/$WWFS_DEV >/dev/null 2>&1
+                ;;
+                ext2)
+                    /sbin/mkfs.ext2 -I 128 /dev/$WWFS_DEV >/dev/null 2>&1
+                ;;
+                ext3)
+                    if [ -x /sbin/mkfs.ext3 ]; then
+                        /sbin/mkfs.ext3 -I 128 /dev/$WWFS_DEV >/dev/null 2>&1
+                    else
+                        wwlogger "Full ext3 support during provisioning does not currently exist, defaulting to ext2";
+                        /sbin/mkfs.ext2 -I 128 /dev/$WWFS_DEV >/dev/null 2>&1
+                    fi
+                ;;
+                ext4)
+                    if [ -x /sbin/mkfs.ext4 ]; then
+                        /sbin/mkfs.ext4 -I 128 /dev/$WWFS_DEV >/dev/null 2>&1
+                    else
+                        wwlogger "Full ext4 support during provisioning does not currently exist, defaulting to ext2";
+                        /sbin/mkfs.ext2 -I 128 /dev/$WWFS_DEV >/dev/null 2>&1
+                    fi
+                ;;
+            esac
+        fi
+    )
+done
+
+
+sort /tmp/mptab | while read mp dev type perms opts; do
+    # This is meaningless for swap space
+    if [ "x${type}" != "xswap" ]; then
+        if [ ! -d "$NEWROOT/$mp" ]; then
+            mkdir -p $NEWROOT/$mp
+        fi
+
+        # TODO: Here we error with busybox's mount command
+        #  ext3/4 support at this point will require the
+        #  util-linux/e2fsprogs packages in the bootstrap 
+        #  image... or some other method to make ext3/4 and
+        #  a 'mount' program that'll handle mounting the 
+        #  filesystems here. -jms
+        if mount -o $opts -t $type $dev $NEWROOT/$mp; then
+            if [ "$perms" != "default" ]; then
+                chmod $perms $NEWROOT/$mp
+            fi
+            if [ $mp == "/" -a $dev != "none" ]; then
+                echo $dev > /tmp/rootdev
+            fi
+            echo "$dev $mp $type $opts 0 0" >> /tmp/mtab
+        fi
+    fi
+done
+
+rm -rf $TMPDIR
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

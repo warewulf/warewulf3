@@ -1,0 +1,1406 @@
+#!/bin/bash
+#
+#########################################################
+# This file created by Tim Copeland at
+# Criterion Digital Copyright (c)
+# with the hopes others will find this usefull
+# and to help improve the project in general
+#   Date: 2013-11-14
+#
+# Portions by Greg M. Kurtzer
+#
+# There is no warranty of any kind implied or otherwise
+#########################################################
+
+
+    # setup our environment
+#___________________________________________
+HOSTMATCH=$(uname -m)
+
+##############################
+# DISTRO BASE PACKS AND REPOS
+
+DEBLINIMAGE="linux-image"
+DEB_REPOS='http://ftp.us.debian.org/debian'
+DEBIANCOMOPONENTS="main,contrib,non-free"
+DEBIANINCLUDES="openssh-server,openssh-client,isc-dhcp-client,pciutils,strace,nfs-common,ethtool,iproute,iputils-ping,iputils-arping,net-tools,rsync,firmware-bnx2"
+
+UBULINIMAGE="linux-image-server"
+UBU_REPOS='http://archive.ubuntu.com/ubuntu'
+UBUNTUCOMOPONENTS="main,restricted,universe"
+UBUNTUINCLUDES="ssh,isc-dhcp-client,pciutils,strace,nfs-common,ethtool,iproute,iputils-ping,iputils-arping,net-tools"
+
+FULLINSTALL="libpcre3,less,libpopt0,tcpd,update-inetd,libpam-cracklib,iputils-tracepath,rsh-client,wamerican,vim-tiny,cron,gawk,mingetty,psmisc,rdate,rsh-redone-server,rsyslog,dracut,ifupdown,ntp"
+
+VARIANT="minbase"
+VALIDDEBARCH='armel kfreebsd-i386 kfreebsd-amd64 ia64 mips mipsel powerpc sparc'
+
+##############################
+KERNELVERSION=""
+DEFAULTSOURCE=""
+QEMUFILENAME=""
+NEWHOSTNAME=""
+COMPONENTS=""
+THISKERNEL=""
+EXCLUDEPKG=""
+EXCLUSIONS=""
+CONFEXISTS=""
+HYBRIDPATH=""
+HYBRIDIZE=""
+OS_MIRROR=""
+SKIPBUILD=""
+CODENAME=""
+FINDQEMU=""
+FOREIGN=""
+PKGLIST=""
+MEMLOCK=""
+CHOICE=""
+THISIP=""
+DISTRO=""
+EXTRA=""
+ARCH=""
+AUTO=""
+
+
+# import our globals
+for i in $( wwconfig -a | sed 's/:./=/' )
+do
+    eval $i ;
+done
+
+CONFPATH="${SYSCONFDIR}/warewulf"
+
+
+VNFSROOT="$(dirname $CHROOTDIR)" ;
+NAME="$(basename $CHROOTDIR)" ;
+##############################
+
+SCRIPTTEMPLATE="sid"
+WWVNFS=$(which wwvnfs)
+WWBOOT=$(which wwbootstrap)
+SRC_CONF="${VNFSROOT}/${NAME}/tmp"
+DEBOOTSCRIPTS="/usr/share/debootstrap/scripts"
+DEBOOTOVERRIDE="${SRC_CONF}/warewulf"
+
+SUBNET="255.255.255.0"
+THISIP=$(perl -e '
+    use Warewulf::Network;
+    use Warewulf::Config;
+
+    my $config = Warewulf::Config->new("provision.conf");
+    my $netobj = Warewulf::Network->new();
+    my $netdev = $config->get("network device");
+    my $ipaddr = $netobj->ipaddr("$netdev");
+
+    print "$ipaddr\n";
+')
+
+
+abort_install () {
+    warn_msg abort ;
+    finalize ;
+    exit 1
+}
+
+
+arch_request () {
+    local temp=""
+
+    if [[ ${ARCH} =~ ^(i386|i586|i686) ]]
+    then
+        ARCH="i386"
+        PACKNAME="i386"
+        QEMUARCH="i386"
+        DEBLINIMAGE="${DEBLINIMAGE}-686"
+
+    elif [[ ${ARCH} =~ ^(x86_64|amd64) ]]
+    then
+        ARCH="amd64"
+        PACKNAME="amd64"
+        QEMUARCH="x86_64"
+        DEBLINIMAGE="${DEBLINIMAGE}-amd64"
+    else
+        if [[ "${DISTRO}" != "debian" ]]
+        then
+            warn_msg wrongarch ;
+            finalize ;
+            exit 1
+        else
+            # should do some check to make sure is in
+            # debian's list of valid arch's
+            for i in ${VALIDDEBARCH}
+            do
+                if [[ "${i}" == "${ARCH}" ]]
+                then
+                    temp="${i}"
+                fi
+            done
+
+            if [[ -n ${temp} ]]
+            then
+                ARCH="${temp}"
+                PACKNAME="${temp}"
+                QEMUARCH="${temp}"
+                warn_msg uncharted ;
+            else
+                warn_msg wrongarch ;
+                finalize ;
+                exit 1
+            fi
+        fi
+    fi
+}
+
+
+conf_check () {
+    # check for default path to vnfs.conf and for existing custom.conf file
+    if [[ ! -e ${CONFPATH}/vnfs.conf ]]
+    then
+        warn_msg failedpath ;
+        abort_install ;
+    fi
+
+    if [[ ! -d ${CONFPATH}/vnfs ]]
+    then
+        mkdir -p ${CONFPATH}/vnfs ;
+    fi
+
+    # now check for any existing custom vnfs.conf files and handle them
+    if [[ -e ${CONFPATH}/vnfs/${NAME}.conf ]]
+    then
+        warn_msg duplicate ;
+        if user_decide
+        then
+            # create new file
+            mv -f ${CONFPATH}/vnfs/${NAME}.conf ${CONFPATH}/vnfs/${NAME}.conf.BACK
+            echo "Created by wwmkchroot for Debian based distros" > ${CONFPATH}/vnfs/${NAME}.conf ;
+        else
+            # use existing file
+            CONFEXISTS="true"
+        fi
+    fi
+}
+
+
+cross_hardware () {
+    FINDQEMU=$(ls /usr/bin/qemu*)
+
+    if [[ -z ${FINDQEMU} ]]
+    then
+        warn_msg need_qemu ;
+        #--------
+        if [[ "${HOSTMATCH}" == "i386" ]] && [[ "${QEMUARCH}" == "x86_64" ]]
+        then
+            warn_msg qemu_mayfail ;
+        fi
+
+        warn_msg install_qemu ;
+        if user_decide
+        then
+            if apt-cache search qemu-user-static
+            then
+                apt-get install binfmt-support qemu qemu-user-static ;
+
+            elif apt-cache search qemu-kvm-extras-static
+            then
+                apt-get install binfmt-support qemu qemu-kvm-extras-static ;
+
+            else
+                warn_msg noqemu_pack ;
+                finalize ;
+                exit 1
+            fi
+        else
+            warn_msg abort ;
+            finalize ;
+            exit 1
+        fi
+    fi
+}
+
+
+excludes () {
+    warn_msg excludes ;
+
+    if user_decide
+    then
+        # add to vnfs conf file
+        echo "" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        echo "The following directories will be excluded" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        echo "excludes += /var/cache/apt" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+
+        for i in ${EXCLUSIONS}
+        do
+            echo "excludes += ${i}" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        done
+    fi
+}
+
+
+extras () {
+    # configure vnfs ?
+    warn_msg extras ;
+    if user_decide
+    then
+        conf_check ;
+        if [[ -z ${CONFEXISTS} ]]
+        then
+            # prompt to choose address for remote shares
+            warn_msg address_default ;
+            if user_decide
+            then
+                # prompt default server address auto used
+                CHOICE="${THISIP}"
+                warn_msg autocomplete ;
+            else
+                # promp for address
+                warn_msg address ;
+                user_input ;
+                THISIP="${CHOICE}"
+            fi
+
+            excludes ;
+            hybridize ;
+            exports ;
+        fi
+    fi
+}
+
+
+exports () {
+    local temp=""
+    local skipit=""
+    local shares=""
+    local export=()
+    local oldIFS="$IFS"
+    local network="${THISIP%.*}.0"
+
+    # Make sure the requested file systems will be made available
+    if [[ -n ${MASTEREXPORTS} ]]
+    then
+        # MASTEREXPORTS="thispath:(theseopt), thispath:(theseopt) ,thispath:(theseopt) , thispath:(theseopt)"
+        # convert the above bad example to Ensure clean predictable field separation
+        MASTEREXPORTS="$( echo ${MASTEREXPORTS} | sed 's/)\s*,\s*/)\|/g' )" ;
+
+        IFS='|' ;
+        for i in ${MASTEREXPORTS}
+        do
+            IFS=':' ;
+            export=( ${i} )
+            IFS='|' ;
+
+            temp="${export[0]#/mnt}"
+
+            # Don't even bother processing these
+            for x in '/home' '/op' '/usr/local' '/var/chroots'
+            do
+                if [[ "${x}" == "${temp}" ]]
+                then
+                    skipit=1
+                fi
+            done
+
+            # skip this pass if export[0] matches any of the default 4
+            if [[ -z ${skipit} ]]
+            then
+                # Check if this export already exists in file even if commented out
+                if [[ -n $( grep "^\s*#*\s*${temp}\s" /etc/exports ) ]]
+                then
+                    warn_msg exports_dup ;
+                    echo "${temp} - Modified"
+                    echo
+                    # edit file in place
+                    # found an existing entry so replace with this export
+                    echo "$( cat /etc/exports \
+                            | sed s!^[[:space:]]*#*[[:space:]]*"${temp}"[[:space:]]*.*!"${temp} ${network}/${SUBNET}${export[1]}"! \
+                            )" > /etc/exports ;
+                else
+                    # Create a new entry in the exports file
+                    echo '' >> /etc/exports ;
+                    echo "#WWEXPORT:${temp}:${network}/${SUBNET}" >> /etc/exports ;
+                    echo "${temp} ${network}/${SUBNET}${export[1]}" >> /etc/exports ;
+                fi
+            fi
+
+            if [[ -z ${shares} ]]
+            then
+                shares="${export[0]}"
+            else
+                shares="${shares},${export[0]}"
+            fi
+
+            skipit=""
+        done
+
+        IFS=$oldIFS ;
+        MASTEREXPORTS=${shares} ;
+    fi
+    ## make sure the new exports now be available to new nodes
+    echo '============= Reloading /etc/exports ==============='
+    ( exportfs -a 2>&1 );
+}
+
+
+hybridize () {
+    # promp should hybrid ?
+    warn_msg hybridprompt ;
+
+    if user_decide
+    then
+        if [[ -z ${HYBRIDPATH} ]]
+        then
+            if [[ -n ${AUTO} ]]
+            then
+                CHOICE="vnfs"
+            else
+                # what mount path ?
+                warn_msg hybrid_path ;
+                user_input ;
+            fi
+            # at least for now force this to /mnt
+            CHOICE="/mnt/$(basename ${CHOICE})"
+            HYBRIDPATH="${CHROOTDIR}${CHOICE}"
+        else
+            # at least for now force this to /mnt
+            CHOICE="/mnt/$(basename ${HYBRIDPATH})"
+            HYBRIDPATH="${CHROOTDIR}${CHOICE}"
+        fi
+
+        if [[ ! -d ${HYBRIDPATH} ]]
+        then
+            mkdir -p ${HYBRIDPATH} ;
+        fi
+
+        # add to vnfs conf file
+        echo "" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        echo "The hybrid path is where to NFS mount the chroot" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        echo "hybridpath = ${CHOICE}" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+
+        echo "" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        echo "The following excluded directories will instead have symlinks" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        echo "pointing back to their relevant paths in the mounted hybridpath." >> ${CONFPATH}/vnfs/${NAME}.conf ;
+
+        for i in ${HYBRIDIZE}
+        do
+            echo "hybridize += ${i}" >> ${CONFPATH}/vnfs/${NAME}.conf ;
+        done
+    fi
+}
+
+
+match_host_hw () {
+    if [[ -n ${HOSTMATCH} ]]
+    then
+        if [[ ${HOSTMATCH} =~ ^(i386|i586|i686) ]]
+        then
+            HOSTMATCH="i386"
+        fi
+
+        if [[ "${HOSTMATCH}" != "${QEMUARCH}" ]]
+        then
+            cross_hardware ;
+            FOREIGN="--foreign"
+            warn_msg foreign ;
+        fi
+    else
+        warn_msg hw-missmatch ;
+        finalize ;
+        exit 1
+    fi
+}
+
+
+setup_sources () {
+    # Generate /chroot/etc/atp/sources.list
+    # replace the default list debootstrap with a more complete list
+    if [[ ! -d ${SRC_CONF} ]]
+    then
+        mkdir -p ${SRC_CONF} ;
+    fi
+
+    SRC_CONF="${SRC_CONF}/sources.list"
+    > ${SRC_CONF}
+
+    # debootstrap deletes the default sources.list so we will park the new
+    # list till debootstrap ready for it. debootstrap does not currently use
+    # this to create the chroot. support may be coded for it in future
+    if [ -n "$INSTALL_ISO" ]
+    then
+        local count=0
+        for i in $( echo $INSTALL_ISO | sed -e 's/,/ /g' )
+        do
+            if [ -f "$i" ]
+            then
+                if ! grep -q "^$i" /proc/mounts
+                then
+                    mkdir -p $MEDIA_MOUNTPATH.$count
+                    if ! mount -o loop $i $MEDIA_MOUNTPATH.$count
+                    then
+                        echo "ERROR: Could not mount: $INSTALL_ISO"
+                        finalize ;
+                        exit 1
+                    fi
+
+                    echo "deb file://${MEDIA_MOUNTPATH}.${count}/ ${CODENAME} main contrib non-free" >> ${SRC_CONF}
+                    echo "deb-src file://${MEDIA_MOUNTPATH}.${count}/ ${CODENAME} main contrib non-free" >> ${SRC_CONF}
+                    echo "" >> ${SRC_CONF}
+                    count=`expr $count + 1`
+                fi
+            else
+                echo "ERROR: Could not locate INSTALL_ISO: $INSTALL_ISO"
+                exit 1
+            fi
+        done
+    fi
+
+    ##------------------------------------------------------------##
+    ## This was in hopes of debootstrap including ISO in original
+    ## vnfs creation. This Does Not Work for such and will require
+    ## digging deeper into the debootstrap code to find a solution
+    ## debootstrap is designed to pull from a true full repos not .iso
+
+    ## NOTE: Though the original chroot wont be created from the iso,
+    ##       the sources.list file will be correctly configured to
+    ##       use iso if mounted for later package management
+    if [[ -n ${DEBOOTOVERRIDE} ]]
+    then
+        if [[ -e ${DEBOOTSCRIPTS}/${SCRIPTTEMPLATE} ]]
+        then
+            cp ${DEBOOTSCRIPTS}/${SCRIPTTEMPLATE} ${DEBOOTOVERRIDE} ;
+        fi
+
+        # override debootstraps builtin sources.list generator
+        echo 'setup_apt_sources () {' >>${DEBOOTOVERRIDE}
+        echo '    mkdir -p "${TARGET}/etc/apt"' >>${DEBOOTOVERRIDE}
+        echo 'cp ${TARGET}/tmp/sources.list ${TARGET}/etc/apt/ ;' >>${DEBOOTOVERRIDE}
+        echo '}' >>${DEBOOTOVERRIDE}
+        ###chmod 744 ${DEBOOTOVERRIDE} ;
+        ##------------------------------------------------------------##
+
+        echo "deb ${OS_MIRROR}/ ${CODENAME} main contrib non-free" >> ${SRC_CONF}
+        echo "deb-src ${OS_MIRROR}/ ${CODENAME} main contrib non-free" >> ${SRC_CONF}
+        echo "" >> ${SRC_CONF}
+        echo "deb http://security.debian.org/ ${CODENAME}/updates main contrib non-free" >> ${SRC_CONF}
+        echo "deb-src http://security.debian.org/ ${CODENAME}/updates main contrib non-free" >> ${SRC_CONF}
+        echo "" >> ${SRC_CONF}
+    fi
+}
+
+
+user_decide () {
+    if [[ -n ${AUTO} ]]
+    then
+        return 0 ;
+    fi
+
+    local answer=""
+    read -p "(yes/no): " answer
+
+    if [[ "${answer}" == "YES" ]] || [[ "${answer}" == "yes" ]]
+    then
+        return 0 ;
+    elif [[ "${answer}" == "NO" ]] || [[ "${answer}" == "no" ]]
+    then
+        return 1 ;
+    else
+        echo "Invalid Option"
+        user_decide ;
+    fi
+}
+
+
+user_input () {
+    read -p ">>> $ " CHOICE
+
+    warn_msg chosen ;
+    if ! user_decide
+    then
+        echo "Try again"
+        user_input ;
+    fi
+}
+
+
+    # english message manager
+#___________________________________________
+
+warn_msg () {
+    case "${1}" in
+
+        abort)
+            echo
+            echo "vnfs creation has been aborted .. fix errors and run this script again"
+            echo
+            ;;
+
+        address)
+            echo
+            echo "What is the server IP address the nodes will look to for this hybrid file systems..?"
+            echo
+            ;;
+
+        autocomplete)
+            echo "The address ${CHOICE} will be automatically asigned for exports"
+            ;;
+
+        address_default)
+            echo "Configuring nfs filesystems"
+            echo "Would you like to have the IP address of this machine automatically"
+            echo "used for hybridize and exports address and accessed by nodes via nfs ?"
+            echo
+            echo "Choosing NO will allow you to enter the desired address manualy."
+            ;;
+
+        bootstrap)
+            echo
+            echo "============================================================================"
+            echo "A bootstrap image can be automatically generated from this chroot."
+            echo "Generate bootstrap and import into Warewulf at this time?"
+            echo
+            ;;
+
+        chosen)
+            echo
+            echo "You have entered : ${CHOICE}"
+            echo "Is this correct..?"
+            ;;
+
+        completed)
+            echo
+            echo "========================================================="
+            echo "The requested chroot environment has been created at"
+            echo
+            echo "${VNFSROOT}/${NAME}"
+            ;;
+
+        chroot_dup)
+            echo
+            echo "============================================================================"
+            echo "The directory ${VNFSROOT}/${NAME} already exists."
+            echo "Assuming a chroot environment already exists for ${NAME}"
+            echo "Would you like use the chroot found at ${VNFSROOT}/${NAME} ?"
+            echo
+            echo "NOTE: 'YES' is highly recommended. Simply overwriting a chroot can have"
+            echo "      undesireable results. If changes need to be made to this chroot,"
+            echo "      you should edit it using wwmgchroot then run this script again."
+            echo
+            echo '-------------------------------------------------------------------'
+            echo "YES = Use the existing chroot and do not download any new packages."
+            echo " NO = Download new packages and overwrite the existing chroot"
+            ;;
+
+        duplicate)
+            echo
+            echo "########"
+            echo "Warning: A ${NAME}.conf file already exists"
+            echo "If you choose to replace, it will be renamed to ${NAME}.conf.BACK,"
+            echo "and will replace any previous ${NAME}.conf.BACK that may exist."
+            echo
+            echo "yes = Backup and replace the existing ${NAME}.conf, configure any"
+            echo "      excludes or hybrid filesystems."
+            echo
+            echo " no = Do not replace, and use the existing ${NAME}.conf file"
+            echo "      Skip all exclude, hybrid, fstab, and export configurations."
+            ;;
+
+        ethernet)
+            echo
+            echo "Configure network addapters"
+            echo "How many total network devices will all nodes have configured ?"
+            echo "Minimun = 1"
+            ;;
+
+        excludes)
+            echo
+            echo "==============================================================================="
+            echo "To help keep the imported vnfs small, it is highly recommended to exclude the"
+            echo "package archives, from during chroot creation. Also any additional exclusions"
+            echo "that may be included in config files. If hydridized, symlinks to any excluded"
+            echo "paths will not be created. Would you like to exclude /var/cache/apt and any"
+            echo "additional excludes found in the config files for this vnfs capsule?"
+            ;;
+
+        exports)
+            echo
+            echo "============================================================================"
+            echo "This hybrid share needs to be added to /etc/exports on the head server."
+            echo "Exporting will make the files, in the local chroot, available to the networked nodes"
+            echo "would you like to add this hybrid path to this servers /etc/exports..?"
+            echo
+            ;;
+
+        exports_dup)
+            echo
+            echo 'WARNING: Modifying a pre-existing value found in /etc/exports'
+            ;;
+
+        extras)
+            echo
+            echo "=============================================================================="
+            echo "Extra configurations for things like excludes and hybridizing can now be done."
+            echo "Continue and assist with extra configurations?"
+            ;;
+
+        failedpath)
+            echo
+            echo "Unable to locate path to warewulf config files in following path"
+            echo
+            echo "${CONFPATH}"
+            ;;
+
+        finished)
+            echo
+            echo "============================================================================"
+            echo "Be sure to check the output in case of possible errors"
+            echo "otherwise all operations appear to have completed successfully"
+            echo "============================================================================"
+            echo
+            ;;
+
+        foreign)
+            echo
+            echo "debootstrap's --foreign flag is now set making debootstrap a 2 stage install"
+            echo
+            ;;
+
+        hw-missmatch)
+            echo "Failed to determine local environment"
+            echo "Make sure the requested architecture is correct"
+            echo "or make sure uname is installed and in PATH"
+            echo
+            ;;
+
+        hybrid_path)
+            echo
+            echo "A hybrid path will need to be created to this chroot as"
+            echo "a NFS mount on the nodes. Then any hybridize listed in this"
+            echo "${CONFPATH}/${NAME}.conf file will be symlinked back to that"
+            echo "mount point. Example: vnfs would create /mnt/vnfs on node"
+            echo
+            echo "What mount point should be created at ${CHROOT}/mnt/ ?"
+            ;;
+
+        hybridprompt)
+            echo
+            echo "Do you want to hybridize this vnfs..?"
+            ;;
+
+        import)
+            echo
+            echo "======================================================"
+            echo "${NAME} can now be imported into Warewulf"
+            echo "This can take a while"
+            echo
+            echo "Compress and Import ..?"
+            ;;
+
+        incomplete)
+            echo
+            echo "Incomplete Options"
+            echo
+            ;;
+
+        install_qemu)
+            echo
+            echo "Should We Auto-Install QEMU and Continue With vnfs Creation ? "
+            ;;
+
+        iso_install)
+            echo
+            echo "Debian / Ubuntu VNFS creation for Warewulf using the ISO('s)"
+            echo
+            echo "Repositories are created in /srv/repos"
+            echo
+            echo "NOTE: This feature is for basic convenience only. This is not a replacement"
+            echo "for true repository management tools such as reprepro."
+            echo
+            echo "NOTE: The FIRST time Warewulf accesses the install ISO('s) for a given disto-version"
+            echo "a simple repository will be automatically created for that specific release."
+            echo "This method will consume a great deal of system resources and may take a very"
+            echo "long time. Aprox 5 minutes per DVD.iso"
+            echo "This will only occur once for a given ISO('s), and any future packages accessed"
+            echo "from these specific ISO will be much faster. Repos will also be available as a valid"
+            echo "repository for system wide use in all relevant sources.list files."
+            echo
+            echo "NOTE: The only way to add more ISO to this repo will be to delete the repo by hand"
+            echo "and start this process over again, with the list of desired ISO. All future packages"
+            echo "accessed will require their originating ISO('s) be mounted with valid path"
+            echo
+            ;;
+
+        missing_qemu)
+            echo
+            echo "The correct static qemu file required to finish stage 2 can not be found"
+            echo "please install the correct ${FOREIGN}. If that is not the correct file"
+            echo "name, and you know the correct qemu is installed, set the correct name"
+            echo "in an options file and run this script again."
+            ;;
+
+        need_qemu)
+            echo
+            echo "In order to create a vnfs for non-native architecture the correct version of static"
+            echo 'QEMU, such as "qemu-user-static" need to be installed on this host machine'
+            echo
+            echo "This package can be automatically installed from your repository"
+            echo
+            ;;
+
+        network)
+            echo
+            echo "What network address will have access to this export..?"
+            echo
+            ;;
+
+        networking)
+            echo
+            echo "Nodes attached to more than one network can be configured"
+            echo "Warewulf automatically handles single connections by default."
+            echo
+            echo "Use Warewulf single default connections ?"
+            echo "YES = Use the default network setup for single networks"
+            echo " NO = Configure nodes to connect to more than one network ?"
+            ;;
+
+        nofile)
+            echo
+            echo "unable to locate file ${SOMEFILE}"
+            echo
+            ;;
+
+        noncomply)
+            echo
+            echo "Error: Failed Hardware Compliance"
+            echo "You are trying to build a vnfs for an architecture that appears different from this machine"
+            ;;
+
+        no_edit)
+            echo "         ^^^     !..WARNING..!     ^^^"
+            echo "There already appears to be an entry for this. We will assume"
+            echo "the correct entry already exists. If the entry is incorrect,"
+            echo "you will need to edit this file by hand."
+            echo
+            echo "This file will not be edited."
+            echo
+            ;;
+
+        noqemu_pack)
+            echo
+            echo 'Error: Failed to find the required package "qemu-user-static or qemu-kvm-extras-static"'
+            echo "Install the correct static package of QEMU for your target architecture and run this again"
+            echo
+            ;;
+
+        no_root)
+            echo
+            echo
+            echo "This script MUST be run as root"
+            echo
+            echo
+            ;;
+
+        qemu_mayfail)
+            echo
+            echo "You appear to be trying to create a 64 bit vnfs on a 32 bit OS."
+            echo "Though this may be possible with QEMU, it is likely to fail."
+            echo "It wont hurt any thing to try, but success is doubtful."
+            echo
+            ;;
+
+        runlevel)
+            echo
+            echo "The Debian system and derivatives such as Ubuntu do not pre-assign"
+            echo "any special meaning differences among the runlevels between 2 and 5."
+            echo "The system administrator can choose to change this, but will require"
+            echo "setting such behaviors manually after VNFS creation."
+            echo
+            ;;
+
+        stage2)
+            echo " Stage 1 debootstrap complete"
+            echo
+            echo " Stage 2 debootstrap"
+            echo
+            ;;
+
+        subnet)
+            echo
+            echo "What is the subnet mask for this network..?"
+            echo
+            ;;
+
+        uncharted)
+            echo
+            echo "It apears the host machine's architecture or the architecture you are requesting to install"
+            echo "has had little or no testing with this installer. We will try to meet this request, but if it"
+            echo "fails, you can first try setting a custom package list in an options file. Look here for info."
+            echo "  sudo mkchroot-mud.sh --optionfile-help"
+            echo
+            echo "If all else fails, you are welcome to edit the code to meet your needs. It should take very"
+            echo "little work to make this compatible with all debian supported architectures"
+            ;;
+
+        which_exports)
+            echo
+            echo "Which exports from the master node will be added to the fstab for this vnfs ?"
+            echo "YES - Only add ${MASTEREXPORTS} "
+            echo " NO - Add the above Plus All shares found in this master server /etc/exports file."
+            ;;
+
+        wrongarch)
+            echo
+            echo "The distro you have requested does not support ${ARCH} architecture"
+            echo
+            ;;
+
+    esac
+}
+
+
+wwboot () {
+    # check if we should import this into WW
+    warn_msg bootstrap ;
+    if user_decide
+    then
+        KERNELVERSION="$( ls ${VNFSROOT}/${NAME}/boot | grep 'vmlinuz-' )"
+        ${WWBOOT} --root ${VNFSROOT}/${NAME} ${KERNELVERSION/vmlinuz-/}
+    fi
+}
+
+
+wwimport () {
+    # check if we should import this into WW
+    warn_msg import ;
+    if user_decide
+    then
+        ${WWVNFS} --chroot=${VNFSROOT}/${NAME}
+    fi
+}
+
+
+#####################################################
+#####################################################
+###
+### FUNCTION OVERRIDES FOR DEB FLAVORS
+###
+####################################################
+####################################################
+
+sanity_check() {
+    # do basic complience tests
+    # this script must be run as root
+    INSTALATION_USER=$( /usr/bin/whoami )
+
+    if [[ "${INSTALATION_USER}" != "root" ]]
+    then
+        warn_msg no_root ;
+        exit 1
+    fi
+
+    CHROOT=$(which chroot)
+    if [[ -z "${CHROOT}" ]]
+    then
+        echo "Could not find the program 'chroot'"
+        exit 1
+    fi
+
+    if [ ! -x $WAREWULF_PREFIX/bin/cluster-env ]; then
+        echo "warewulf-cluster package is recommended on nodes you are building VNFS images on.";
+        sleep 2;
+    else
+        $WAREWULF_PREFIX/bin/cluster-env;
+    fi
+    return 0
+}
+
+
+init() {
+    # centralize required variable checking
+    for i in "${DISTRO}" "${ARCH}" "${CODENAME}" "${VNFSROOT}"
+    do
+        if [[ -z ${i} ]]
+        then
+            warn_msg incomplete ;
+            print_help ;
+            warn_msg abort ;
+            exit 1
+        fi
+    done
+
+    if [ ! -d "$CHROOTDIR" ]; then
+        if ! mkdir -p "$CHROOTDIR"; then
+            echo "ERROR: Could not create directory $CHROOTDIR"
+            exit 1
+        fi
+    else
+        # prompt found existing chroot
+        warn_msg chroot_dup ;
+        if user_decide
+        then
+            SKIPBUILD=1
+        fi
+    fi
+    return 0
+}
+
+
+prechroot() {
+    # final compatability tests
+  #___________________________________________________
+    arch_request ;
+    match_host_hw ;
+
+    if [[ -n ${THISKERNEL} ]]
+    then
+        DEBLINIMAGE="${THISKERNEL}"
+        UBULINIMAGE="${THISKERNEL}"
+    fi
+
+    if [[ -n ${PKGLIST} ]]
+    then
+        DEBIANINCLUDES=${PKGLIST}
+        UBUNTUINCLUDES=${PKGLIST}
+    fi
+
+    if [[ "${DISTRO}" == "debian" ]]
+    then
+        if [[ -z ${OS_MIRROR} ]]
+        then
+            OS_MIRROR=${DEB_REPOS}
+        fi
+        BOOTSTRAPINCLUDES="${DEBIANINCLUDES},${DEBLINIMAGE}"
+        COMPONENTS="${DEBIANCOMOPONENTS}"
+
+    else
+        if [[ -z ${OS_MIRROR} ]]
+        then
+            OS_MIRROR=${UBU_REPOS}
+        fi
+        BOOTSTRAPINCLUDES="${UBUNTUINCLUDES},${UBULINIMAGE}"
+        COMPONENTS="${UBUNTUCOMOPONENTS}"
+    fi
+
+    if [[ -n ${EXTRA} ]]
+    then
+        BOOTSTRAPINCLUDES="${BOOTSTRAPINCLUDES},${FULLINSTALL}"
+    fi
+
+    if [[ -n ${VARIANT} ]]
+    then
+        VARIANT="--variant=${VARIANT}"
+    fi
+
+    if [[ -n ${BOOTSTRAPINCLUDES} ]]
+    then
+        BOOTSTRAPINCLUDES="--include=${BOOTSTRAPINCLUDES}"
+    fi
+
+    if [[ -n ${DEFAULTSOURCE} ]]
+    then
+        DEBOOTOVERRIDE=""
+    fi
+
+    if [[ -n ${EXCLUDEPKG} ]]
+    then
+        EXCLUDEPKG="--exclude=${EXCLUDEPKG}"
+    fi
+
+    # generate sources.list
+    setup_sources ;
+
+    return 0
+}
+
+
+buildchroot() {
+    #   START BUILDING CHROOT
+   #___________________________________________________
+    if [[ -z ${SKIPBUILD} ]]
+    then
+        echo "Building in: ${VNFSROOT}/${NAME}/"
+
+        debootstrap ${FOREIGN} ${EXCLUDEPKG} --arch=${ARCH} --components=${COMPONENTS} ${VARIANT} \
+                    ${BOOTSTRAPINCLUDES} ${CODENAME} ${VNFSROOT}/${NAME} ${OS_MIRROR}/ ${DEBOOTOVERRIDE} || abort_install;
+
+        if [[ -n ${FOREIGN} ]]
+        then
+            if [[ -n ${QEMUFILENAME} ]]
+            then
+                FOREIGN="/usr/bin/${QEMUFILENAME}"
+            else
+                FOREIGN="/usr/bin/qemu-${QEMUARCH}-static"
+            fi
+
+            if [[ -e ${FOREIGN} ]]
+            then
+                # do second stage debootstrap install
+                warn_msg stage2 ;
+                cp ${FOREIGN} ${VNFSROOT}/${NAME}/usr/bin/
+                ${CHROOT} ${VNFSROOT}/${NAME} /debootstrap/debootstrap --second-stage || abort_install;
+
+                # make sure wwboostrap can later id this chroot arch
+                echo '1' > ${VNFSROOT}/${NAME}/${ARCH}.crossarch ;
+            else
+                warn_msg missing_qemu ;
+                finalize ;
+                exit 1
+            fi
+        fi
+    else
+        echo "Using existing chroot found at ${VNFSROOT}/${NAME}"
+    fi
+    return 0
+}
+
+
+postchroot() {
+    # START CONFIGURING THIS VNFS
+  #___________________________________________________
+    if [[ -n ${NEWHOSTNAME} ]]
+    then
+        ### however this is likely to be overridden by master node
+        echo "${NEWHOSTNAME}" > ${VNFSROOT}/${NAME}/etc/hostname
+    fi
+
+    # clear out any rules that may have been created by the host system
+    echo "# Automatically generated by udev" > ${VNFSROOT}/${NAME}/etc/udev/rules.d/70-persistent-net.rules
+    echo " " >> ${VNFSROOT}/${NAME}/etc/udev/rules.d/70-persistent-net.rules
+
+    cp /etc/securetty      ${VNFSROOT}/${NAME}/etc/securetty
+    echo "127.0.0.1     localhost localhost.localdomain" > ${VNFSROOT}/${NAME}/etc/hosts
+
+    if [[ -n ${MEMLOCK} ]]
+    then
+        sed -i -e 's/# End of file//' ${VNFSROOT}/${NAME}/etc/security/limits.conf
+        if ! grep -q "^* soft memlock " ${VNFSROOT}/${NAME}/etc/security/limits.conf
+        then
+           echo "* soft memlock ${MEMLOCK} # 8 GB" >> ${VNFSROOT}/${NAME}/etc/security/limits.conf
+        fi
+        if ! grep -q "^* hard memlock " ${VNFSROOT}/${NAME}/etc/security/limits.conf
+        then
+           echo "* hard memlock ${MEMLOCK} # 8 GB" >> ${VNFSROOT}/${NAME}/etc/security/limits.conf
+        fi
+        echo >> ${VNFSROOT}/${NAME}/etc/security/limits.conf
+        echo "# End of file" >> ${VNFSROOT}/${NAME}/etc/security/limits.conf
+    fi
+
+    if [[ -f "/etc/services" ]]
+    then
+        cp /etc/services ${VNFSROOT}/${NAME}/etc/services ;
+    else
+        echo "WARNING: No /etc/services file found. Some network services may not startup properly"
+    fi
+
+    touch ${VNFSROOT}/${NAME}/fastboot
+
+    # prep vnfs configs
+    extras ;
+
+    return 0
+}
+
+
+configure_fstab() {
+    local flag=""
+    local tempname=""
+    # prompt creating fstab
+    echo "Generating basic default fstab"
+    echo "#GENERATED_ENTRIES#" > ${VNFSROOT}/${NAME}/etc/fstab
+    echo "devpts  /dev/pts    devpts  gid=5,mode=620  0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+    echo "tmpfs   /run/shm    tmpfs   defaults        0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+    echo "sysfs   /sys        sysfs   defaults        0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+    echo "proc    /proc       proc    defaults        0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+
+    if [[ -n ${MASTEREXPORTS} ]]
+    then
+        # for compatability lets make sure nfs shares in fstab are mounted at boot
+        if [[ ! $( grep 'ASYNCMOUNTNFS=no' ${VNFSROOT}/${NAME}/etc/default/rcS 2>&1 ) ]]
+        then
+            echo '' >> ${VNFSROOT}/${NAME}/etc/default/rcS
+            echo '# ensure nfs shares get mounted at boot' >> ${VNFSROOT}/${NAME}/etc/default/rcS
+            echo 'ASYNCMOUNTNFS=no' >> ${VNFSROOT}/${NAME}/etc/default/rcS
+        fi
+
+    ### IDEALLY, ANY NFS MOUNTED DIRECTORIES THAT WOULD NORMALLY CONTAIN
+    ### FILES, SHOULD BE ASSIGNED TO EXCLUDES. MAKING SURE THEY DONT BLOAT
+    ### THE VNFS WITH FILES THAT WILL ONLY BE MOUNTED OVER. HOWEVER THE
+    ### EXCLUDES CURRENTLY BEHAVE AS IF HYBRIDIZE SO ONLY SYMLINKS EXIST.
+
+        # include exports found on this master node in the fstab for the nodes ?
+        warn_msg which_exports ;
+        if user_decide
+        then
+            echo "Adding nfs file systems to fstab"
+            echo "" >> ${VNFSROOT}/${NAME}/etc/fstab
+
+            if [[ -n ${HYBRIDPATH} ]]
+            then
+                tempname="/mnt/$(basename ${HYBRIDPATH})"
+                echo "${THISIP}:${CHROOTDIR} $tempname nfs defaults 0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+            fi
+
+            for i in $( echo ${MASTEREXPORTS} | sed -e 's/,/ /g' )
+            do
+                # then prune path and mount at /mnt
+                if [[ "${i#/mnt}" != "${i}" ]]
+                then
+                    tempname="/mnt/$(basename ${i})"
+                else
+                    tempname="${i}"
+                fi
+                echo "${THISIP}:${i#/mnt} ${tempname} nfs defaults 0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+            done
+        else
+            if [ -f /etc/exports ]
+            then
+                grep "^#WWEXPORT:" /etc/exports  | while read i;
+                do
+                    SHARE=`echo $i | cut -d : -f 2`
+                    if [[ "${SHARE}" == "${VNFSROOT}" ]]
+                    then
+                        if [[ -n ${HYBRIDPATH} ]]
+                        then
+                            tempname="/mnt/$(basename ${HYBRIDPATH})"
+                            echo "${THISIP}:${CHROOTDIR} $tempname nfs defaults 0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+                        fi
+                    else
+                        for x in $( echo ${MASTEREXPORTS} | sed -e 's/,/ /g' )
+                        do
+                            # then prune path and mount at /mnt
+                            if [[ "${x}" == "/mnt${SHARE}" ]]
+                            then
+                                flag=1
+                            fi
+                        done
+
+                        if [[ -n ${flag} ]]
+                        then
+                            tempname="/mnt/$(basename ${SHARE})"
+                        else
+                            tempname="${SHARE}"
+                        fi
+
+                        echo "${THISIP}:${SHARE} ${tempname} nfs defaults 0 0" >> ${VNFSROOT}/${NAME}/etc/fstab
+                        mkdir -p ${VNFSROOT}/${NAME}/${tempname} ;
+                        flag=""
+                    fi
+                done
+            fi
+        fi
+    fi
+    return 0
+}
+
+
+configure_network() {
+    ####  THIS ALL STILL A WORK IN PROGRESS  ####
+   #####  NOT NEEDED FOR DEFAULT NETWORKING  #####
+        ## Basic stubout.
+        # Future versions will include
+        # choose dhcp or static
+        # types of dev - some dev != ethxx
+        # assign multi network address's to later concat IP's at node init
+                # this would require all nets to have same subnet
+                # topography for dhcp else assign static addresses
+        # save output to $chroot/etc/network/wwinterfaces so values be available to all
+        # nodes then populate with global vars with substitution at init
+        # create a generic pre or a post script file import that populates dynamic
+        # values then /etc/interfaces would be created per node specific values
+                    #echo "auto ${this dev} or $DEVICE" >> /tmp/interfaces
+                    #echo "iface $DEVICE inet ${type}" >> /tmp/interfaces
+                    #echo "    address ${network}.${WWIPADDR##*.}" >> /tmp/interfaces
+                    #echo "    netmask !! all must be same!!  $WWNETMASK" >> /tmp/interfaces
+                    #echo "    gateway ${this-gateway} or $WWGATEWAY" >> /tmp/interfaces
+                    #echo "    hwaddress ether ${need get this} or $HWADDR" >> /tmp/interfaces
+                    #if [ -n "$WWMTU" ]; then
+                        #echo "    mtu $WWMTU" >> /tmp/interfaces
+                    #fi
+
+    # configure multiple networks ?
+    warn_msg networking ;
+    if user_decide
+    then
+        echo "Using default networking"
+    else
+        echo "# Configured by Warewulf" > ${VNFSROOT}/${NAME}/etc/network/interfaces
+        echo '' >> ${VNFSROOT}/${NAME}/etc/network/interfaces
+        echo 'auto lo' >> ${VNFSROOT}/${NAME}/etc/network/interfaces
+        echo 'iface lo inet loopback' >> ${VNFSROOT}/${NAME}/etc/network/interfaces
+
+        if [[ -n ${AUTO} ]]
+        then
+            CHOICE=1
+        else
+            # prompt how many devices to configure
+            warn_msg ethernet ;
+            user_input ;
+        fi
+
+        local count=0
+        while [ ${count} -lt ${CHOICE} ]
+        do
+            ## Place holder- this file has no effect is overridden at init
+            echo '' >> ${VNFSROOT}/${NAME}/etc/network/interfaces
+            echo "allow-hotplug eth${count}" >> ${VNFSROOT}/${NAME}/etc/network/interfaces
+            echo "iface eth${count} inet dhcp" >> ${VNFSROOT}/${NAME}/etc/network/interfaces
+            count=$(( count + 1 )) ;
+        done
+    fi
+    return 0
+}
+
+
+configure_ntp() {
+    NETDEV=`grep "^network device =" $WAREWULF_SYSCONFDIR/warewulf/provision.conf | cut -d = -f 2`
+
+    if [[ $(grep "iface" /etc/network/interfaces | grep "${NETDEV}" | awk '{print $4}') == "static" ]]
+    then
+        IPADDR=$(/sbin/ip -o -4 addr list ${NETDEV} | awk '{print $4}' | cut -d/ -f1)
+
+        echo "# Written by Warewulf:wwmkchroot" >> $CHROOTDIR/etc/ntp.conf
+        echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/ntp.conf
+
+        echo "restrict default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
+        echo "restrict -6 default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
+
+        echo "restrict 127.0.0.1" >> $CHROOTDIR/etc/ntp.conf
+        echo "restrict -6 ::1" >> $CHROOTDIR/etc/ntp.conf
+
+        echo "server $IPADDR prefer" >> $CHROOTDIR/etc/ntp.conf
+        echo "restrict $IPADDR mask 255.255.255.255 nomodify notrap noquery" >> $CHROOTDIR/etc/ntp.conf
+    fi
+    return 0
+}
+
+
+configure_pam() {
+    # add broken_shadow to pam.d/common-account
+    if [[ -f "${VNFSROOT}/${NAME}/etc/pam.d/common-account" ]]
+    then
+        sed -i -e '/^account.*pam_unix\.so\s*$/s/\s*$/\ broken_shadow/' ${VNFSROOT}/${NAME}/etc/pam.d/common-account
+    fi
+    return 0
+}
+
+
+configure_runlevel() {
+    warn_msg runlevel ;
+    if [[ -z ${AUTO} ]]
+    then
+        read -p "After reading message press [ENTER]"
+    fi
+    return 0
+}
+
+
+finalize() {
+    # Very Important Do A Final Cleanup
+    # Make sure /proc is not mounted inside our new
+    # vnfs before we exit else we later get the dreaded
+    # cp: reading `./proc/sysrq-trigger': Input/output error
+    umount ${VNFSROOT}/${NAME}/proc/fs/nfsd 2>/dev/null
+    umount ${VNFSROOT}/${NAME}/proc 2>/dev/null
+
+    if [ -n "$INSTALL_ISO" ]; then
+        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
+            if umount $i; then
+                rmdir $i
+            else
+                echo "ERROR: Could not unmount $i"
+            fi
+        done
+    fi
+
+    if grep -q "${VNFSROOT} " /proc/mounts; then
+       echo "ERROR: there are mounted file systems in ${VNFSROOT}"
+       exit 1
+    fi
+    return 0
+}
+
+
+cleanup() {
+    warn_msg completed ;
+    if [[ -n ${WWVNFS} ]]
+    then
+        wwimport ;
+    fi
+
+    if [[ -n ${WWBOOT} ]]
+    then
+        wwboot;
+    fi
+
+    warn_msg finished ;
+    return 0
+}
+
+
+
+
+
+
+
+
+
+######################################
+######################################
+######################################
+
+do_packs () {
+
+    export FUNCTIONS="sanity_check
+                  init
+                  overlay
+                  cleanup"
+
+    if [[ -n ${REMOVES} ]]; then
+        if [[ -f "/etc/debian_version" ]]
+        then
+            echo
+            echo "removing requested packages"
+            if ! ${CHROOT} ${CHROOTDIR} apt-get ${SAYYES} ${REMOVECMD} ${REMOVES} ;then
+                echo
+                echo "failed to remove packages. Dropping into shell"
+                echo
+                exit 1
+            fi
+        fi
+    fi
+    if [[ -n ${INSTALLS} ]]; then
+        if [[ -f "/etc/debian_version" ]]
+        then
+            echo
+            echo "  running apt-get update"
+            if ! ${CHROOT} ${CHROOTDIR} apt-get ${SAYYES} update ; then
+                echo
+                echo "failed to update package lists. Dropping into shell"
+                echo
+                exit 1
+            fi
+        fi
+        if [[ -f "/etc/debian_version" ]]; then
+            echo
+            echo "  installing requested packages"
+            if ! ${CHROOT} ${CHROOTDIR} apt-get ${SAYYES} install ${INSTALLS} ; then
+                echo
+                echo "failed to install requested packages. Dropping into shell"
+                echo
+                exit 1
+            fi
+        fi
+    fi
+}
+
+
+
+
+######################################
+######################################
+######################################
+
+
+
+
+
+
+# vim: filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

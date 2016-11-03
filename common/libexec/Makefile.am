@@ -1,0 +1,4 @@
+SUBDIRS = wwinit
+
+MAINTAINERCLEANFILES = Makefile.in
+

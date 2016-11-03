@@ -1,0 +1,264 @@
+#!/bin/bash
+
+eval `wwconfig -as`
+
+MEDIA_MOUNTPATH="$CHROOTDIR/tmp/wwmkchroot.mount"
+
+export FUNCTIONS="sanity_check
+                  distro_check
+                  init
+                  prechroot
+                  buildchroot
+                  postchroot
+                  configure_fstab
+                  configure_network
+                  configure_ntp
+                  configure_pam
+                  configure_authentication
+                  configure_sshkeys
+                  configure_rootacct
+                  configure_runlevel
+                  configure_services
+                  configure_timezone
+                  finalize
+                  cleanup"
+
+
+set_as_overlay() {
+    FUNCTIONS="sanity_check
+               distro_check
+               init
+               set_overlay
+               buildchroot
+               configure_services
+               finalize
+               cleanup"
+}
+
+sanity_check() {
+    if [ ! -x $WAREWULF_PREFIX/bin/cluster-env ]; then
+        echo "warewulf-cluster package is recommended on nodes you are building VNFS images on.";
+        sleep 2;
+    else
+        $WAREWULF_PREFIX/bin/cluster-env;
+    fi
+    if [ -z "$PKGLIST" ]; then
+        echo "ERROR: You must define the \$PKGLIST variable in the template!"
+        return 1
+    fi
+    return 0
+}
+
+distro_check() {
+    return 0
+}
+
+init() {
+    if [ ! -d "$CHROOTDIR" ]; then
+        if ! mkdir -p "$CHROOTDIR"; then
+            echo "ERROR: Could not create directory $CHROOTDIR"
+            exit 1
+        fi
+    fi
+    if [ -n "$INSTALL_ISO" ]; then
+        count=0
+        for i in `echo $INSTALL_ISO | sed -e 's/,/ /'`; do
+            if [ -f "$i" ]; then
+                if ! grep -q "^$i" /proc/mounts; then
+                    mkdir -p $MEDIA_MOUNTPATH.$count
+                    if ! mount -o loop $i $MEDIA_MOUNTPATH.$count; then
+                        echo "ERROR: Could not mount: $INSTALL_ISO"
+                        cleanup
+                        exit 1
+                    fi
+                    count=`expr $count + 1`
+                fi
+            else
+                echo "ERROR: Could not locate INSTALL_ISO: $INSTALL_ISO"
+                cleanup
+                exit 1
+            fi
+        done
+    fi
+    return 0
+}
+
+set_overlay() {
+    return 0
+}
+
+prechroot() {
+    return 0
+}
+
+buildchroot() {
+    $PKGR_CMD
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to install packages"
+        cleanup
+        return 1
+    fi
+    return 0   
+}
+
+postchroot() {
+    return 0
+}
+
+configure_pam() {
+    if [ -f "$CHROOTDIR/etc/pam.d/system-auth" ]; then
+        sed -i -e '/^account.*pam_unix\.so\s*$/s/\s*$/\ broken_shadow/' $CHROOTDIR/etc/pam.d/system-auth
+    fi
+
+    if [ -f "$CHROOTDIR/etc/pam.d/password-auth" ]; then
+        sed -i -e '/^account.*pam_unix\.so\s*$/s/\s*$/\ broken_shadow/' $CHROOTDIR/etc/pam.d/password-auth
+    fi
+    return 0
+}
+
+configure_authentication() {
+    if [ -x "/usr/sbin/chroot" ]; then
+        /usr/sbin/chroot $CHROOTDIR /usr/sbin/pwconv
+    elif [ -x "/usr/bin/chroot" ]; then
+       /usr/bin/chroot $CHROOTDIR /usr/sbin/pwconv
+    fi
+    return 0
+}
+
+configure_rootacct() {
+    sed -i -e 's/^root:[^:]*:/root:*:/' $CHROOTDIR/etc/passwd
+    cp $CHROOTDIR/etc/skel/.[a-zA-Z]* $CHROOTDIR/root/ > /dev/null 2>&1
+    return 0
+}
+
+configure_fstab() {
+    WWIPADDR=`perl -e '
+        use Warewulf::Network;
+        use Warewulf::Config;
+
+        my $config = Warewulf::Config->new("provision.conf");
+        my $netobj = Warewulf::Network->new();
+        my $netdev = $config->get("network device");
+        my $ipaddr = $netobj->ipaddr("$netdev");
+
+        print "$ipaddr\n";
+    '`
+
+    echo "#GENERATED_ENTRIES#" > $CHROOTDIR/etc/fstab
+    echo "tmpfs /dev/shm tmpfs defaults 0 0" >> $CHROOTDIR/etc/fstab
+    echo "devpts /dev/pts devpts gid=5,mode=620 0 0" >> $CHROOTDIR/etc/fstab
+    echo "sysfs /sys sysfs defaults 0 0" >> $CHROOTDIR/etc/fstab
+    echo "proc /proc proc defaults 0 0" >> $CHROOTDIR/etc/fstab
+
+    if [ -f /etc/exports ]; then
+        grep "^#WWEXPORT:" /etc/exports  | while read i; do
+            SHARE=`echo $i | cut -d : -f 2`
+            echo "$WWIPADDR:$SHARE $SHARE nfs defaults 0 0" >> $CHROOTDIR/etc/fstab
+            mkdir -p $CHROOTDIR/$SHARE
+        done
+    fi
+    return 0
+}
+
+configure_sshkeys() {
+    if [ -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key" ]; then
+        /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key* $CHROOTDIR/etc/ssh/
+    elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_key" ]; then
+        /usr/bin/ssh-keygen -q -t rsa1 -f $CHROOTDIR/etc/ssh/ssh_host_key -C '' -N ''
+    fi
+    if [ -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key" ]; then
+        /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key* $CHROOTDIR/etc/ssh/
+    elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_rsa_key" ]; then
+        /usr/bin/ssh-keygen -q -t rsa -f $CHROOTDIR/etc/ssh/ssh_host_rsa_key -C '' -N ''
+    fi
+    if [ -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_dsa_key" ]; then
+        /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_dsa_key* $CHROOTDIR/etc/ssh/
+    elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_dsa_key" ]; then
+        /usr/bin/ssh-keygen -q -t dsa -f $CHROOTDIR/etc/ssh/ssh_host_dsa_key -C '' -N ''
+    fi
+
+    # This should fail silently as ECDSA isn't supported on older platforms.
+    if [ -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key" ]; then
+        /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key* $CHROOTDIR/etc/ssh/
+    elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_ecdsa_key" ]; then
+        /usr/bin/ssh-keygen -q -t ecdsa -f $CHROOTDIR/etc/ssh/ssh_host_ecdsa_key -C '' -N '' 2> /dev/null
+    fi
+
+    mkdir -m 0700 -p $CHROOTDIR/root/.ssh 2>/dev/null
+    > $CHROOTDIR/root/.ssh/authorized_keys
+    for i in `ls /root/.ssh/*.pub 2>/dev/null`; do
+        cat $i >> $CHROOTDIR/root/.ssh/authorized_keys
+    done
+    return 0
+}
+
+configure_network() {
+    if [ -d $CHROOTDIR/etc/sysconfig/network ]; then
+        return 0
+    elif [ -d $CHROOTDIR/etc/sysconfig ]; then
+        echo "NETWORKING=yes" > $CHROOTDIR/etc/sysconfig/network
+    fi
+    return 0
+}
+
+configure_runlevel() {
+    if [ -f "$CHROOTDIR/etc/inittab" ]; then
+        sed -i -e 's@id:.:initdefault:@id:3:initdefault:@' $CHROOTDIR/etc/inittab
+    fi
+    return 0
+}
+
+configure_timezone() {
+    if [ -f "/etc/localtime" ]; then
+        cp -a /etc/localtime $CHROOTDIR/etc/localtime
+    fi
+    if [ -f "/etc/adjtime" ]; then
+        cp -a /etc/adjtime $CHROOTDIR/etc/adjtime
+    fi
+    return 0
+}
+
+configure_ntp() {
+    NETDEV=`grep "^network device =" $WAREWULF_SYSCONFDIR/warewulf/provision.conf | cut -d = -f 2`
+    if [ -f "/etc/sysconfig/network-scripts/ifcfg-$NETDEV" ]; then
+        . /etc/sysconfig/network-scripts/ifcfg-$NETDEV
+        if [ -n "$IPADDR" -a "x$BOOTPROTO" == "xstatic" ]; then
+            echo "# Written by Warewulf:wwmkchroot" >> $CHROOTDIR/etc/ntp.conf
+            echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/ntp.conf
+
+            echo "restrict default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
+            echo "restrict -6 default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
+
+            echo "restrict 127.0.0.1" >> $CHROOTDIR/etc/ntp.conf
+            echo "restrict -6 ::1" >> $CHROOTDIR/etc/ntp.conf
+
+            echo "server $IPADDR prefer" >> $CHROOTDIR/etc/ntp.conf
+            echo "restrict $IPADDR mask 255.255.255.255 nomodify notrap noquery" >> $CHROOTDIR/etc/ntp.conf
+        fi
+    fi
+    return 0
+}
+
+configure_services() {
+    return 0
+}
+
+cleanup() {
+    if [ -n "$INSTALL_ISO" ]; then
+        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
+            if umount $i; then
+                rmdir $i
+            else
+                echo "ERROR: Could not unmount $i"
+            fi
+        done
+    fi
+    return 0
+}
+
+finalize() {
+    return 0
+}
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

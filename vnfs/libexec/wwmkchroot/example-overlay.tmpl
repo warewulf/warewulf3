@@ -1,0 +1,27 @@
+#DESC: Dummy overlay example for installing additional packages into a chroot
+
+# use one for the target platform
+# one of these must come first
+# . include-rhel
+# . include-deb
+
+# ! make sure to use this template as overlay !
+# must be set after the above platform options
+set_as_overlay
+
+# required for a debian overlay
+#------------------------------#
+# ARCH="i386"
+# SUITE="jessie"
+# DEB_MIRROR="http://http.us.debian.org/debian/"
+
+# required for a rhel overlay
+#------------------------------#
+# Define the location of the YUM repository
+# YUM_MIRROR="http://mirror.centos.org/centos-6/6/os/\$basearch/"
+
+
+# list of package to install into chroot
+# PKGLIST="cups build-essential"
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

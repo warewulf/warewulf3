@@ -13,12 +13,12 @@ ipmitool:
 	fi
 	@ if [ ! -f "_work/ipmitool/ipmitool-$(IPMITOOL_VERSION)/src/ipmitool" ]; then \
 	    echo "Building ipmitool" ;\
-		@ if [ -f "/usr/lib/rpm/config.guess" ]; then \
+		if [ -f "/usr/lib/rpm/config.guess" ]; then \
 			cp /usr/lib/rpm/config.guess _work/ipmitool/ipmitool-$(IPMITOOL_VERSION) ;\
-		fi
-		@ if [ -f "/usr/lib/rpm/config.sub" ]; then \
+		fi; \
+		if [ -f "/usr/lib/rpm/config.sub" ]; then \
 			cp /usr/lib/rpm/config.sub _work/ipmitool/ipmitool-$(IPMITOOL_VERSION) ;\
-		fi
+		fi; \
 	    cd _work/ipmitool/ipmitool-$(IPMITOOL_VERSION) ;\
 	    ./configure --enable-static --disable-ipmishell ;\
 	    make LDFLAGS=-static ;\

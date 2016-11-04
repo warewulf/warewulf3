@@ -28,7 +28,7 @@ e2fsprogs:
 	fi
 	@ if [ ! -f "_work/$(E2FSPROGS_DIR)/misc/mke2fs" ]; then \
 		echo "Building e2fsprogs" ;\
-		(cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
+		(cp /usr/lib/rpm/config.guess _work/$(E2FSPROGS_DIR)/config; cp /usr/lib/rpm/config.sub _work/$(E2FSPROGS_DIR)/config; cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
 		make -C _work/$(E2FSPROGS_DIR);\
 	fi
 

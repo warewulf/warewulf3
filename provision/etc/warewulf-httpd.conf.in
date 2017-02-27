@@ -1,6 +1,9 @@
 <IfModule !perl_module>
     LoadModule perl_module modules/mod_perl.so
 </IfModule>
+<IfModule !version>
+    LoadModule version modules/mod_version.so
+</IfModule>
 PerlSwitches -w
 PerlSwitches -T
 PerlSwitches -I/var/www/stage/cgi-bin

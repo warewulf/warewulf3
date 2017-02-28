@@ -59,7 +59,7 @@ AC_MSG_RESULT($WAREWULF_LIBEXECDIR)
 AC_SUBST(WAREWULF_LIBEXECDIR)
 
 dnl# Get git version
-GITVERSION=`git show -s --pretty=format:%h 2>/dev/null || echo 0000`
+GITVERSION=`cat .gitversion | tr -d '\n'`
 AC_SUBST(GITVERSION)
 
 AC_OUTPUT(Makefile

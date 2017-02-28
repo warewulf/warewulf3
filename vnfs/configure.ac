@@ -26,7 +26,7 @@ AC_SUBST(PERL_VENDORLIB)
 AC_SUBST(PERLBIN)
 
 dnl# Get git version
-GITVERSION=`git show -s --pretty=format:%h 2>/dev/null || echo 0000`
+GITVERSION=`cat .gitversion | tr -d '\n'`
 AC_SUBST(GITVERSION)
 
 AC_OUTPUT(Makefile

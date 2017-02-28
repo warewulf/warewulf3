@@ -10,6 +10,8 @@ else
     automake -ca -Wno-portability
 fi
 
+git show -s --pretty=format:%h > .gitversion
+
 if [ -z "$NO_CONFIGURE" ]; then
    ./configure $@
 fi

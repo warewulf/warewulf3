@@ -22,6 +22,7 @@ my $datarootdir = "@datarootdir@";
 my $singleton = {
     "PROGNAME"     => basename($0),
     "VERSION"      => $VERSION,
+    "GITVERSION"   => "@GITVERSION@",
     "PREFIX"       => "@prefix@",
     "STATEDIR"     => "@localstatedir@",
     "SYSCONFDIR"   => "@sysconfdir@",

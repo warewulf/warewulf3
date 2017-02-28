@@ -48,6 +48,7 @@ if ($opt_help) {
     print "\n";
     print "      PROGNAME       Program name\n";
     print "      VERSION        Program version\n";
+    print "      GITVERSION     Git repository commit\n";
     print "      PREFIX         The compile-time prefix\n";
     print "      DATAROOTDIR    The compile-time data root directory\n";
     print "      DATADIR        The compile-time data directory\n";

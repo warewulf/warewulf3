@@ -33,8 +33,10 @@ WWGETFILES_INTERVAL=${WWGETFILES_INTERVAL:-180}
 
 if [ -n "$WWGETFILES_INTERVAL" -a $WWGETFILES_INTERVAL -gt 0 ];then
     if [ -n "$RANDOM" -a ! -f "/init" ]; then
-       SLEEPTIME=`expr $RANDOM % $WWGETFILES_INTERVAL`
-       sleep $SLEEPTIME
+        if [ -z "$SLEEPTIME" ]; then
+            SLEEPTIME=`expr $RANDOM % $WWGETFILES_INTERVAL`
+        fi
+        sleep $SLEEPTIME
     fi
 fi
 

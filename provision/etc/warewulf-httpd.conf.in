@@ -34,8 +34,8 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     AllowOverride None
     <IfVersion < 2.4>
         Order allow,deny
+        Allow from all
     </IfVersion>
-    Allow from all
     <IfVersion >= 2.4>
         Require all granted
     </IfVersion>
@@ -45,8 +45,8 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     AllowOverride None
     <IfVersion < 2.4>
         Order allow,deny
+        Allow from all
     </IfVersion>
-    Allow from all
     <IfVersion >= 2.4>
         Require all granted
     </IfVersion>

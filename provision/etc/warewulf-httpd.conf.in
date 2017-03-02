@@ -32,7 +32,9 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 <Directory @fulldatadir@/warewulf/www>
     Options Indexes MultiViews
     AllowOverride None
-    Order allow,deny
+    <IfVersion < 2.4>
+        Order allow,deny
+    </IfVersion>
     Allow from all
     <IfVersion >= 2.4>
         Require all granted
@@ -41,7 +43,9 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 
 <Directory /var/tmp/warewulf_cache>
     AllowOverride None
-    Order allow,deny
+    <IfVersion < 2.4>
+        Order allow,deny
+    </IfVersion>
     Allow from all
     <IfVersion >= 2.4>
         Require all granted

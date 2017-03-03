@@ -1,6 +1,9 @@
 <IfModule !perl_module>
     LoadModule perl_module modules/mod_perl.so
 </IfModule>
+<IfModule !version_module>
+    LoadModule version_module modules/mod_version.so
+</IfModule>
 PerlSwitches -w
 PerlSwitches -T
 PerlSwitches -I/var/www/stage/cgi-bin
@@ -29,8 +32,10 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 <Directory @fulldatadir@/warewulf/www>
     Options Indexes MultiViews
     AllowOverride None
-    Order allow,deny
-    Allow from all
+    <IfVersion < 2.4>
+        Order allow,deny
+        Allow from all
+    </IfVersion>
     <IfVersion >= 2.4>
         Require all granted
     </IfVersion>
@@ -38,8 +43,10 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 
 <Directory /var/tmp/warewulf_cache>
     AllowOverride None
-    Order allow,deny
-    Allow from all
+    <IfVersion < 2.4>
+        Order allow,deny
+        Allow from all
+    </IfVersion>
     <IfVersion >= 2.4>
         Require all granted
     </IfVersion>

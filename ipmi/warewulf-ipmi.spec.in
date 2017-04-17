@@ -13,7 +13,7 @@ URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common
-BuildRequires: warewulf-common
+BuildRequires: warewulf-common openssl-devel
 Conflicts: warewulf < 3
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 

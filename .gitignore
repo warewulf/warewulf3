@@ -11,3 +11,13 @@ libtool
 ltmain.sh
 missing
 warewulf*.spec
+.gitversion
+*/*.tar.gz
+*/config.log
+*/config.status
+vnfs/bin/wwmkchroot
+common/warewulf-common-*/
+provision/warewulf-provision-*/
+cluster/warewulf-cluster-*/
+ipmi/warewulf-ipmi-*/
+vnfs/warewulf-vnfs-*/

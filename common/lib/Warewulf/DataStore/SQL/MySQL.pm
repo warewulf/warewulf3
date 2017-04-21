@@ -149,6 +149,10 @@ chunk_size()
 {
     my $self = shift;
     my $max_allowed_packet;
+    my $config = Warewulf::Config->new("database.conf");
+    if ($max_allowed_packet = $config->get("database chunk size")) {
+        return $max_allowed_packet;
+    }
 
     if (! $self->{"DBH"}) {
         $self->init();

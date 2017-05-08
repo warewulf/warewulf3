@@ -29,7 +29,7 @@ while true; do
         gunzip < /tmp/vnfs-download | bsdtar -pxf - &
         #gunzip < /tmp/vnfs-download | tar -xf - &
 
-        wget -O /tmp/vnfs-download http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR 2>&1
+        wget -q -O /tmp/vnfs-download http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR 2>&1
         WGETEXIT=$?
 
         wait

@@ -61,8 +61,11 @@ wwprint "Checking for default RSA1 host key for nodes"
 if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key"; then
     install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
     wwprint "Creating default node ssh_host_key:\n"
-    if ! wwrun ssh-keygen -q -t rsa1 -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key -C '' -N ''; then
-        exit 255
+    if ! ssh-keygen -q -t rsa1 -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key -C '' -N '' 2>/dev/null; then
+        wwprint "RSA1 key is not supported on your system" yellow
+        reply_warn
+    else
+	reply_ok
     fi
     RETVAL=0
 fi
@@ -91,8 +94,11 @@ wwprint "Checking for default ECDSA host key for nodes"
 if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key"; then
     install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
     wwprint "Creating default node ssh_host_ecdsa_key:\n"
-    if ! wwrun ssh-keygen -q -t ecdsa -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key -C '' -N ''; then
-        exit 255
+    if ! ssh-keygen -q -t ecdsa -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key -C '' -N '' 2>/dev/null; then
+        wwprint "ECDSA key is not supported on your system" yellow
+        reply_warn
+    else
+	reply_ok
     fi
     RETVAL=0
 fi

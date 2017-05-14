@@ -21,3 +21,17 @@ provision/warewulf-provision-*/
 cluster/warewulf-cluster-*/
 ipmi/warewulf-ipmi-*/
 vnfs/warewulf-vnfs-*/
+provision/3rd_party/_work/
+provision/3rd_party/ldlinux.c32
+provision/3rd_party/ldlinux.e32
+provision/3rd_party/ldlinux.e64
+provision/3rd_party/lpxelinux.0
+provision/3rd_party/prepare
+provision/3rd_party/pxelinux.0
+provision/3rd_party/syslinux32.efi
+provision/3rd_party/syslinux64.efi
+provision/initramfs/_work/
+provision/initramfs/capabilities/*/capability.cpio
+provision/initramfs/capabilities/*/rootfs/
+provision/initramfs/initramfs.cpio
+provision/initramfs/rootfs/

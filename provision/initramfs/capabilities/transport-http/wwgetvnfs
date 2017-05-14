@@ -33,10 +33,10 @@ while true; do
         WGETEXIT=$?
 
         wait
-        if [ -f "$NEWROOT/sbin/init" ]; then
+        if [ -f "$NEWROOT/sbin/init" -o -f "$NEWROOT`readlink $NEWROOT/sbin/init`" ]; then
             echo
             exit 0
-        fi
+	fi
 
 #        ( wget -O - "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" | gunzip | tar -xf - ) 2>&1
 #        if [ -f "$NEWROOT/sbin/init" ]; then

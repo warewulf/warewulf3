@@ -363,6 +363,7 @@ vnfs_create_file($)
     if (exists($exclude_map{"$path"})) {
         &dprint("Excluding: $path\n");
     } else {
+        $path = encode_utf8($path);
         print $filepipe ".$path\n";
    }
 

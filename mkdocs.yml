@@ -15,7 +15,6 @@ pages:
         - 'File Provisioning': 'subprojects_components_plugins/provision-files.md'
         - 'Provisioned Runtime Scripts': 'subprojects_components_plugins/provision-scripts.md'
       - 'VNFS (Virtual Node File System) Management': 'subprojects_components_plugins/vnfs.md'
-      - 'Node Health Check': 'subprojects_components_plugins/node-health-check.md'
     - 'recipes':
       - 'Setup':
         - 'Installing': 'recipes/setup/installation.md'

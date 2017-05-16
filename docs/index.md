@@ -24,7 +24,6 @@ To contribute to the Warewulf wiki pages, create tickets, or contribute to the s
     * [How to provision specific files](subprojects_components_plugins/provision-files.md)
     * [Runtime scripts that are provisioned automatically](subprojects_components_plugins/provision-scripts.md)
 * [VNFS (Virtual Node File System) Management](subprojects_components_plugins/vnfs.md)
-* [Node Health Check](subprojects_components_plugins/node-health-check.md) -- A tool for verifying node integrity and notifying or marking nodes offline
 * <a class="missing wiki">IBCheck?</a> -- Swiss army knife for Infiniband (IB) troubleshooting
 * <a class="missing wiki">Ipmi Integration?</a>
 * <a class="missing wiki">Scalable System Monitoring?</a>
@@ -51,11 +50,6 @@ Warewulf recipes are designed to be brief command based walk throughs of what yo
 
 * <a class="missing wiki">Single Master Beowulf?</a>
 * <a class="missing wiki">Multiple Master Beowulf?</a>
-
-### Node Health Check with the Scheduler
-
-* [Integrating NHC with Torque](subprojects_components_plugins/node-health-check.md)
-* [Integrating NHC with Slurm](subprojects_components_plugins/node-health-check.md)
 
 ### General
 

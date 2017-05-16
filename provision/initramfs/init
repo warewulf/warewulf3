@@ -351,7 +351,7 @@ if [ -n "$WWPOSTSHELL" -a "$WWPOSTSHELL" != "0" ]; then
     setsid /bin/cttyhack /bin/sh
 fi
 
-if [ -e "$NEWROOT/sbin/init" ]; then
+if [ -e "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
     msg_white "Stopping syslogd: "
     if killall syslogd >/dev/null 2>&1; then
         wwsuccess

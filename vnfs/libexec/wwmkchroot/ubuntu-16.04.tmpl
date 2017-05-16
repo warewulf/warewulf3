@@ -1,0 +1,16 @@
+#DESC: A base 64 bit Ubuntu xenial chroot
+
+# The general Deb include has all of the necessary functions, but requires
+# some basic variables specific to each chroot type to be defined.
+. include-ubuntu
+
+ARCH="amd64"
+SUITE="xenial"
+DEB_MIRROR="http://archive.ubuntu.com/ubuntu/"
+
+# Install additional packages with debootstrap
+PKGLIST="openssh-server openssh-client isc-dhcp-client pciutils strace nfs-common \
+ethtool iproute iputils-ping iputils-arping net-tools linux-image-generic"
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

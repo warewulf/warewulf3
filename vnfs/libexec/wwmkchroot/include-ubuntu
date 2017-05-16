@@ -51,10 +51,10 @@ prechroot() {
         return 1
     fi
     if [ -z "$SUITE" ]; then
-        SUITE="jessie"
+        SUITE="xenial"
     fi
     if [ -z "$ARCH" ]; then
-        ARCH="i386"
+        ARCH="amd64"
     fi
 
     mkdir -p $CHROOTDIR/etc
@@ -71,10 +71,15 @@ prechroot() {
     echo "DPkg{ Chroot-Directory \"$CHROOTDIR/\"; };" >> $CHROOTDIR/$APT_CONF
 
     > $CHROOTDIR/$DEB_SRCS
-    echo "deb $DEB_MIRROR $SUITE main contrib non-free" >> $CHROOTDIR/$DEB_SRCS
-    echo "deb-src $DEB_MIRROR $SUITE main contrib non-free" >> $CHROOTDIR/$DEB_SRCS
-    echo "deb http://security.debian.org/ ${SUITE}/updates main contrib" >> $CHROOTDIR/$DEB_SRCS
-    echo "deb-src http://security.debian.org/ ${SUITE}/updates main contrib" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb $DEB_MIRROR ${SUITE} main restricted" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb $DEB_MIRROR ${SUITE}-updates main restricted" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb $DEB_MIRROR ${SUITE}-backports main restricted" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb http://security.ubuntu.com/ubuntu ${SUITE}-security main restricted" >> $CHROOTDIR/$DEB_SRCS
+    echo >> $CHROOTDIR/$DEB_SRCS
+    echo "#deb $DEB_MIRROR ${SUITE} universe multiverse" >> $CHROOTDIR/$DEB_SRCS
+    echo "#deb $DEB_MIRROR ${SUITE}-updates universe multiverse" >> $CHROOTDIR/$DEB_SRCS
+    echo "#deb $DEB_MIRROR ${SUITE}-backports universe multiverse" >> $CHROOTDIR/$DEB_SRCS
+    echo "#deb http://security.ubuntu.com/ubuntu ${SUITE}-security universe multiverse" >> $CHROOTDIR/$DEB_SRCS
 
     if [ -z "$INSTALL_ISO" ]; then
         SOURCESPATH="$DEB_SRCS"
@@ -93,6 +98,7 @@ prechroot() {
         done
         PKGR_CMD="debootstrap --no-check-gpg $SUITE $CHROOTDIR $DEB_MIRROR"
     fi
+
     return 0
 }
 
@@ -100,11 +106,18 @@ postchroot() {
     # copy a more robust sources.list to our chroot
     cp $CHROOTDIR/$DEB_SRCS $CHROOTDIR/etc/apt/
 
+    # create proc in chroot as this may be required by some packaged
+    mkdir -o $CHROOTDIR/proc
+    mount none -t proc $CHROOTDIR/proc
+
     # debootstrap created our base chroot and now
     # we install all the required packages into it
     APT_CMD="${APT_CMD}${SOURCESPATH}"
     $APT_CMD update
     $APT_CMD install $PKGLIST
+
+    # cleanup proc
+    umount $CHROOTDIR/proc
 
     touch $CHROOTDIR/fastboot
     return 0

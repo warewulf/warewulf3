@@ -33,7 +33,7 @@ while true; do
         WGETEXIT=$?
 
         wait
-        if [ -f "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
+        if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
             echo
             exit 0
 	fi

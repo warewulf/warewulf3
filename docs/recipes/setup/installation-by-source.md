@@ -2,7 +2,7 @@
 
 ### Downloading Warewulf
 
-Goto the [Download](/trac/wiki/Download) page and select which distribution type and packages you want to install, and download them to the system you wish to install them on. For example:
+Goto the [Download](../../download.md) page and select which distribution type and packages you want to install, and download them to the system you wish to install them on. For example:
 
 ```
 $ mkdir ~/warewulf-src
@@ -53,7 +53,7 @@ $ sudo yum install --nogpgcheck /root/rpmbuild/RPMS/noarch/warewulf-common-0.0.1
 
 #### Using Mezzanine to build RPMS
 
-You can also build binary RPMS using Mezzanine (which is how we build RPMS). You can obtain [Mezzanine here](/trac/wiki/Mezzanine), and build RPMS as follows:
+You can also build binary RPMS using Mezzanine (which is how we build RPMS). You can obtain [Mezzanine here](../../mezzanine.md), and build RPMS as follows:
 
 ```
 $ cd ~/warewulf-src

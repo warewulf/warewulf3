@@ -38,8 +38,8 @@ plan("tests" => (
 $acvars = new_ok("Warewulf::ACVars");
 can_ok($acvars, "new", "get", "vars");
 
-# Make sure we account for all the variables that exist currently.
-cmp_ok(scalar(@var_names), '==', scalar($acvars->vars()),
+# Make sure we account for all the variables that exist currently (we explicitly ignore GITVERSION).
+cmp_ok(scalar(@var_names), '==', scalar($acvars->vars())-1,
        "All Warewulf::ACVars variable names accounted for");
 # Make sure static and non-static calls both work (and match).
 @a = $acvars->vars();

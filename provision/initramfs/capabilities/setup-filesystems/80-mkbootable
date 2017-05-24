@@ -57,7 +57,7 @@ if [ -n "$WWBOOTLOADER" -a -f "/tmp/rootdev" ]; then
             if [ -x "$NEWROOT/usr/sbin/grub2-install" ]; then
                 if [ -n "${WWCONSOLE}" ]; then
                     echo "GRUB_CMDLINE_LINUX='${WWKARGS} console=tty0 console=${WWCONSOLE}'" >> $NEWROOT/etc/default/grub
-                    if [ -n SERIALUNIT ]; then
+                    if [ -n "${SERIALUNIT}" ]; then
                         echo "GRUB_TERMINAL='console serial'" >> $NEWROOT/etc/default/grub
                         echo "GRUB_SERIAL_COMMAND='serial --speed=${SERIALSPEED} --unit=${SERIALUNIT} --word=${SERIALWORD} --parity=${SERIALPARITY}'" >> $NEWROOT/etc/default/grub
                     fi
@@ -93,7 +93,7 @@ if [ -n "$WWBOOTLOADER" -a -f "/tmp/rootdev" ]; then
                     echo "(hd0) $WWBOOTLOADER" >> $NEWROOT/boot/grub/device.map
 
                     echo "# This file was written by Warewulf bootstrap (capability setup-filesystems)" > $NEWROOT/boot/grub/grub.conf
-                    if [ -n $SERIALUNIT ]; then
+                    if [ -n "${SERIALUNIT}" ]; then
                         echo "serial --speed=${SERIALSPEED} --unit=${SERIALUNIT} --word=${SERIALWORD} --parity=${SERIALPARITY}" >> $NEWROOT/boot/grub/grub.conf
                         echo "terminal_input console serial; terminal_output console serial" >> $NEWROOT/boot/grub/grub.conf
                     fi

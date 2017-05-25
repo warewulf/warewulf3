@@ -7,6 +7,3 @@ provisioning/installation, monitoring, event notification, and more via a modula
 plugin architecture. Install the components and features you need or leverage
 the existing system configurations stored within Warewulf to create custom
 solutions to meet your particular needs.
-
-This repository is a fork of https://github.com/warewulf/warewulf3.
-Its development focuses on providing Warewulf support for Ubuntu based systems.

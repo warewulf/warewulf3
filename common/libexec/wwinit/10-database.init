@@ -29,6 +29,12 @@ DBROOTUSER=`egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-ro
 DBROOTPASS=`egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
 APIVERSION="1"
 
+if [ "$DBROOTUSER" != "" ]; then
+    DBUSER=$DBROOTUSER
+    DBPASS=$DBROOTPASS
+fi
+
+
 SCHEMA="CREATE TABLE IF NOT EXISTS meta (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
     name VARCHAR(64),
@@ -77,6 +83,11 @@ else
     wwprint "Skipping configuration of datastore driver: $DATASTORE\n"
 fi
 
+if ! echo -n | mysql 2>/dev/null; then
+    read -s -p "Enter database password for the root user:" MYSQL_PWD
+    export MYSQL_PWD
+fi
+
 if ! echo "use $DBNAME;" | mysql 2>/dev/null; then
     wwrun mysqladmin create "$DBNAME" || exit 255
 fi
@@ -111,22 +122,12 @@ fi
 
 if [ -n "$DBUSER" -a "$DBUSER" != "root" ]; then
     wwprint "Updating database permissions for base users"
-    if echo "GRANT SELECT ON $DBNAME.* TO $DBUSER@localhost IDENTIFIED BY '$DBPASS';" | mysql $DBNAME; then
+    if echo "GRANT ALL PRIVILEGES ON $DBNAME.* TO $DBUSER IDENTIFIED BY '$DBPASS';" | mysql $DBNAME; then
         reply_success
     else
         reply_error
     fi
 fi
-
-if [ -n "$DBROOTUSER" -a "$DBROOTUSER" != "root" ]; then
-    wwprint "Updating database permissions for root user"
-    if echo "GRANT ALL PRIVILEGES ON $DBNAME.* TO $DBROOTUSER@localhost IDENTIFIED BY '$DBROOTPASS';" | mysql $DBNAME; then
-        reply_success
-    else
-        reply_error
-    fi
-fi
-
 
 
 exit 0

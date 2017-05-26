@@ -13,8 +13,9 @@ package Warewulf::DataStore::SQL;
 use Warewulf::Util;
 use Warewulf::Logger;
 use Warewulf::Config;
-use Warewulf::DataStore::SQL::MySQL;
 use DBI;
+use File::Basename;
+use File::Glob qw(:glob bsd_glob);
 
 
 =head1 NAME
@@ -41,15 +42,26 @@ new($$)
     my $proto = shift;
     my $config = Warewulf::Config->new("database.conf");
     my $db_engine = $config->get("database driver") || "mysql";
-
-    if ($db_engine eq "mysql") {
-        return(Warewulf::DataStore::SQL::MySQL->new(@_));
-    } else {
-        &eprint("Could not load DB type: $db_engine\n");
-        exit 1;
+    
+    # What directory holds this module?
+    my @path = bsd_glob(dirname(__FILE__) . '/SQL/' . $db_engine . '*.pm', GLOB_NOCASE);
+    
+    if ( scalar(@path) > 0 ) {
+        if ( scalar(@path) == 1 ) {
+            if ( $path[0] =~ /(([^.]+)\.pm)/ ) {
+                my $path = $1;
+                my $class = 'Warewulf::DataStore::SQL::' . basename($2);
+                
+                require $path;
+                return ($class)->new(@_);
+            }
+        } else {
+            &eprint("Multiple matches for driver '$db_engine' ???\n");
+            exit 1;
+        }
     }
-
-    return();
+    &eprint("Could not load DB type: $db_engine\n");
+    exit 1;
 }
 
 =back

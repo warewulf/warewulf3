@@ -498,59 +498,39 @@ sub bootloader()
     return $self->prop("bootloader", qr/^([a-zA-Z0-9_\/]+)$/, @val);
 }
 
-=item diskformat($value)
+=item fs($path)
 
-Set or return diskformat:
-
-$value = The comma seperated list of partations to format. i.e. sda1,sda2
+Set or return FS for disk provisioning
 =cut
 
-sub diskformat()
+sub fs()
 {
-    my $self = shift;
-    my @val = @_;
+    my ($self, $path) = @_;
+    my @data;
 
-    if ($_[0] eq "UNDEF") {
-        @val = undef;
+    if (defined($path)) {
+        if ($path eq "UNDEF") {
+            @data = undef;
+            $self->del("fs");
+        } elsif (open(FILE, $path)) {
+            &dprint("   Opening file to import for FS: $path\n");
+            while (my $line = <FILE>) {
+                # Todo input validation of the various FS commands
+                if ($line =~ /^$/ || $line =~ /^#.+/) {
+                    next
+                }
+                chomp($line);
+                push @data, $line;
+            }
+            close FILE;
+            $self->set("fs", @data);
+        } else {
+            &eprint("Could not open filesystems configuration path \"$path\"\n");
+        }
     }
 
-    return $self->prop("diskformat", qr/^([a-zA-Z0-9_,]+)$/, @val);
-}
 
-=item diskpartition($value)
-
-Set or return diskpartition:
-
-$value - The disk to partition during bootstrap
-=cut
-
-sub diskpartition()
-{
-    my $self = shift;
-    my @val = @_;
-
-    if ($_[0] eq "UNDEF") {
-        @val = undef;
-    }
-
-    return $self->prop("diskpartition", qr/^([a-zA-Z0-9_]+)$/, @val);
-}
-
-=item filesystems($value)
-
-Set or return FILESYSTEMS for disk provisioning
-=cut
-
-sub filesystems()
-{
-    my ($self, $value) = @_;
-
-    # A better way??
-    if (defined($value)) {
-        $self->set("filesystems", $value);
-    }
-
-    return $self->get("filesystems");
+    return $self->get("fs");
 }
 
 =back

@@ -22,6 +22,7 @@ fi
 wwreqroot
 
 DATASTORE=`egrep "^database driver\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
+DBSERVER=`egrep "^database server\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
 DBNAME=`egrep "^database name\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
 DBUSER=`egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
 DBPASS=`egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
@@ -71,28 +72,41 @@ CREATE TABLE IF NOT EXISTS lookup (
 
 
 if [ "$DATASTORE" = "mysql" ]; then
-    if wwpackage_check mysql-server; then
-        wwservice_activate mysqld mysql
-    elif wwpackage_check mariadb-server; then
-        wwservice_activate mariadb
-    else
-        wwprint "No database package seems to exist for mysql!\n" error
-        exit 255
+    if [ "$DBSERVER" = "localhost" ]; then
+        if wwpackage_check mysql-server; then
+            wwservice_activate mysqld mysql
+        elif wwpackage_check mariadb-server; then
+            wwservice_activate mariadb
+        else
+            wwprint "No database package seems to exist for mysql!\n" error
+            exit 255
+        fi
     fi
 else
     wwprint "Skipping configuration of datastore driver: $DATASTORE\n"
+    exit 0
 fi
 
-if ! echo -n | mysql 2>/dev/null; then
-    read -s -p "Enter database password for the root user:" MYSQL_PWD
+if [ "$DBSERVER" != "localhost" ]; then
+    DBOPTIONS="-h $DBSERVER"
+fi
+
+if ! echo -n | mysql $DBOPTIONS 2>/dev/null; then
+    read -p "Enter database user with root privileges at $DBSERVER [root]:" DBROOT
+    if [ "$DBROOT" == "" ]; then
+        DBROOT="root"
+    fi
+    read -s -p "Enter database password at $DBSERVER for the $DBROOT user:" MYSQL_PWD
+    echo
     export MYSQL_PWD
+    DBOPTIONS="$DBOPTIONS -u $DBROOT"
 fi
 
-if ! echo "use $DBNAME;" | mysql 2>/dev/null; then
-    wwrun mysqladmin create "$DBNAME" || exit 255
+if ! echo "use $DBNAME;" | mysql $DBOPTIONS 2>/dev/null; then
+    wwrun mysqladmin $DBOPTIONS create "$DBNAME" || exit 255
 fi
 
-DBVERS=`echo "select value from meta where name = 'dbvers' LIMIT 1;" | mysql -s "$DBNAME" 2>/dev/null`
+DBVERS=`echo "select value from meta where name = 'dbvers' LIMIT 1;" | mysql $DBOPTIONS -s "$DBNAME" 2>/dev/null`
 if [ -n "$DBVERS" ]; then
     wwprint "Database version: $DBVERS\n"
 else
@@ -101,14 +115,14 @@ fi
 
 if [ -z "$DBVERS" ]; then
     wwprint "Creating database schema"
-    if echo "$SCHEMA" | mysql "$DBNAME"; then
+    if echo "$SCHEMA" | mysql $DBOPTIONS "$DBNAME"; then
         reply_success
     else
         reply_error
         exit 255
     fi
     wwprint "Setting the DB SCHEMA version to $APIVERSION"
-    if echo "insert into meta (name, value) VALUES ('dbvers', '$APIVERSION');" | mysql "$DBNAME"; then
+    if echo "insert into meta (name, value) VALUES ('dbvers', '$APIVERSION');" | mysql $DBOPTIONS "$DBNAME"; then
         reply_success
     else
         reply_error
@@ -116,13 +130,13 @@ if [ -z "$DBVERS" ]; then
     fi
 elif [ $DBVERS -lt $APIVERSION ]; then
     wwprint "Updating database schema"
-    echo "UPDATE meta SET value=$APIVERSION WHERE name = 'dbvers';" | mysql "$DBNAME"
+    echo "UPDATE meta SET value=$APIVERSION WHERE name = 'dbvers';" | mysql $DBOPTIONS "$DBNAME"
     replay_skipped
 fi
 
 if [ -n "$DBUSER" -a "$DBUSER" != "root" ]; then
     wwprint "Updating database permissions for base users"
-    if echo "GRANT ALL PRIVILEGES ON $DBNAME.* TO $DBUSER IDENTIFIED BY '$DBPASS';" | mysql $DBNAME; then
+    if echo "GRANT ALL PRIVILEGES ON $DBNAME.* TO $DBUSER IDENTIFIED BY '$DBPASS';" | mysql $DBOPTIONS $DBNAME; then
         reply_success
     else
         reply_error

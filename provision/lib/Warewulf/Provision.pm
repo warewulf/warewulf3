@@ -381,6 +381,29 @@ postshell()
 }
 
 
+=item postreboot($bool)
+
+Set or return the postreboot boolean
+
+=cut
+
+sub
+postreboot()
+{
+    my ($self, $bool) = @_;
+
+    if (defined($bool)) {
+        if ($bool) {
+            $self->set("postreboot", 1);
+        } else {
+            $self->del("postreboot");
+        }
+    }
+
+    return $self->get("postreboot");
+}
+
+
 =item selinux($value)
 
 Set or return SELinux support

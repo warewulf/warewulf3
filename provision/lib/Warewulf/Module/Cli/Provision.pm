@@ -93,6 +93,7 @@ help()
     $h .= "         --filedel       Remove a file to be provisioned to this node\n";
     $h .= "         --preshell      Start a shell on the node before provisioning (boolean)\n";
     $h .= "         --postshell     Start a shell on the node after provisioning (boolean)\n";
+    $h .= "         --postreboot    Reboot after provisioning instead of switch_root into VNFS (boolean)\n";
     $h .= "         --postnetdown   Shutdown the network after provisioning (boolean)\n";
     $h .= "         --bootlocal     Boot the node from the local disk (\"exit\" or \"normal\")\n";
     $h .= "         --console       Set a specific console for the kernel command line\n";
@@ -179,6 +180,7 @@ exec()
     my $opt_vnfs;
     my $opt_preshell;
     my $opt_postshell;
+    my $opt_postreboot;
     my $opt_postnetdown;
     my $opt_bootlocal;
     my @opt_master;
@@ -219,6 +221,7 @@ exec()
         'V|vnfs=s'      => \$opt_vnfs,
         'preshell=s'    => \$opt_preshell,
         'postshell=s'   => \$opt_postshell,
+        'postreboot=s'  => \$opt_postreboot,
         'postnetdown=s' => \$opt_postnetdown,
         'bootlocal=s'   => \$opt_bootlocal,
         'l|lookup=s'    => \$opt_lookup,
@@ -351,6 +354,31 @@ exec()
                     $persist_bool = 1;
                 }
                 push(@changes, sprintf("     SET: %-20s = %s\n", "POSTSHELL", 1));
+            }
+        }
+
+        if (defined($opt_postreboot)) {
+            if (uc($opt_postreboot) eq "UNDEF" or
+                uc($opt_postreboot) eq "FALSE" or
+                uc($opt_postreboot) eq "NO" or
+                uc($opt_postreboot) eq "N" or
+                $opt_postreboot == 0
+            ) {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->postreboot(0);
+                    &dprint("Disabling postreboot for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("   UNDEF: %-20s\n", "POSTREBOOT"));
+            } else {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->postreboot(1);
+                    &dprint("Enabling postreboot for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("     SET: %-20s = %s\n", "POSTREBOOT", 1));
             }
         }
 

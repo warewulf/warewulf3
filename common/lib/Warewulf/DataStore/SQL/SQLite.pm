@@ -4,59 +4,6 @@
 # through Lawrence Berkeley National Laboratory (subject to receipt of any
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
-#
-#     PRAGMA foreign_keys = ON;
-# 
-#     CREATE TABLE meta (
-#         id              INTEGER PRIMARY KEY NOT NULL,
-#         name            TEXT,
-#         value           TEXT
-#       );
-#     CREATE INDEX meta_name_idx ON meta(name);
-#     INSERT INTO meta (name, value) VALUES ('dbvers', '1');
-# 
-#     CREATE TABLE datastore (
-#         id              INTEGER PRIMARY KEY NOT NULL,
-#         type            TEXT,
-#         timestamp       INTEGER NOT NULL DEFAULT 0,
-#         serialized      BLOB,
-#         data            BLOB
-#       );
-#     CREATE INDEX datastore_type_idx ON datastore(type);
-#     CREATE TRIGGER datastore_insert_timestamp
-#         AFTER INSERT ON datastore
-#         FOR EACH ROW BEGIN
-#             UPDATE datastore SET timestamp = strftime('%s', 'now') WHERE rowid = NEW.rowid;
-#         END;
-#     CREATE TRIGGER datastore_update_timestamp
-#         AFTER UPDATE OF type,serialized,data ON datastore
-#         FOR EACH ROW BEGIN
-#             UPDATE datastore SET timestamp = strftime('%s', 'now') WHERE id = NEW.id;
-#         END;
-# 
-# 
-#     CREATE TABLE lookup (
-#         id              INTEGER PRIMARY KEY NOT NULL,
-#         object_id       INTEGER NOT NULL,
-#         field           TEXT,
-#         value           TEXT,
-#     
-#         FOREIGN KEY(object_id) REFERENCES datastore(id) ON DELETE CASCADE
-#       );
-#     CREATE INDEX lookup_object_id_idx ON lookup(object_id);
-#     CREATE INDEX lookup_field_idx ON lookup(field);
-# 
-# 
-#     CREATE TABLE binstore (
-#         id              INTEGER PRIMARY KEY NOT NULL,
-#         object_id       INTEGER NOT NULL,
-#         chunk           BLOB,
-#     
-#         FOREIGN KEY(object_id) REFERENCES datastore(id) ON DELETE CASCADE
-#       );
-#     CREATE INDEX binstore_object_id_idx ON binstore(object_id);
-#
-#
 # $Id$
 #
 
@@ -72,6 +19,61 @@ use DBI;
 
 # We subclass the SQL base class:
 use parent 'Warewulf::DataStore::SQL::BaseClass';
+
+
+my $sqlite_db_schema = <<'END_OF_SQL';
+
+CREATE TABLE meta (
+    id              INTEGER PRIMARY KEY NOT NULL,
+    name            TEXT,
+    value           TEXT
+  );
+CREATE INDEX meta_name_idx ON meta(name);
+INSERT INTO meta (name, value) VALUES ('dbvers', '1');
+
+CREATE TABLE datastore (
+    id              INTEGER PRIMARY KEY NOT NULL,
+    type            TEXT,
+    timestamp       INTEGER NOT NULL DEFAULT 0,
+    serialized      BLOB,
+    data            BLOB
+  );
+CREATE INDEX datastore_type_idx ON datastore(type);
+CREATE TRIGGER datastore_insert_timestamp
+    AFTER INSERT ON datastore
+    FOR EACH ROW BEGIN
+        UPDATE datastore SET timestamp = strftime('%s', 'now') WHERE rowid = NEW.rowid;
+    END;
+CREATE TRIGGER datastore_update_timestamp
+    AFTER UPDATE OF type,serialized,data ON datastore
+    FOR EACH ROW BEGIN
+        UPDATE datastore SET timestamp = strftime('%s', 'now') WHERE id = NEW.id;
+    END;
+
+
+CREATE TABLE lookup (
+    id              INTEGER PRIMARY KEY NOT NULL,
+    object_id       INTEGER NOT NULL,
+    field           TEXT,
+    value           TEXT,
+
+    FOREIGN KEY(object_id) REFERENCES datastore(id) ON DELETE CASCADE
+  );
+CREATE INDEX lookup_object_id_idx ON lookup(object_id);
+CREATE INDEX lookup_field_idx ON lookup(field);
+
+
+CREATE TABLE binstore (
+    id              INTEGER PRIMARY KEY NOT NULL,
+    object_id       INTEGER NOT NULL,
+    chunk           BLOB,
+
+    FOREIGN KEY(object_id) REFERENCES datastore(id) ON DELETE CASCADE
+  );
+CREATE INDEX binstore_object_id_idx ON binstore(object_id);
+
+END_OF_SQL
+
 
 =head1 NAME
 
@@ -101,11 +103,27 @@ sub
 open_database_handle_impl()
 {
     my ($self, $db_name, $db_server, $db_user, $db_pass) = @_;
+
+    #
+    # If the path $db_name does not exist, then we'll need to initialize
+    # the database, too:
+    #
+    my $needsInit = ( ! -f $db_name );
+
     my $dbh = DBI->connect_cached("DBI:SQLite:dbname=$db_name", '', '');
-    
+
     if ( $dbh ) {
         if ( ! $dbh->do('PRAGMA foreign_keys = ON') ) {
             &wprint('Failed to enable foreign key support on $db_name');
+        } elsif ( $needsInit ) {
+            my $saved_multi_stmt = $dbh->{'sqlite_allow_multiple_statements'};
+
+            $dbh->{'sqlite_allow_multiple_statements'} = 1;
+            if ( ! $dbh->do($sqlite_db_schema) ) {
+                &eprint('Failed to create database schema in $db_name');
+                $dbh->disconnect();
+                $dbh = undef;
+            }
         }
     }
     return $dbh;

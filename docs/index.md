@@ -1,10 +1,10 @@
 # Documentation
 
-Documentation is always a work in progress... Please report errors to one of the documentation maintainers directly or via the [Google groups discussion lists](/trac/wiki/GettingHelp#WarewulfGoogleGroups).
+Documentation is always a work in progress... Please report errors via [GitHub issues](https://github.com/warewulf/warewulf3/issues).
 
 ## Contributing
 
-To contribute to the Warewulf wiki pages, create tickets, or contribute to the source tree you will need to contact one of the primary developers via the [Google groups](/trac/wiki/GettingHelp#WarewulfGoogleGroups) or [IRC](/trac/wiki/GettingHelp#IRCInternetRelayChat) and speak with them about setting up an account. All accounts are manually created to control SPAM and commits.
+To contribute to the Warewulf wiki pages, create issues, or contribute to the source tree visit GitHub. You can ask one of the contributors for repo access on [Slack](warewulf.slack.com).
 
 > _note: Any new branches or changes to the given structure must be vetted and approved by a primary developer._
 

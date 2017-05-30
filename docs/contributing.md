@@ -1,13 +1,13 @@
 # Contributing
 
-Interested in helping out on the Warewulf project? The first thing you should do is join the appropriate <a class="missing wiki">Google Groups?</a>, and let us know how your interested in helping!
+Interested in helping out on the Warewulf project? Join us on [Slack](warewulf.slack.com) and let us know how your interested in helping!
 
 ## Source Code
 
-Our development model is completely open, and downloading our current working source code is available to the public using Subversion:
+Our development model is completely open, and downloading our current working source code is available to the public using GitHub:
 
 ```
-$ svn co https://warewulf.lbl.gov/svn warewulf
+$ git clone https://github.com/warewulf/warewulf3.git
 ```
 
 ## Copyright and licensing
@@ -71,8 +71,8 @@ in binary and source code form.
 
 ## Submitting patches
 
-Send all patches to the development group (link above) for approval.
+Send all patches via a Pull Request for approval.
 
 ## Commit access
 
-If you wish to gain commit access, please join and email our development group (link above), and request access. One of the project admins will contact you directly from there.
+If you wish to gain commit access, please ask on Slack or via GitHub issues.

@@ -12,6 +12,7 @@
 #       value           TEXT
 #     );
 #   CREATE INDEX meta_name_idx ON meta(name);
+#   INSERT INTO meta (name, value) VALUES ('dbvers', '1');
 #
 #
 #   CREATE TABLE datastore (
@@ -21,6 +22,7 @@
 #       serialized      BYTEA,
 #       data            BYTEA
 #     );
+#   CREATE INDEX datastore_type_idx ON datastore(type);
 #   CREATE FUNCTION datastore_update_timestamp_trigger() RETURNS TRIGGER AS $$
 #   BEGIN
 #       IF OLD.id <> NEW.id THEN
@@ -46,6 +48,7 @@
 #       field           TEXT,
 #       value           TEXT
 #     );
+#   CREATE INDEX lookup_object_id_idx ON lookup(object_id);
 #   CREATE INDEX lookup_field_idx ON lookup(field);
 #
 #

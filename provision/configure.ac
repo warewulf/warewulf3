@@ -88,6 +88,7 @@ AC_OUTPUT(
    cgi-bin/Makefile
    etc/Makefile
    etc/defaults/Makefile
+   etc/filesystem/Makefile
    etc/warewulf-httpd.conf
    initramfs/Makefile
    initramfs/capabilities/Makefile

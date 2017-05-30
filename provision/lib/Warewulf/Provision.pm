@@ -544,9 +544,18 @@ sub fs()
                 my @split_line = split /\s+/, $line;
                 if (defined $split_line[0] && exists $valid_cmds{$split_line[0]}) {
                   if ($#split_line + 1 > $valid_cmds{$split_line[0]}) {
-                    push @data, $line;
+                    if ($split_line[0] eq "fstab" && $split_line[4] =~ /,/) {
+                      &dprint("    Transforming commas in fstab options to colons, line: $line\n");
+                      $split_line[4] =~ tr/,/:/;
+                      push @data, join(" ", @split_line);
+                    } elsif ( $line =~ /,/ ) {
+                      &eprint("Command cannot contain commas, ignoring: $line\n");
+                      next
+                    } else {
+                      push @data, $line;
+                    } 
                   } else {
-                    &wprint("Command does not have at least $valid_cmds{$split_line[0]} arguments, line: $line\n")
+                    &wprint("Command does not have at least $valid_cmds{$split_line[0]} arguments, line: $line\n");
                   }
 
                 } else {

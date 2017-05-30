@@ -507,6 +507,28 @@ sub fs()
 {
     my ($self, $path) = @_;
     my @data;
+    my %valid_cmds = (
+      "align-check" => 2,
+      "help" => 1,
+      "mklabel" => 1,
+      "mktable" => 1,
+      "mkpart"  => 4,
+      "name" => 2,
+      "print" => 1,
+      "quit" => 0,
+      "rescue" => 2,
+      "rm" => 1,
+      "select" => 1,
+      "disk_set" => 2,
+      "disk_toggle" => 1,
+      "set" => 3,
+      "toggle" => 2,
+      "unit" => 1,
+      "version" => 0,
+      "mkfs" => 2,
+      "fstab" => 6,
+    );
+
 
     if (defined($path)) {
         if ($path eq "UNDEF") {
@@ -515,12 +537,21 @@ sub fs()
         } elsif (open(FILE, $path)) {
             &dprint("   Opening file to import for FS: $path\n");
             while (my $line = <FILE>) {
-                # Todo input validation of the various FS commands
                 if ($line =~ /^$/ || $line =~ /^#.+/) {
-                    next
+                  next
                 }
                 chomp($line);
-                push @data, $line;
+                my @split_line = split /\s+/, $line;
+                if (defined $split_line[0] && exists $valid_cmds{$split_line[0]}) {
+                  if ($#split_line + 1 > $valid_cmds{$split_line[0]}) {
+                    push @data, $line;
+                  } else {
+                    &wprint("Command does not have at least $valid_cmds{$split_line[0]} arguments, line: $line\n")
+                  }
+
+                } else {
+                  &wprint("Unknown command in line $line, cmd: $split_line[0]\n");
+                }
             }
             close FILE;
             $self->set("fs", @data);

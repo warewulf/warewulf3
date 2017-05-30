@@ -9,7 +9,7 @@
 # Copyright (c) 2017 Benjamin S. Allen
 
 ## Example input:
-# WWFS="select /dev/sda,mklabel gpt,mkpart primary ext4 0% 20%,mkpart primary linux-swap 20% 50%,mkpart primary ext4 50% 100%,name 1 boot,name 2 swap,name 3 root,mkfs 1 ext4 boot,mkfs 2 swap swap,mkfs 3 ext4 root,fstab 3 / ext4 defaults 0 0,fstab 1 /boot ext4 defaults 0 0,fstab 2 swap swap defaults 0 0"
+# WWFS="select /dev/sda,mklabel gpt,mkpart primary ext4 0% 20%,mkpart primary linux-swap 20% 50%,mkpart primary ext4 50% 100%,name 1 boot,name 2 swap,name 3 root,mkfs 1 ext4 '-L boot',mkfs 2 '-L swap' swap,mkfs 3 ext4 '-L root',fstab 3 / ext4 defaults 0 0,fstab 1 /boot ext4 defaults 0 0,fstab 2 swap swap defaults 0 0"
 
 # Exit on any non-zero exit code
 set -o errexit
@@ -49,7 +49,8 @@ run_mkfs() {
   local SELECT_DISK="${1}"
   local PARTITION="${2}"
   local TYPE="${3}"
-  local LABEL="${4:-}"
+  shift 3
+  local OPTS="${*:-}"
 
   local DEV="${SELECT_DISK}${PARTITION}"
 
@@ -67,22 +68,22 @@ run_mkfs() {
     ;;
     ext2)
       {
-        /sbin/mkfs.ext2 -q -F -L "${LABEL}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.ext2 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || wwfailure
     ;;
     ext3)
       {
-        /sbin/mkfs.ext3 -q -F -L "${LABEL}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.ext3 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || wwfailure
     ;;
     ext4)
       {
-        /sbin/mkfs.ext4 -q -F -L "${LABEL}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.ext4 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || wwfailure
     ;;
     vfat)
       {
-        /sbin/mkfs.vfat -n "${LABEL}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.vfat "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || wwfailure
     ;;
     *)

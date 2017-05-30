@@ -643,18 +643,18 @@ exec()
         }
 
         if ($opt_filesystem) {
-
+            my @fsData;
             foreach my $obj ($objSet->get_list()) {
                 my $name = $obj->name() || "UNDEF";
                 &dprint("$name : Import FS commands file from:\n  $opt_filesystem\n");
-                $obj->fs($opt_filesystem);
+                @fsData = $obj->fs($opt_filesystem);
                 $persist_bool = 1;
             }
 
             if (uc($opt_filesystem) eq "UNDEF") {
                 push(@changes, sprintf("       DEL: %-20s\n", "FS"));
             } else {
-                push(@changes, sprintf("       SET: %-20s = %s\n", "FS", $opt_filesystem));
+                push(@changes, sprintf("       SET: %-20s = %s\n", "FS", join(",", @fsData)));
             }
         }
 

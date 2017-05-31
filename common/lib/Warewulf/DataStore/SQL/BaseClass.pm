@@ -30,15 +30,83 @@ Warewulf::DataStore::SQL::BaseClass - Common database implementation details
 =head1 DESCRIPTION
 
     This class should not be instantiated directly.  It is intended to be
-    treated as an opaque implementation of the DB interface.
+    treated as an abstract implementation of the DB interface.  All concrete
+    implementations (subclasses) have methods that MUST be overridden as
+    well as methods that CAN be overridden -- see each method's own
+    documentation below for details.  For methods that require validation
+    in front of actual actions, the actions themselves are present in
+    function(s) named with a "_impl" suffix; in such cases, the "_impl"
+    function(s) should be overridden so that the validations are retained
+    in the subclass.
 
-    This class creates a persistant singleton for the application runtime
-    which will maintain a consistant database connection from the time that
-    the object is constructed.
+    Each concrete implementation inherits the new() function, which will
+    create a persistant singleton instance for the application runtime which
+    will maintain a consistant database connection from the time that the object
+    is constructed.
 
     Documentation for each function should be found in the top level
     Warewulf::DataStore documentation. Any implementation specific documentation
     can be found here.
+    
+    All SQL DataStore implementations accept the following configuration
+    keys in database.conf:
+    
+      database server           hostname/IP address of the database server; can be
+                                omitted for default to be used (e.g. local socket)
+                            
+      database port             TCP/IP port number on which the database server
+                                listens; can be omitted for default to be used
+                            
+      database name             name of the database to which to connect
+      
+      database user             user identity to be used when connecting to the
+                                database server
+                            
+      database password         password to be used when connecting to the database
+                                server
+      
+      database chunk size       break all binary objects into chunks of this size;
+                                the value of this key should be a numerical value
+                                with an optional unit: KB/MB/GB for base 2**10 units,
+                                kB/mB/gB for base 10 units.  E.g. "4 KB" = 4096
+      
+      binstore chunk size       an alias for "database chunk size"
+      
+      binstore kind             where binary objects should be stored:
+                                  database      as BLOBs in the database
+                                  filesystem    as a file in a directory
+      
+      binstore fs path          for the filesystem binstore option, the directory
+                                in which binary objects would be stored.  Defaults
+                                to /var/lib/warewulf/binstore.
+      
+      binstore fs create mode   for the filesystem binstore option, the permissions
+                                mode (in octal) to apply to the copy-in file.  File
+                                owner read+write bits are forced to be set, and the
+                                value has is masked against 0666 to remove all special
+                                and executable bits.
+      
+      binstore fs retry count   for the filesystem binstore option, the number of
+                                times an extant copy-in file is allowed to exist before
+                                the import operation fails.
+      
+      binstore fs retry period  for the filesystem binstore option, the number of
+                                seconds between checking for existence of the copy-in
+                                file (object id plus '.new' suffix).
+
+    The database-root.conf file can contain override values for the "database user" and
+    "database password" keys.
+
+=cut
+
+our $BINSTORE_KIND_DATABASE = 'database';
+our $BINSTORE_KIND_FILESYSTEM = 'filesystem';
+
+
+=item serialize($hashref)
+
+Convert a Perl hash (object) into a serialized representation
+we can add to a database table.
 
 =cut
 
@@ -49,6 +117,13 @@ serialize($)
 
     return freeze($hashref);
 }
+
+=item unserialize($serialized)
+
+Attempt to reconstitute a Perl hash (object) from the serialized
+form.
+
+=cut
 
 sub
 unserialize($)
@@ -61,6 +136,11 @@ unserialize($)
 
 =item new()
 
+Return the singleton instance of the class.  Note that every
+subclass will inherit this method and will stash the single
+allocated instance in its own namespace, so no subclass should
+need to override this implementation.
+
 =cut
 
 sub
@@ -68,14 +148,14 @@ new()
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $singletonName = $class . '::singleton';
+    my $singletonName = $class . '::shared_instance';
 
     if (! $$singletonName) {
         my $instance = bless({}, $class);
 
         {
-            my $config = Warewulf::Config->new("database.conf");
-            my $config_root = Warewulf::Config->new("database-root.conf");
+            my $config = Warewulf::Config->new('database.conf');
+            my $config_root = Warewulf::Config->new('database-root.conf');
 
             $instance = $instance->init($config, $config_root);
             if ($instance) {
@@ -89,6 +169,20 @@ new()
 
 =item init()
 
+Initialize this instance of the class using the database and
+database_root configuration objects passed to us.
+
+Any subclass that overrides this function should start by
+chaining to this implementation, a'la
+
+    my $self = shift;
+    
+    $self = $self->SUPER::init(@_);
+    if ( $self ) {
+          :
+    }
+    return $self;
+
 =cut
 
 sub
@@ -97,35 +191,60 @@ init()
     my ($self, $config, $config_root) = @_;
 
     # Only initialize once:
-    if ($self && exists($self->{"DBH"}) && $self->{"DBH"}) {
+    if ($self && exists($self->{'DBH'}) && $self->{'DBH'}) {
         &dprint("DB Singleton exists, not going to initialize\n");
         return $self;
     }
 
-    my $db_server = $config->get("database server");
-    my $db_name = $config->get("database name");
-    my $db_user = $config->get("database user");
-    my $db_pass = $config->get("database password");
+    my $db_server = $config->get('database server');
+    my $db_name = $config->get('database name');
+    my $db_port = $config->get('database port');
+    my $db_user = $config->get('database user');
+    my $db_pass = $config->get('database password');
 
-    if ($config_root->get("database user")) {
-        $db_user = $config_root->get("database user");
-        $db_pass = $config_root->get("database password");
+    #
+    # If we can read the root configuration file, then we
+    # should use the user and password found therein
+    #
+    if ($config_root->get('database user')) {
+        my $v;
+        
+        if ( ($v = $config_root->get('database user')) ) {
+            $db_user = $v;
+        }
+        if ( ($v = $config_root->get('database password')) ) {
+            $db_pass = $v;
+        }
     }
 
-    if ($db_name and $db_server and $db_user) {
+    if ($db_name) {
         &dprint("DATABASE NAME:      $db_name\n");
-        &dprint("DATABASE SERVER:    $db_server\n");
-        &dprint("DATABASE USER:      $db_user\n");
+        &dprint("DATABASE SERVER:    $db_server\n") if $db_server;
+        &dprint("DATABASE PORT:      $db_port\n") if $db_port;
+        &dprint("DATABASE USER:      $db_user\n") if $db_user;
 
-        my $dbh = $self->open_database_handle_impl($db_name, $db_server, $db_user, $db_pass);
+        my $dbh = $self->open_database_handle_impl($db_name, $db_server, $db_port, $db_user, $db_pass);
         if ( ! $dbh ) {
             return undef;
         }
-        $self->{"DBH"} = $dbh;
+        $self->{'DBH'} = $dbh;
         &iprint("Successfully connected to database!\n");
+        
+        # Check versions:
+        my $dbvers = $self->version_of_database();
+        
+        if ( ! $dbvers ) {
+            &wprint("Database contains no version meta data\n");
+        }
+        elsif ( $dbvers < $self->version_of_class() ) {
+            &wprint("Database version ($dbvers) is older than the driver version (" . $self->version_of_class() . ")\n");
+        }
+        elsif ( $dbvers > $self->version_of_class() ) {
+            &wprint("Database version ($dbvers) is newer than the driver version (" . $self->version_of_class() . ")\n");
+        }
 
         # Was an explicit chunk size provided?
-        my $chunk_size = $config->get("database chunk size");
+        my $chunk_size = $config->get('database chunk size') || $config->get('binstore chunk size');
 
         if ( $chunk_size ) {
             if ( $chunk_size =~ m/^\s*([+-]?\d+(\.\d*)?)\s*(([GgMmKk]?)([Bb]?))/ ) {
@@ -142,41 +261,214 @@ init()
                     &wprint("database chunk size is less than 4 KB: $chunk_size\n");
                     return undef;
                 }
-                $self->{"DATABASE_CHUNK_SIZE"} = int($chunk_size);
-                &dprint("explicit database chunk size of $self->{DATABASE_CHUNK_SIZE} configured\n");
+                $self->{'BINSTORE_CHUNK_SIZE'} = int($chunk_size);
+                &dprint("Explicit database chunk size of $self->{DATABASE_CHUNK_SIZE} configured\n");
             } else {
-                &wprint("database chunk size cannot be parsed: $chunk_size\n");
+                &wprint("Database chunk size cannot be parsed: $chunk_size\n");
                 return undef;
             }
         }
+        
+        # What kind of binary storage is selected?
+        my $binstore_kind = $config->get('binstore kind') || $self->default_binstore_kind();
+        
+        $binstore_kind = lc($binstore_kind);
+        if ( $binstore_kind eq $BINSTORE_KIND_FILESYSTEM ) {
+            #
+            # Test the set the path to the binstore directory:
+            #
+            my $binstore_path = $config->get('binstore fs path') || '/var/lib/warewulf/binstore';
+            
+            if ( ! -e $binstore_path ) {
+                &eprint("Binstore path does not exist: $binstore_path\n");
+                return undef;
+            }
+            if ( ! -d $binstore_path ) {
+                &eprint("Binstore path is not a directory: $binstore_path\n");
+                return undef;
+            }
+            $self->{'BINSTORE_FS_PATH'} = $binstore_path;
+            
+            #
+            # Set the retry count for opening a binstore file for write:
+            #
+            my $int_val = $config->get('binstore fs retry count');
+            if ( ! $int_val ) {
+                $int_val = 10;
+            }
+            elsif ( int($int_val) <= 0 ) {
+                &wprint("Invalid binstore fs retry count: $int_val\n");
+                $int_val = 10;
+            }
+            $self->{'BINSTORE_FS_RETRY_COUNT'} = int($int_val);
+            
+            #
+            # Set the retry period for opening a binstore file for write:
+            #
+            $int_val = $config->get('binstore fs retry period');
+            if ( ! $int_val ) {
+                $int_val = 30;
+            }
+            elsif ( int($int_val) <= 0 ) {
+                &wprint("Invalid binstore fs retry period: $int_val\n");
+                $int_val = 30;
+            }
+            $self->{'BINSTORE_FS_RETRY_PERIOD'} = int($int_val);
+            
+            #
+            # Set the creation mode for binstore files:
+            #
+            my $create_mode = $config->get("binstore fs create mode") || '0660';
+            if ( ! $create_mode =~ /^[0-9]+$/ ) {
+                &eprint("Binstore file creation mode is invalid: $create_mode\n");
+                return undef;
+            }
+            # The mode MUST at least grant read-write to the user, and should
+            # not have any special mode bits or execute bits:
+            $create_mode = (oct($create_mode) | 0600) & 0666;
+            $self->{"BINSTORE_FS_CREATE_MODE"} = $create_mode;
+        }
+        elsif ( $binstore_kind eq $BINSTORE_KIND_DATABASE ) {
+            # Nothing else needed...
+        }
+        else {
+            &wprint("Invalid binstore kind: $binstore_kind\n");
+            return undef;
+        }
+        $self->{"BINSTORE_KIND"} = $binstore_kind;
     } else {
-        &wprint("Could not connect to the database (undefined credentials)!\n");
+        &wprint("Could not connect to the database, no database name provided\n");
         return undef;
     }
+    
     return $self;
+}
+
+
+=item DESTROY();
+
+Object destructor; close any open files if we're a filesystem-based
+binstore instance.
+
+=cut
+
+sub
+DESTROY()
+{
+    my $self = shift;
+    
+    if ( $self->{"BINSTORE"} ) {
+        if ( exists($self->{"OUT_FILEH"}) ) {
+            close($self->{"OUT_FILEH"});
+            # Rename to atomically replace:
+            rename($self->{"OBJECT_PATH"} . '.new', $self->{"OBJECT_PATH"});
+        }
+        if ( exists($self->{"IN_FILEH"}) ) {
+            close($self->{"IN_FILEH"});
+        }
+    }
+}
+
+
+=item version_of_class()
+
+Return the version number of this class.  Can be checked
+against the version_of_database() to determine if an upgrade
+is necessary, for example.
+
+Must be overridden by subclasses.
+
+=cut
+
+sub
+version_of_class()
+{
+    &wprint("the SQL base class is not a concrete implementation");
+    return undef;
+}
+
+
+=item version_of_database()
+
+Return the version number found in the database.
+
+=cut
+
+sub
+version_of_database()
+{
+    my $self = shift;
+    
+    if ( exists($self->{"DBH"}) ) {
+        my $rows = $self->{"DBH"}->selectall_arrayref("SELECT value FROM meta WHERE name = 'dbvers'");
+        my $vers = -1;
+        
+        foreach my $row (@$rows) {
+            $row = int((@$row)[0]);
+            $vers = $row if ( $row > $vers );
+        }
+        return $vers;
+    }
+    return undef;
+}
+
+
+=item database_schema_string()
+
+Return a string containing the database schema.
+
+Must be overridden by subclasses.
+
+=cut
+
+sub
+database_schema_string()
+{
+    &wprint("the SQL base class is not a concrete implementation");
+    return undef;
 }
 
 
 =item open_database_handle_impl
 
-Open a connection to the database; this should be overridden by each
-subclass.
+Open a connection to the database.
+
+Must be overridden by subclasses.
 
 =cut
 
 sub
 open_database_handle_impl()
 {
-    my ($self, $db_name, $db_server, $db_user, $db_pass) = @_;
+    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
 
     &wprint("the SQL base class is not a concrete implementation");
     return undef;
 }
 
 
+=item default_binstore_kind
+
+Returns the default kind of binstore that's associated with this
+datastore driver.  The default implementation is to use the
+binstore inside the database.
+
+Subclasses can override.
+
+=cut
+
+sub
+default_binstore_kind()
+{
+    return $BINSTORE_KIND_DATABASE;
+}
+
+
 =item chunk_size()
 
-Return the configured chunk size _or_ 4 KB as the default.
+Return the configured chunk size or the appropriate default.  This
+function should not be overridden by subclasses, rather the
+default_chunk_size_*_impl() functions should be.
 
 =cut
 
@@ -185,16 +477,59 @@ chunk_size()
 {
     my $self = shift;
 
-    if ( ! $self->{"DBH"} ) {
-        my $config = Warewulf::Config->new("database.conf");
-        my $config_root = Warewulf::Config->new("database-root.conf");
+    return $self->{"BINSTORE_CHUNK_SIZE"} if ( exists($self->{"BINSTORE_CHUNK_SIZE"}) );
+    return $self->default_chunk_size_db_impl() if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
+    return $self->default_chunk_size_fs_impl() if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
+    return 4 * 1024;
+}
 
-        $self->init($config, $config_root);
-    }
 
-    return $self->{"DATABASE_CHUNK_SIZE"} if ( exists($self->{"DATABASE_CHUNK_SIZE"}) );
+=item default_chunk_size_db_impl()
 
-    return undef;
+Return the default chunk size for the binstore that lives inside
+the database.
+
+Subclasses can override.
+
+=cut
+
+sub
+default_chunk_size_db_impl()
+{
+    return 512 * 1024;
+}
+
+
+=item default_chunk_size_fs_impl()
+
+Return the default chunk size for the binstore that exists as
+files in a directory on the file system.
+
+Subclasses can override.
+
+=cut
+
+sub
+default_chunk_size_fs_impl()
+{
+    return 8 * 1024 * 1024;
+}
+
+
+=item has_object_id_foreign_key_support()
+
+Returns non-zero if the database uses foreign key constraints on
+object id columns of lookup and binstore tables.  By default we
+assume no referential integrity on such columns.
+
+Subclasses can override.
+
+=cut
+
+sub
+has_object_id_foreign_key_support()
+{
+    return 0;
 }
 
 
@@ -265,6 +600,8 @@ get_objects($$$@)
 Build the object retrieval query, returning any arguments to DBI execute()
 in the array referenced by the third argument (e.g. @$params).
 
+Must be overridden by subclasses.
+
 =cut
 
 sub
@@ -325,6 +662,8 @@ get_lookups($$$@)
 
 Build the key-value lookup query, returning any arguments to DBI execute()
 in the array referenced by the third argument (e.g. @$params).
+
+Must be overridden by subclasses.
 
 =cut
 
@@ -475,6 +814,8 @@ persist($$)
 Insert a new row in the datastore table and return its integer object id.
 Return undef on error.
 
+Must be overridden by subclasses.
+
 =cut
 
 sub
@@ -493,6 +834,8 @@ Update the datastore table, setting the serialized form of the object
 with $id to $serialized_data.
 
 Return undef on failure, a non-zero value of any kind otherwise.
+
+Subclasses can override.
 
 =cut
 
@@ -517,6 +860,8 @@ Returns the SQL query string.  For parametric variants, $paramsRef
 is a reference to an array variable; each tuple to be inserted should
 be pushed to @$paramsRef as a reference to an array containing the
 values to insert (see this implementation).
+
+Subclasses can override.
 
 =cut
 
@@ -605,7 +950,9 @@ del_object($$)
 
 Function that actually removes a single object from the database.
 This is very straightforward SQL, so it probably won't need to be
-overridden by subclasses (well, those doing strictly SQL, anyway).
+overridden by subclasses.
+
+But, subclasses can override.
 
 =cut
 
@@ -613,23 +960,79 @@ sub
 del_object_impl($$)
 {
     my ($self, $object) = @_;
-
+    
     $self->{"DBH"}->begin_work();
-
-    if (!exists($self->{"STH_RMLOOK"})) {
-        $self->{"STH_RMLOOK"} = $self->{"DBH"}->prepare("DELETE FROM lookup WHERE object_id = ?");
+    
+    #
+    # Scrub the lookup table:
+    #
+    if ( ! $self->has_object_id_foreign_key_support() ) {
+        if (!exists($self->{"STH_RMLOOK"})) {
+            $self->{"STH_RMLOOK"} = $self->{"DBH"}->prepare("DELETE FROM lookup WHERE object_id = ?");
+            if ( ! $self->{"STH_RMLOOK"} ) {
+                &wprint("Unable to prepare lookup removal query: " . $self->{"DBH"}->errstr . "\n");
+                goto EARLY_EXIT;
+            }
+        }
+        if ( ! $self->{"STH_RMLOOK"}->execute($object->get("_id")) ) {
+            &wprint("Unable to execute lookup removal query: " . $self->{"DBH"}->errstr . "\n");
+            goto EARLY_EXIT;
+        }
     }
-    if (!exists($self->{"STH_RMBS"})) {
-        $self->{"STH_RMBS"} = $self->{"DBH"}->prepare("DELETE FROM binstore WHERE object_id = ?");
+    
+    #
+    # Scrub the binstore:
+    #
+    if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE ) {
+        if ( ! $self->has_object_id_foreign_key_support() ) {
+            if (!exists($self->{"STH_RMBS"})) {
+                $self->{"STH_RMBS"} = $self->{"DBH"}->prepare("DELETE FROM binstore WHERE object_id = ?");
+                if ( ! $self->{"STH_RMBS"} ) {
+                    &wprint("Unable to prepare binstore removal query: " . $self->{"DBH"}->errstr . "\n");
+                    goto EARLY_EXIT;
+                }
+            }
+            if ( ! $self->{"STH_RMBS"}->execute($object->get("_id")) ) {
+                &wprint("Unable to execute binstore removal query: " . $self->{"DBH"}->errstr . "\n");
+                goto EARLY_EXIT;
+            }
+        }
     }
+    elsif ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM ) {
+        # Delete the file from disk:
+        my($path) = $self->{"BINSTORE_PATH"} . '/' . $object->get('_id');
+        if ( -f $path ) {
+            if ( ! unlink($path) ) {
+                &wprint("Unable to remove file from binstore: $path\n");
+                goto EARLY_EXIT;
+            }
+        }
+    }
+    
+    #
+    # At last, remove the object from the datastore:
+    #
     if (!exists($self->{"STH_RMDS"})) {
         $self->{"STH_RMDS"} = $self->{"DBH"}->prepare("DELETE FROM datastore WHERE id = ?");
+        if ( ! $self->{"STH_RMDS"} ) {
+            &wprint("Unable to prepare datastore removal query: " . $self->{"DBH"}->errstr . "\n");
+            goto EARLY_EXIT;
+        }
     }
-    $self->{"STH_RMLOOK"}->execute($object->get("_id"));
-    $self->{"STH_RMBS"}->execute($object->get("_id"));
-    $self->{"STH_RMDS"}->execute($object->get("_id"));
+    if ( ! $self->{"STH_RMDS"}->execute($object->get("_id")) ) {
+        &wprint("Unable to execute datastore removal query: " . $self->{"DBH"}->errstr . "\n");
+        goto EARLY_EXIT;
+    }
 
-    $self->{"DBH"}->commit();
+    if ( ! $self->{"DBH"}->commit() ) {
+        &wprint("Unable to commit object removal: " . $self->{"DBH"}->errstr . "\n");
+    }
+
+    return 1;
+    
+EARLY_EXIT:
+    $self->{"DBH"}->rollback();
+    return 0;
 }
 
 =item binstore($object_id);
@@ -652,9 +1055,18 @@ binstore()
         $dsh->{"DBH"} = $self->{"DBH"};
         $dsh->{"OBJECT_ID"} = $object_id;
         $dsh->{"BINSTORE"} = 1;
-
-        # Copy any explicit chunk size into the binstore child instance:
-        $dsh->{"DATABASE_CHUNK_SIZE"} = $self->{"DATABASE_CHUNK_SIZE"} if ( exists($self->{"DATABASE_CHUNK_SIZE"}) );
+        
+        # Copy all DATABASE_ and BINSTORE_ keys into the binstore object:
+        while ( my($key, $value) = each(%$self) ) {
+            if ( $key =~ /^(BINSTORE|DATABASE)_/ ) {
+                $dsh->{$key} = $value;
+            }
+        }
+        
+        # For filesystem binstore, stash the path to the object:
+        if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM ) {
+            $dsh->{"OBJECT_PATH"} = $self->{"BINSTORE_FS_PATH"} . '/' . $object_id;
+        }
 
         return bless($dsh, $class);
     }
@@ -690,18 +1102,23 @@ put_chunk()
         &eprint("Can not store into binstore without an object ID\n");
         return 0;
     }
-
-    return $self->put_chunk_impl($buffer);
+    
+    return $self->put_chunk_db_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
+    return $self->put_chunk_fs_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
+    return undef;
 }
 
-=item put_chunk_impl($buffer);
+=item put_chunk_db_impl($buffer);
 
-Function that actually transfers a chunk of data to the binstore.
+Function that actually transfers a chunk of data to the binstore
+that's inside the database.
+
+Subclasses can override.
 
 =cut
 
 sub
-put_chunk_impl()
+put_chunk_db_impl()
 {
     my ($self, $buffer) = @_;
 
@@ -713,10 +1130,59 @@ put_chunk_impl()
 
     if (! $self->{"STH_PUT"}->execute($self->{"OBJECT_ID"}, $buffer)) {
         &eprintf("put_chunk() failed with error:  %s\n", $self->{"STH_PUT"}->errstr());
-        return 0;
+        return undef;
     }
     return 1;
 }
+
+
+=item put_chunk_fs_impl($buffer);
+
+Function that actually transfers a chunk of data to the binstore
+held in a directory in the file system.
+
+Subclasses can override.
+
+=cut
+
+sub
+put_chunk_fs_impl()
+{
+    my ($self, $buffer) = @_;
+    my ($rc, $path);
+    
+    if (!exists($self->{"OUT_FILEH"})) {
+        $path = $self->{"OBJECT_PATH"} . '.new';
+        
+        my $lock_exists;
+        my $period = $self->{"BINSTORE_FS_RETRY_PERIOD"};
+        my $retry = $self->{"BINSTORE_FS_RETRY_COUNT"};
+        
+        while ( ($lock_exists = -f $path) && $retry-- ) {
+            &wprintf("update of object $object_id (" . $self->{"OBJECT_PATH"} . ".new) already in progress, waiting " . $period . " seconds...\n");
+            sleep($period);
+        }
+        if ( $lock_exists ) {
+            &dprint("Failed to open binstore file for write: $path\n");
+            return undef;
+        }
+        if ( ! open($self->{"OUT_FILEH"}, '>' . $path) ) {
+            &eprintf("put_chunk() failed while opening file for write: $path\n");
+            return undef;
+        }
+        chmod($self->{"BINSTORE_FS_CREATE_MODE"}, $path);
+        binmode $self->{"OUT_FILEH"};
+        &dprint("FILE OP: WRITE TO binstore($self->{OBJECT_ID}) => $path\n");
+    }
+
+    $rc = syswrite($self->{"OUT_FILEH"}, $buffer);
+    if ( ! defined($rc) ) {
+        &eprintf("put_chunk() failed while writing $path ($!)\n");
+        return undef;
+    }
+    return 1;
+}
+            
 
 =item get_chunk();
 
@@ -746,18 +1212,23 @@ get_chunk()
         &eprint("Can not store into binstore without an object ID\n");
         return 0;
     }
-
-    return $self->get_chunk_impl();
+    
+    return $self->get_chunk_db_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
+    return $self->get_chunk_fs_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
+    return undef;
 }
 
-=item get_chunk_impl();
+=item get_chunk_db_impl();
 
-Function that actually transfers a chunk of data from the binstore.
+Function that actually transfers a chunk of data from the binstore
+that's inside the database.
+
+Subclasses can override.
 
 =cut
 
 sub
-get_chunk_impl()
+get_chunk_db_impl()
 {
     my ($self) = @_;
 
@@ -770,6 +1241,38 @@ get_chunk_impl()
     return $self->{"STH_GET"}->fetchrow_array();
 }
 
+=item get_chunk_fs_impl();
+
+Function that actually transfers a chunk of data from the binstore
+held in a directory in the file system.
+
+Subclasses can override.
+
+=cut
+
+sub
+get_chunk_fs_impl()
+{
+    my ($self) = @_;
+    my $byte_count = $self->chunk_size();
+    my ($buffer, $rc);
+
+    if (!exists($self->{"IN_FILEH"})) {
+        if ( ! -f $self->{"OBJECT_PATH"} || ! -r $self->{"OBJECT_PATH"} || ! open($self->{"IN_FILEH"}, '<' . $self->{"OBJECT_PATH"}) ) {
+            &eprintf("get_chunk() failed while opening file for read: $self->{OBJECT_PATH}\n");
+            return undef;
+        }
+        binmode $self->{"IN_FILEH"};
+        &dprint("FILE OP: READ FROM binstore($self->{OBJECT_ID}) <= $self->{OBJECT_PATH}\n");
+    }
+
+    $rc = sysread($self->{"IN_FILEH"}, $buffer, $byte_count);
+    if ( ! defined($rc) ) {
+        &eprintf("get_chunk() failed while reading: $!\n");
+        return undef;
+    }
+    return $buffer;
+}
 
 
 =back

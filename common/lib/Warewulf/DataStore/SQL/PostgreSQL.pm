@@ -5,64 +5,6 @@
 # through Lawrence Berkeley National Laboratory (subject to receipt of any
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
-#
-#   CREATE TABLE meta (
-#       id              BIGSERIAL PRIMARY KEY NOT NULL,
-#       name            TEXT,
-#       value           TEXT
-#     );
-#   CREATE INDEX meta_name_idx ON meta(name);
-#   INSERT INTO meta (name, value) VALUES ('dbvers', '1');
-#
-#
-#   CREATE TABLE datastore (
-#       id              BIGSERIAL PRIMARY KEY NOT NULL,
-#       type            TEXT,
-#       timestamp       TIMESTAMP WITH TIME ZONE DEFAULT now(),
-#       serialized      BYTEA,
-#       data            BYTEA
-#     );
-#   CREATE INDEX datastore_type_idx ON datastore(type);
-#   CREATE FUNCTION datastore_update_timestamp_trigger() RETURNS TRIGGER AS $$
-#   BEGIN
-#       IF OLD.id <> NEW.id THEN
-#           RAISE EXCEPTION 'datastore.id is an immutable column (% != %)', OLD.id, NEW.id;
-#       END IF;
-#       IF OLD.type = NEW.type AND OLD.serialized = NEW.serialized AND OLD.data = NEW.data THEN
-#           RETURN NULL;
-#       END IF;
-#       NEW.timestamp = now();
-#       RETURN NEW;
-#   END;
-#   $$ LANGUAGE plpgsql;
-#   CREATE TRIGGER datastore_update_timestamp
-#       BEFORE UPDATE ON datastore
-#       FOR EACH ROW EXECUTE PROCEDURE datastore_update_timestamp_trigger();
-#
-#
-#   CREATE TABLE lookup (
-#       id              BIGSERIAL PRIMARY KEY NOT NULL,
-#       object_id       BIGINT NOT NULL
-#                       REFERENCES datastore(id)
-#                       ON DELETE CASCADE,
-#       field           TEXT,
-#       value           TEXT
-#     );
-#   CREATE INDEX lookup_object_id_idx ON lookup(object_id);
-#   CREATE INDEX lookup_field_idx ON lookup(field);
-#
-#
-#   CREATE TABLE binstore (
-#       id              BIGSERIAL PRIMARY KEY NOT NULL,
-#       object_id       BIGINT NOT NULL
-#                       REFERENCES datastore(id)
-#                       ON DELETE CASCADE,
-#       chunk           BYTEA
-#     );
-#   CREATE INDEX binstore_object_id_idx ON binstore(object_id);
-#
-#
-#
 # $Id$
 #
 
@@ -89,28 +31,112 @@ Warewulf::DataStore::SQL::PostgreSQL - PostgreSQL Database interface to Warewulf
 
 =head1 DESCRIPTION
 
-    This class should not be instantiated directly.  It is intended to be
-    treated as an opaque implementation of the DB interface.
-
-    This class creates a persistant singleton for the application runtime
-    which will maintain a consistant database connection from the time that
-    the object is constructed.
-
-    Documentation for each function should be found in the top level
-    Warewulf::DataStore documentation. Any implementation specific documentation
-    can be found here.
+    This class should not be instantiated directly.  The new() method in
+    the Warewulf::DataStore::SQL class should be used to retrieve the
+    appropriate SQL DataStore object.
+    
+    This subclass responds to no additional configuration keys.
 
 =cut
 
 
 sub
-open_database_handle_impl()
+version_of_class()
 {
-    my ($self, $db_name, $db_server, $db_user, $db_pass) = @_;
-
-    return DBI->connect_cached("DBI:Pg:database=$db_name;host=$db_server", $db_user, $db_pass);
+    return 1;
 }
 
+
+sub
+database_schema_string()
+{
+    return <<'END_OF_SQL';
+
+-- Ensure the plpgsql language exists; we need to use a procedural
+-- trigger to keep the timestamp column up-to-date on SQL UPDATE
+-- queries.
+CREATE OR REPLACE LANGUAGE plpgsql;
+
+CREATE TABLE meta (
+    id              BIGSERIAL PRIMARY KEY NOT NULL,
+    name            TEXT,
+    value           TEXT
+  );
+CREATE INDEX meta_name_idx ON meta(name);
+INSERT INTO meta (name, value) VALUES ('dbvers', '1');
+
+
+CREATE TABLE datastore (
+    id              BIGSERIAL PRIMARY KEY NOT NULL,
+    type            TEXT,
+    timestamp       TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    serialized      BYTEA,
+    data            BYTEA
+  );
+CREATE INDEX datastore_type_idx ON datastore(type);
+CREATE FUNCTION datastore_update_timestamp_trigger() RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.id <> NEW.id THEN
+        RAISE EXCEPTION 'datastore.id is an immutable column (% != %)', OLD.id, NEW.id;
+    END IF;
+    IF OLD.type = NEW.type AND OLD.serialized = NEW.serialized AND OLD.data = NEW.data THEN
+        RETURN NULL;
+    END IF;
+    NEW.timestamp = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER datastore_update_timestamp
+    BEFORE UPDATE ON datastore
+    FOR EACH ROW EXECUTE PROCEDURE datastore_update_timestamp_trigger();
+
+
+CREATE TABLE lookup (
+    id              BIGSERIAL PRIMARY KEY NOT NULL,
+    object_id       BIGINT NOT NULL
+                    REFERENCES datastore(id)
+                    ON DELETE CASCADE,
+    field           TEXT,
+    value           TEXT
+  );
+CREATE INDEX lookup_object_id_idx ON lookup(object_id);
+CREATE INDEX lookup_field_idx ON lookup(field);
+
+
+CREATE TABLE binstore (
+    id              BIGSERIAL PRIMARY KEY NOT NULL,
+    object_id       BIGINT NOT NULL
+                    REFERENCES datastore(id)
+                    ON DELETE CASCADE,
+    chunk           BYTEA
+  );
+CREATE INDEX binstore_object_id_idx ON binstore(object_id);
+
+END_OF_SQL
+}
+
+
+sub
+open_database_handle_impl()
+{
+    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
+    my $conn_str = "DBI:Pg:database=$db_name";
+    
+    if ( $db_server ) {
+        $conn_str .= ";host=$db_server";
+        if ( $db_port && $db_port > 0 ) {
+            $conn_str .= ";port=$db_port";
+        }
+    }
+    return DBI->connect_cached($conn_str, $db_user, $db_pass);
+}
+
+
+sub
+has_object_id_foreign_key_support()
+{
+    return 1;
+}
 
 
 sub
@@ -254,7 +280,7 @@ update_datastore_impl()
 
 
 sub
-put_chunk_impl()
+put_chunk_db_impl()
 {
     my ($self, $buffer) = @_;
 
@@ -280,7 +306,7 @@ put_chunk_impl()
 
 =head1 SEE ALSO
 
-Warewulf::ObjectSet Warewulf::DataStore
+Warewulf::ObjectSet Warewulf::DataStore Warewulf::DataStore::SQL::BaseClass
 
 =head1 COPYRIGHT
 

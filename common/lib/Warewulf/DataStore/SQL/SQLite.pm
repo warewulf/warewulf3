@@ -21,7 +21,45 @@ use DBI;
 use parent 'Warewulf::DataStore::SQL::BaseClass';
 
 
-my $sqlite_db_schema = <<'END_OF_SQL';
+=head1 NAME
+
+Warewulf::DataStore::SQL::SQLite - SQLite Database interface to Warewulf
+
+=head1 SYNOPSIS
+
+    use Warewulf::DataStore::SQL::SQLite;
+
+=head1 DESCRIPTION
+
+    This class should not be instantiated directly.  The new() method in
+    the Warewulf::DataStore::SQL class should be used to retrieve the
+    appropriate SQL DataStore object.
+    
+    Note that since SQLite makes use of files in the filesystem, the
+    following configuration keys are ignored:
+    
+      database server
+      database port
+      database user
+      database password
+    
+    Unlike the MySQL and PostgreSQL drivers, the default binstore kind for
+    this class is the 'filesystem' kind.
+
+=cut
+
+
+sub
+version_of_class()
+{
+    return 1;
+}
+
+
+sub
+database_schema_string()
+{
+    return <<'END_OF_SQL';
 
 CREATE TABLE meta (
     id              INTEGER PRIMARY KEY NOT NULL,
@@ -73,36 +111,13 @@ CREATE TABLE binstore (
 CREATE INDEX binstore_object_id_idx ON binstore(object_id);
 
 END_OF_SQL
-
-
-=head1 NAME
-
-Warewulf::DataStore::SQL::SQLite - SQLite Database interface to Warewulf
-
-=head1 SYNOPSIS
-
-    use Warewulf::DataStore::SQL::SQLite;
-
-=head1 DESCRIPTION
-
-    This class should not be instantiated directly.  It is intended to be
-    treated as an opaque implementation of the DB interface.
-
-    This class creates a persistant singleton for the application runtime
-    which will maintain a consistant database connection from the time that
-    the object is constructed.
-
-    Documentation for each function should be found in the top level
-    Warewulf::DataStore documentation. Any implementation specific documentation
-    can be found here.
-
-=cut
+}
 
 
 sub
 open_database_handle_impl()
 {
-    my ($self, $db_name, $db_server, $db_user, $db_pass) = @_;
+    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
 
     #
     # If the path $db_name does not exist, then we'll need to initialize
@@ -113,16 +128,21 @@ open_database_handle_impl()
     my $dbh = DBI->connect_cached("DBI:SQLite:dbname=$db_name", '', '');
 
     if ( $dbh ) {
+        $self->{"DATABASE_HAS_FOREIGN_KEYS"} = 1;
         if ( ! $dbh->do('PRAGMA foreign_keys = ON') ) {
             &wprint('Failed to enable foreign key support on $db_name');
-        } elsif ( $needsInit ) {
+            $self->{"DATABASE_HAS_FOREIGN_KEYS"} = 0;
+        }
+        if ( $needsInit ) {
             my $saved_multi_stmt = $dbh->{'sqlite_allow_multiple_statements'};
 
             $dbh->{'sqlite_allow_multiple_statements'} = 1;
-            if ( ! $dbh->do($sqlite_db_schema) ) {
+            if ( ! $dbh->do($self->database_schema_string()) ) {
                 &eprint('Failed to create database schema in $db_name');
                 $dbh->disconnect();
                 $dbh = undef;
+            } else {
+                $dbh->{'sqlite_allow_multiple_statements'} = $saved_multi_stmt;
             }
         }
     }
@@ -131,14 +151,24 @@ open_database_handle_impl()
 
 
 sub
-chunk_size()
+default_binstore_kind()
 {
-    my $self = shift;
+    return $Warewulf::DataStore::SQL::BaseClass::BINSTORE_KIND_FILESYSTEM;
+}
 
-    return $self->{"DATABASE_CHUNK_SIZE"} if ( exists($self->{"DATABASE_CHUNK_SIZE"}) );
 
+sub
+default_chunk_size_db_impl()
+{
     # Default chunk size is 1 MB:
     return 1024 * 1024;
+}
+
+
+sub
+has_object_id_foreign_key_support()
+{
+    return $self->{"DATABASE_HAS_FOREIGN_KEYS"};
 }
 
 
@@ -270,7 +300,7 @@ allocate_object_impl()
 
 =head1 SEE ALSO
 
-Warewulf::ObjectSet Warewulf::DataStore
+Warewulf::ObjectSet Warewulf::DataStore Warewulf::DataStore::SQL::BaseClass
 
 =head1 COPYRIGHT
 

@@ -40,8 +40,8 @@ sub
 new($$)
 {
     my $proto = shift;
-    my $config = Warewulf::Config->new("database.conf");
-    my $db_engine = $config->get("database driver") || "mysql";
+    my $config = Warewulf::Config->new('database.conf');
+    my $db_engine = $config->get('database driver') || 'mysql';
     my $plugin_path;
     my $plugin_class;
     

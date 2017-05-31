@@ -47,49 +47,49 @@ Warewulf::DataStore::SQL::BaseClass - Common database implementation details
     Documentation for each function should be found in the top level
     Warewulf::DataStore documentation. Any implementation specific documentation
     can be found here.
-    
+
     All SQL DataStore implementations accept the following configuration
     keys in database.conf:
-    
+
       database server           hostname/IP address of the database server; can be
                                 omitted for default to be used (e.g. local socket)
-                            
+
       database port             TCP/IP port number on which the database server
                                 listens; can be omitted for default to be used
-                            
+
       database name             name of the database to which to connect
-      
+
       database user             user identity to be used when connecting to the
                                 database server
-                            
+
       database password         password to be used when connecting to the database
                                 server
-      
+
       database chunk size       break all binary objects into chunks of this size;
                                 the value of this key should be a numerical value
                                 with an optional unit: KB/MB/GB for base 2**10 units,
                                 kB/mB/gB for base 10 units.  E.g. "4 KB" = 4096
-      
+
       binstore chunk size       an alias for "database chunk size"
-      
+
       binstore kind             where binary objects should be stored:
                                   database      as BLOBs in the database
                                   filesystem    as a file in a directory
-      
+
       binstore fs path          for the filesystem binstore option, the directory
                                 in which binary objects would be stored.  Defaults
                                 to /var/lib/warewulf/binstore.
-      
+
       binstore fs create mode   for the filesystem binstore option, the permissions
                                 mode (in octal) to apply to the copy-in file.  File
                                 owner read+write bits are forced to be set, and the
                                 value has is masked against 0666 to remove all special
                                 and executable bits.
-      
+
       binstore fs retry count   for the filesystem binstore option, the number of
                                 times an extant copy-in file is allowed to exist before
                                 the import operation fails.
-      
+
       binstore fs retry period  for the filesystem binstore option, the number of
                                 seconds between checking for existence of the copy-in
                                 file (object id plus '.new' suffix).
@@ -176,7 +176,7 @@ Any subclass that overrides this function should start by
 chaining to this implementation, a'la
 
     my $self = shift;
-    
+
     $self = $self->SUPER::init(@_);
     if ( $self ) {
           :
@@ -208,7 +208,7 @@ init()
     #
     if ($config_root->get('database user')) {
         my $v;
-        
+
         if ( ($v = $config_root->get('database user')) ) {
             $db_user = $v;
         }
@@ -229,10 +229,10 @@ init()
         }
         $self->{'DBH'} = $dbh;
         &iprint("Successfully connected to database!\n");
-        
+
         # Check versions:
         my $dbvers = $self->version_of_database();
-        
+
         if ( ! $dbvers ) {
             &wprint("Database contains no version meta data\n");
         }
@@ -268,27 +268,26 @@ init()
                 return undef;
             }
         }
-        
+
         # What kind of binary storage is selected?
         my $binstore_kind = $config->get('binstore kind') || $self->default_binstore_kind();
-        
+
         $binstore_kind = lc($binstore_kind);
         if ( $binstore_kind eq $BINSTORE_KIND_FILESYSTEM ) {
             #
             # Test the set the path to the binstore directory:
             #
             my $binstore_path = $config->get('binstore fs path') || '/var/lib/warewulf/binstore';
-            
+
             if ( ! -e $binstore_path ) {
-                &eprint("Binstore path does not exist: $binstore_path\n");
-                return undef;
+                &wprint("Binstore path does not exist: $binstore_path\n");
             }
-            if ( ! -d $binstore_path ) {
+            elsif ( ! -d $binstore_path ) {
                 &eprint("Binstore path is not a directory: $binstore_path\n");
                 return undef;
             }
             $self->{'BINSTORE_FS_PATH'} = $binstore_path;
-            
+
             #
             # Set the retry count for opening a binstore file for write:
             #
@@ -301,7 +300,7 @@ init()
                 $int_val = 10;
             }
             $self->{'BINSTORE_FS_RETRY_COUNT'} = int($int_val);
-            
+
             #
             # Set the retry period for opening a binstore file for write:
             #
@@ -314,7 +313,7 @@ init()
                 $int_val = 30;
             }
             $self->{'BINSTORE_FS_RETRY_PERIOD'} = int($int_val);
-            
+
             #
             # Set the creation mode for binstore files:
             #
@@ -340,7 +339,6 @@ init()
         &wprint("Could not connect to the database, no database name provided\n");
         return undef;
     }
-    
     return $self;
 }
 
@@ -356,7 +354,7 @@ sub
 DESTROY()
 {
     my $self = shift;
-    
+
     if ( $self->{"BINSTORE"} ) {
         if ( exists($self->{"OUT_FILEH"}) ) {
             close($self->{"OUT_FILEH"});
@@ -398,11 +396,11 @@ sub
 version_of_database()
 {
     my $self = shift;
-    
+
     if ( exists($self->{"DBH"}) ) {
         my $rows = $self->{"DBH"}->selectall_arrayref("SELECT value FROM meta WHERE name = 'dbvers'");
         my $vers = -1;
-        
+
         foreach my $row (@$rows) {
             $row = int((@$row)[0]);
             $vers = $row if ( $row > $vers );
@@ -685,18 +683,18 @@ validates the operation and calls-through to several helper functions that can b
 overridden by subclasses:
 
     allocate_object_impl($type)
-    
+
       Must be overridden by subclasses; insert a new row into the datastore
       table and return the object id associated with the new row.
-    
+
     update_datastore_impl($id, $serialized_data)
-    
+
       Set the serialized form of the object with the given object id (in the
       datastore table).  The default implementation uses pretty generic SQL, so
       it probably will not need to be overridden.
-    
+
     lookups_build_query_impl($object, $params)
-    
+
       Build the SQL query that inserts lookup key-value pairs into the
       database.  The default implementation uses pretty generic SQL, so
       it probably will not need to be overridden.
@@ -872,7 +870,7 @@ lookups_build_query_impl()
     my ($object, $paramsRef) = @_;
 
     my $sql_query = 'INSERT INTO lookup (field, value, object_id) VALUES (?, ?, ' . $object->get('_id') . ')';
-    
+
     foreach my $l ($object->lookups()) {
         my @lookups = $object->get($l);
 
@@ -960,9 +958,9 @@ sub
 del_object_impl($$)
 {
     my ($self, $object) = @_;
-    
+
     $self->{"DBH"}->begin_work();
-    
+
     #
     # Scrub the lookup table:
     #
@@ -979,7 +977,7 @@ del_object_impl($$)
             goto EARLY_EXIT;
         }
     }
-    
+
     #
     # Scrub the binstore:
     #
@@ -1008,7 +1006,7 @@ del_object_impl($$)
             }
         }
     }
-    
+
     #
     # At last, remove the object from the datastore:
     #
@@ -1029,7 +1027,7 @@ del_object_impl($$)
     }
 
     return 1;
-    
+
 EARLY_EXIT:
     $self->{"DBH"}->rollback();
     return 0;
@@ -1055,14 +1053,14 @@ binstore()
         $dsh->{"DBH"} = $self->{"DBH"};
         $dsh->{"OBJECT_ID"} = $object_id;
         $dsh->{"BINSTORE"} = 1;
-        
+
         # Copy all DATABASE_ and BINSTORE_ keys into the binstore object:
         while ( my($key, $value) = each(%$self) ) {
             if ( $key =~ /^(BINSTORE|DATABASE)_/ ) {
                 $dsh->{$key} = $value;
             }
         }
-        
+
         # For filesystem binstore, stash the path to the object:
         if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM ) {
             $dsh->{"OBJECT_PATH"} = $self->{"BINSTORE_FS_PATH"} . '/' . $object_id;
@@ -1102,7 +1100,7 @@ put_chunk()
         &eprint("Can not store into binstore without an object ID\n");
         return 0;
     }
-    
+
     return $self->put_chunk_db_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
     return $self->put_chunk_fs_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
     return undef;
@@ -1150,14 +1148,14 @@ put_chunk_fs_impl()
 {
     my ($self, $buffer) = @_;
     my ($rc, $path);
-    
+
     if (!exists($self->{"OUT_FILEH"})) {
         $path = $self->{"OBJECT_PATH"} . '.new';
-        
+
         my $lock_exists;
         my $period = $self->{"BINSTORE_FS_RETRY_PERIOD"};
         my $retry = $self->{"BINSTORE_FS_RETRY_COUNT"};
-        
+
         while ( ($lock_exists = -f $path) && $retry-- ) {
             &wprintf("update of object $object_id (" . $self->{"OBJECT_PATH"} . ".new) already in progress, waiting " . $period . " seconds...\n");
             sleep($period);
@@ -1182,7 +1180,7 @@ put_chunk_fs_impl()
     }
     return 1;
 }
-            
+
 
 =item get_chunk();
 
@@ -1212,7 +1210,7 @@ get_chunk()
         &eprint("Can not store into binstore without an object ID\n");
         return 0;
     }
-    
+
     return $self->get_chunk_db_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
     return $self->get_chunk_fs_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
     return undef;

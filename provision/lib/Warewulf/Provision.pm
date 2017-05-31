@@ -512,7 +512,7 @@ sub fs()
       "help" => 1,
       "mklabel" => 1,
       "mktable" => 1,
-      "mkpart"  => 4,
+      "mkpart"  => 3,
       "name" => 2,
       "print" => 1,
       "quit" => 0,

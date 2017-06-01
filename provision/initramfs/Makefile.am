@@ -14,10 +14,10 @@ E2FSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/e2fsprogs-$(E2FSPROGS_VERSION).ta
 E2FSPROGS_DIR = e2fsprogs-$(E2FSPROGS_VERSION)
 E2FSPROGS_CONFIGARGS = --disable-testio-debug --disable-debugfs --disable-imager --disable-resizer  --disable-defrag --disable-fsck --disable-tls --disable-uuidd --disable-nls --disable-profile
 
-LIBARCHIVE_VERSION = 3.1.2
+LIBARCHIVE_VERSION = 3.3.1
 LIBARCHIVE_SOURCE = $(top_srcdir)/3rd_party/BSD/libarchive-$(LIBARCHIVE_VERSION).tar.gz
 LIBARCHIVE_DIR = libarchive-$(LIBARCHIVE_VERSION)
-LIBARCHIVE_CONFIGARGS = --enable-bsdtar=static --disable-bsdcpio --enable-xattr --enable-acl --enable-static --disable-shared  --without-zlib --without-bz2lib --without-lzmadec --without-iconv --without-lzma --without-lzo2 --without-nettle --without-openssl --without-xml2 --without-expat
+LIBARCHIVE_CONFIGARGS = --enable-bsdtar=static --disable-bsdcpio --enable-xattr --enable-acl --enable-static --disable-shared  --without-zlib --without-bz2lib --without-iconv --without-lzma --without-lzo2 --without-lz4 --without-nettle --without-openssl --without-xml2 --without-expat
 
 e2fsprogs:
 	@ if [ ! -d "_work/$(E2FSPROGS_DIR)" ]; then \

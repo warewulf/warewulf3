@@ -262,7 +262,7 @@ init()
                     return undef;
                 }
                 $self->{'BINSTORE_CHUNK_SIZE'} = int($chunk_size);
-                &dprint("Explicit database chunk size of $self->{DATABASE_CHUNK_SIZE} configured\n");
+                &dprint("Explicit database chunk size of $self->{BINSTORE_CHUNK_SIZE} configured\n");
             } else {
                 &wprint("Database chunk size cannot be parsed: $chunk_size\n");
                 return undef;
@@ -494,7 +494,7 @@ Subclasses can override.
 sub
 default_chunk_size_db_impl()
 {
-    return 512 * 1024;
+    return 1024 * 1024;
 }
 
 
@@ -588,6 +588,7 @@ get_objects($$$@)
                 $objectSet->add($o);
             }
         }
+        $sth->finish();
     }
 
     return $objectSet;
@@ -652,6 +653,7 @@ get_lookups($$$@)
                 push(@ret, $h->{"value"});
             }
         }
+        $sth->finish();
     }
     return @ret;
 }
@@ -717,7 +719,8 @@ persist($$)
     my $event = Warewulf::EventHandler->new();
     my %events;
     my @objlist;
-
+    my $rc;
+    
     $event->eventloader();
 
     foreach my $object (@objects) {
@@ -783,7 +786,7 @@ persist($$)
                 if ( $sql_query ) {
                     my $sth;
 
-                    dprint("$sql_query\n\n");
+                    &dprint("$sql_query\n\n");
                     if ( @params && scalar(@params) > 0 ) {
                         $sth = $self->{"DBH"}->prepare($sql_query);
 
@@ -796,15 +799,25 @@ persist($$)
                         $sth = $self->{"DBH"}->prepare($sql_query);
                         $sth->execute();
                     }
+                    $sth->finish() if ( $sth );
+                    
                     # Consolidate all objects by type to run events on at once
                     push(@{$events{"$type"}}, $o);
                 }
             } else {
                 dprint("Not adding lookup entries\n");
             }
-            $self->{"DBH"}->commit();
+            $rc = $self->{"DBH"}->commit();
+            &dprint("Finished persisting object $id: $rc\n");
         }
     }
+    
+    # Run all events grouped together.
+    foreach my $type (keys %events) {
+        $event->handle("$type.modify", @{$events{"$type"}});
+    }
+
+    return scalar(@objlist);
 }
 
 =item allocate_object_impl($type)

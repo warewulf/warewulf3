@@ -158,6 +158,20 @@ default_binstore_kind()
 
 
 sub
+chunk_size()
+{
+    my $self = shift;
+    my $chunk_size = $self->SUPER::chunk_size();
+    
+    if ( $self->{'BINSTORE_KIND'} eq $Warewulf::DataStore::SQL::BaseClass::BINSTORE_KIND_DATABASE ) {
+        # See https://sqlite.org/limits.html#max_length
+        return 1000000000 if ( $chunk_size > 1000000000 );
+    }
+    return $chunk_size;
+}
+
+
+sub
 default_chunk_size_db_impl()
 {
     # Default chunk size is 1 MB:

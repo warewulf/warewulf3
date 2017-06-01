@@ -13,7 +13,7 @@ mkfs 1 ext4 -L boot
 mkfs 2 swap
 mkfs 3 ext4 -L root
 
-# fstab NUMBER fs_spec fs_file fs_vfstype fs_mntops fs_freq fs_passno
+# fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
 fstab 3 / ext4 defaults 0 0
 fstab 1 /boot ext4 defaults 0 0
 fstab 2 swap swap defaults 0 0

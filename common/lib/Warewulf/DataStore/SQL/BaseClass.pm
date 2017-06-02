@@ -218,10 +218,10 @@ init()
     }
 
     if ($db_name) {
-        &dprint("DATABASE NAME:      $db_name\n");
-        &dprint("DATABASE SERVER:    $db_server\n") if $db_server;
-        &dprint("DATABASE PORT:      $db_port\n") if $db_port;
-        &dprint("DATABASE USER:      $db_user\n") if $db_user;
+        &dprintf("DATABASE NAME:      \n", $db_name);
+        &dprintf("DATABASE SERVER:    \n", $db_server) if $db_server;
+        &dprintf("DATABASE PORT:      \n", $db_port) if $db_port;
+        &dprintf("DATABASE USER:      \n", $db_user) if $db_user;
 
         my $dbh = $self->open_database_handle_impl($db_name, $db_server, $db_port, $db_user, $db_pass);
         if ( ! $dbh ) {
@@ -237,10 +237,10 @@ init()
             &wprint("Database contains no version meta data\n");
         }
         elsif ( $dbvers < $self->version_of_class() ) {
-            &wprint("Database version ($dbvers) is older than the driver version (" . $self->version_of_class() . ")\n");
+            &wprintf("Database version (%s) is older than the driver version (%s)\n", $dbvers, $self->version_of_class());
         }
         elsif ( $dbvers > $self->version_of_class() ) {
-            &wprint("Database version ($dbvers) is newer than the driver version (" . $self->version_of_class() . ")\n");
+            &wprintf("Database version (%s) is newer than the driver version (%s)\n", $dbvers, $self->version_of_class());
         }
 
         # Was an explicit chunk size provided?
@@ -251,20 +251,20 @@ init()
                 my %prefixes = ( 'K'=>1024, 'k'=>1000, 'M'=>1024**2, 'm'=>1000**2,
                                  'G'=>1024**3, 'g' => 1000**3 );
 
-                $chunk_size = 1.0 * $1;
+                $chunk_size = 0 + $1;
 
                 # Unit prefix:
                 $chunk_size *= $prefixes{$4} if ( exists($prefixes{$4}) );
 
                 # We refuse to do anything lower than 4 KB:
-                if ( $chunk_size < 4 * 1024.0 ) {
-                    &wprint("database chunk size is less than 4 KB: $chunk_size\n");
+                if ( $chunk_size < 4 * 1024 ) {
+                    &wprintf("database chunk size is less than 4 KB: %d\n", $chunk_size);
                     return undef;
                 }
                 $self->{'BINSTORE_CHUNK_SIZE'} = int($chunk_size);
-                &dprint("Explicit database chunk size of $self->{BINSTORE_CHUNK_SIZE} configured\n");
+                &dprintf("Explicit database chunk size of %d configured\n", $self->{'BINSTORE_CHUNK_SIZE'});
             } else {
-                &wprint("Database chunk size cannot be parsed: $chunk_size\n");
+                &wprintf("Database chunk size cannot be parsed: %s\n", $chunk_size);
                 return undef;
             }
         }
@@ -280,10 +280,10 @@ init()
             my $binstore_path = $config->get('binstore fs path') || '/var/lib/warewulf/binstore';
 
             if ( ! -e $binstore_path ) {
-                &wprint("Binstore path does not exist: $binstore_path\n");
+                &wprintf("Binstore path does not exist: %s\n", $binstore_path);
             }
             elsif ( ! -d $binstore_path ) {
-                &eprint("Binstore path is not a directory: $binstore_path\n");
+                &eprintf("Binstore path is not a directory: %s\n", $binstore_path);
                 return undef;
             }
             $self->{'BINSTORE_FS_PATH'} = $binstore_path;
@@ -296,7 +296,7 @@ init()
                 $int_val = 10;
             }
             elsif ( int($int_val) <= 0 ) {
-                &wprint("Invalid binstore fs retry count: $int_val\n");
+                &wprintf("Invalid binstore fs retry count: %d\n", $int_val);
                 $int_val = 10;
             }
             $self->{'BINSTORE_FS_RETRY_COUNT'} = int($int_val);
@@ -309,7 +309,7 @@ init()
                 $int_val = 30;
             }
             elsif ( int($int_val) <= 0 ) {
-                &wprint("Invalid binstore fs retry period: $int_val\n");
+                &wprintf("Invalid binstore fs retry period: %d\n", $int_val);
                 $int_val = 30;
             }
             $self->{'BINSTORE_FS_RETRY_PERIOD'} = int($int_val);
@@ -319,7 +319,7 @@ init()
             #
             my $create_mode = $config->get('binstore fs create mode') || '0660';
             if ( ! $create_mode =~ /^[0-9]+$/ ) {
-                &eprint("Binstore file creation mode is invalid: $create_mode\n");
+                &eprintf("Binstore file creation mode is invalid: %s\n", $create_mode);
                 return undef;
             }
             # The mode MUST at least grant read-write to the user, and should
@@ -331,7 +331,7 @@ init()
             # Nothing to do here:
         }
         else {
-            &wprint("Invalid binstore kind: $binstore_kind\n");
+            &wprintf("Invalid binstore kind: %s\n", $binstore_kind);
             return undef;
         }
         $self->{'BINSTORE_KIND'} = $binstore_kind;
@@ -574,8 +574,8 @@ get_objects($$$@)
     my $sql_query = $self->get_objects_build_query_impl($type, $field, \@params, @strings);
 
     if ( $sql_query ) {
-        dprint("$sql_query\n");
-        
+        &dprintf("get objects query: %s\n", $sql_query);
+
         my $sth = $self->{'DBH'}->prepare($sql_query);
 
         if ( $sth ) {
@@ -594,7 +594,7 @@ get_objects($$$@)
                             bless($o, "Warewulf::$modname");
                         }
                     } else {
-                        &eprint("Skipping data store object type '$type' (is Warewulf::$modname loaded?)\n");
+                        &eprintf("Skipping data store object type '%s' (is Warewulf::%s loaded?)\n", $type, $modname);
                         next;
                     }
                     $o->set('_id', $id);
@@ -664,10 +664,10 @@ get_lookups($$$@)
     my $sql_query = $self->get_lookups_build_query_impl($type, $field, \@params, @strings);
 
     if ( $sql_query ) {
-        &dprint("$sql_query\n");
-        
+        &dprintf("get lookups query: %s\n", $sql_query);
+
         my $sth = $self->{'DBH'}->prepare($sql_query);
-        
+
         if ( $sth ) {
             if ( $sth->execute(@params) ) {
                 while (my $h = $sth->fetchrow_hashref()) {
@@ -750,7 +750,7 @@ persist($$)
     my %update_events;
     my @objlist;
     my $objOkCount = 0;
-    
+
     $event->eventloader();
 
     foreach my $object (@objects) {
@@ -766,33 +766,30 @@ persist($$)
             my $id = $o->get('_id');
             my $type;
             my $success = 1;
-            
+
             if ($o->can('type')) {
                 $type = $o->type();
             } else {
-                &cprintf("Cannot determine object type!  Is the DSO interface loaded for object class \"%s?\"\n". ref($o));
+                &cprintf("Cannot determine object type!  Is the DSO interface loaded for object class '%s?'\n", ref($o));
                 &cprintf("Sorry, this error is fatal.  Most likely a problem in %s.\n", $0);
                 kill('ABRT', $$);
             }
 
             $self->{'DBH'}->begin_work();
-            
+
             do {
                 if (! $id ) {
                     &dprint("Persisting new object\n");
-                    
+
                     my $event_retval = $event->handle("$type.new", $o);
                     if (! $event_retval->is_ok()) {
                         my $nodename = $o->nodename() || 'UNDEF';
                         my $message = $event_retval->message();
-                        &eprint("Could not add node $nodename\n");
-                        if ($message) {
-                            &eprint("$message\n");
-                        }
+                        &eprintf("Could not add node %s: %s\n", $nodename, ( $message ? $message : 'unknown error' ));
                         $success = 0;
                         last;
                     }
-                    
+
                     #
                     # New object, we need to assign an object id first:
                     #
@@ -807,22 +804,22 @@ persist($$)
                     if ( $self->{'STH_INSTYPE'}->execute($type) ) {
                         $id = $self->{'DBH'}->last_allocated_object_impl();
                         if ( ! $id ) {
-                            &eprint("Could not determine id of last allocated object of type '$type'\n");
+                            &eprintf("Could not determine id of last allocated object of type '%s'\n", $type);
                             $success = 0;
                             last;
                         }
                     } else {
-                        &eprint("Could not allocate new object of type '$type'\n");
+                        &eprintf("Could not allocate new object of type '%s'\n", $type);
                         $success = 0;
                         last;
                     }
-                    &dprint("Inserted a new object into the data store (ID: $id)\n");
+                    &dprintf("Inserted a new object into the data store (ID: %d)\n", $id);
                     $o->set('_id', $id);
                 }
 
-                &dprint("Updating data store ID = $id\n");
+                &dprintf("Updating data store ID = %d\n", $id);
                 if ( ! $self->update_datastore_impl($id, Warewulf::DSO->serialize($o)) ) {
-                    &eprint("Could not update object $id of type '$type'\n");
+                    &eprintf("Could not update object $id of type ''\n", $type);
                     $success = 0;
                     last;
                 }
@@ -839,10 +836,10 @@ persist($$)
                     my $sql_query = $self->set_lookups_build_query_impl($o, \@params);
 
                     if ( $sql_query ) {
-                        &dprint("$sql_query\n");
-                        
+                        &dprintf("set lookups query: %s\n", $sql_query);
+
                         my $sth = $self->{'DBH'}->prepare($sql_query);
-                        
+
                         if ( $sth ) {
                             if ( scalar(@params) > 0 ) {
 
@@ -865,7 +862,7 @@ persist($$)
                                 last;
                             }
                             $sth->finish();
-                        
+
                             # Consolidate all objects by type to run update events on at once
                             push(@{$update_events{"$type"}}, $o);
                         } else {
@@ -875,28 +872,28 @@ persist($$)
                         }
                     }
                 } else {
-                    dprint("Not adding lookup entries\n");
+                    &dprint("Not adding lookup entries\n");
                 }
             } while ( 0 );
-            
+
             if ( $success ) {
                 if ( $self->{'DBH'}->commit() ) {
-                    &dprint("Finished persisting object $id\n");
+                    &dprintf("Finished persisting object %d\n", $id);
                     $objOkCount++;
                 } else {
-                    &wprintf("Failed to persist object $id: %s\n", $self->{'DBH'}->errstr);
+                    &wprintf("Failed to persist object %d: %s\n", $id, $self->{'DBH'}->errstr);
                 }
             } else {
                 if ( $self->{'DBH'}->rollback() ) {
-                    &dprint("Discarded changes to object $id\n");
+                    &dprintf("Discarded changes to object %d\n", $id);
                 } else {
-                    &wprintf("Failed to discard changes object $id: %s\n", $self->{'DBH'}->errstr);
+                    &wprintf("Failed to discard changes object %d: %s\n", $id, $self->{'DBH'}->errstr);
                     last;
                 }
             }
         }
     }
-    
+
     # Run all update events grouped together.
     foreach my $type (keys %update_events) {
         $event->handle("$type.modify", @{$update_events{"$type"}});
@@ -918,7 +915,7 @@ sub
 last_allocated_object_impl()
 {
     my $self = shift;
-    
+
     return $self->{'DBH'}->last_insert_id(undef, undef, 'datastore', 'id');
 }
 
@@ -1025,7 +1022,7 @@ del_object($$)
     } elsif (ref($object) =~ /^Warewulf::/) {
         @objlist = ($object);
     } else {
-        &eprint("Invalid parameter to delete():  $object (". ref($object) .")\n");
+        &eprintf("Invalid parameter to delete(): %s\n", ref($object));
         return undef;
     }
 
@@ -1035,7 +1032,7 @@ del_object($$)
         my $type = $o->type;
 
         if ($id) {
-            dprint("Deleting object from the data store: ID=$id\n");
+            &dprintf("Deleting object from the data store: ID=%d\n", $id);
 
             $self->del_object_impl($o);
 
@@ -1119,7 +1116,7 @@ del_object_impl($$)
     }
 
     return 1;
-    
+
 EARLY_EXIT:
     $self->{'DBH'}->rollback();
     return 0;
@@ -1138,7 +1135,7 @@ del_object_binstore_db_impl()
 {
     my $self = shift;
     my ($object_id) = @_;
-    
+
     if ( ! $self->has_object_id_foreign_key_support() ) {
         if (!exists($self->{'STH_RMBS'})) {
             my $sth = $self->{'DBH'}->prepare('DELETE FROM binstore WHERE object_id = ?');
@@ -1169,12 +1166,12 @@ del_object_binstore_fs_impl()
 {
     my $self = shift;
     my ($object_id) = @_;
-    
+
     # Delete the file from disk:
     my $path = $self->{'BINSTORE_PATH'} . '/' . $object_id;
     if ( -f $path ) {
         if ( ! unlink($path) ) {
-            &wprint("Unable to remove file from binstore: $path\n");
+            &wprintf("Unable to remove file from binstore: %s\n", $path);
             return undef;
         }
     }
@@ -1269,12 +1266,14 @@ put_chunk_db_impl()
     my ($self, $buffer) = @_;
 
     if (!exists($self->{'STH_PUT'})) {
-        my $sth = $self->{'DBH'}->prepare("INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)");
+        my $query = "INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)";
+
+        my $sth = $self->{'DBH'}->prepare($query);
         if ( ! $sth ) {
             &wprintf("Unable to prepare binstore put chunk query: %s\n", $self->{'DBH'}->errstr);
             return undef;
         }
-        &dprint("SQL: INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)\n");
+        &dprintf("SQL: %s\n", $query);
         if ( ! $self->{'DBH'}->do('DELETE FROM binstore WHERE object_id = ?', undef, $self->{'OBJECT_ID'}) ) {
             &wprintf("Unable to remove binstore chunks for object %d: %s\n", $self->{'OBJECT_ID'}, $self->{'DBH'}->errstr);
             return undef;
@@ -1309,26 +1308,31 @@ put_chunk_fs_impl()
     my ($rc, $path);
 
     if (!exists($self->{'OUT_FILEH'})) {
-        $path = $self->{'OBJECT_PATH'} . '.new';
+        if ( exists($self->{'OBJECT_PATH'}) ) {
+            $path = $self->{'OBJECT_PATH'} . '.new';
 
-        my $period = $self->{'BINSTORE_FS_RETRY_PERIOD'};
-        my $retry = $self->{'BINSTORE_FS_RETRY_COUNT'};
+            my $period = $self->{'BINSTORE_FS_RETRY_PERIOD'};
+            my $retry = $self->{'BINSTORE_FS_RETRY_COUNT'};
 
-        while ( -f $path && $retry-- ) {
-            &wprintf("update of object $object_id (" . $self->{'OBJECT_PATH'} . '.new) already in progress, waiting ' . $period . " seconds...\n");
-            sleep($period);
-        }
-        if ( ! sysopen($self->{'OUT_FILEH'}, $path, O_WRONLY | O_CREAT | O_EXCL, $self->{'BINSTORE_FS_CREATE_MODE'}) ) {
-            &eprintf("put_chunk() failed while opening file for write: $path\n");
+            while ( -f $path && $retry-- ) {
+                &wprintf("update of object %d (%s) already in progress, waiting %d seconds...\n", $object_id, $path, $period);
+                sleep($period);
+            }
+            if ( ! sysopen($self->{'OUT_FILEH'}, $path, O_WRONLY | O_CREAT | O_EXCL, $self->{'BINSTORE_FS_CREATE_MODE'}) ) {
+                &eprintf("put_chunk() failed while opening file for write: %s\n", $path);
+                return undef;
+            }
+            binmode $self->{'OUT_FILEH'};
+            &dprintf("FILE OP: WRITE TO binstore(%d) => %s\n", $self->{'OBJECT_ID'}, $path);
+        } else {
+            &eprint("misconfigured binstore object -- no OBJECT_PATH defined\n");
             return undef;
         }
-        binmode $self->{'OUT_FILEH'};
-        &dprint("FILE OP: WRITE TO binstore($self->{OBJECT_ID}) => $path\n");
     }
 
     $rc = syswrite($self->{'OUT_FILEH'}, $buffer);
     if ( ! defined($rc) ) {
-        &eprintf("put_chunk() failed while writing $path ($!)\n");
+        &eprintf("put_chunk() failed while writing %s: %s\n", $path, $!);
         return undef;
     }
     return 1;
@@ -1384,7 +1388,7 @@ get_chunk_db_impl()
 
     if (!exists($self->{'STH_GET'})) {
         my $query = "SELECT chunk FROM binstore WHERE object_id = $self->{OBJECT_ID} ORDER BY id";
-        &dprint("SQL:  $query\n");
+        &dprintf("SQL:  %s\n", $query);
         my $sth = $self->{'DBH'}->prepare($query);
         if ( ! $sth ) {
             &eprintf("get_chunk() failed with error:  %s\n", $self->{'DBH'}->errstr());
@@ -1420,19 +1424,26 @@ get_chunk_fs_impl()
     my ($self) = @_;
     my $byte_count = $self->chunk_size();
     my ($buffer, $rc);
+    my $path;
 
     if (!exists($self->{'IN_FILEH'})) {
-        if ( ! -f $self->{'OBJECT_PATH'} || ! -r $self->{'OBJECT_PATH'} || ! open($self->{'IN_FILEH'}, '<' . $self->{'OBJECT_PATH'}) ) {
-            &eprintf("get_chunk() failed while opening file for read: $self->{OBJECT_PATH}\n");
+        if ( exists($self->{'OBJECT_PATH'}) ) {
+            $path = $self->{'OBJECT_PATH'};
+            if ( ! -f $path || ! -r $path || ! open($self->{'IN_FILEH'}, '<' . $path) ) {
+                &eprintf("get_chunk() failed while opening file for read: %s\n", $path);
+                return undef;
+            }
+            binmode $self->{'IN_FILEH'};
+            &dprintf("FILE OP: READ FROM binstore(%d) <= %s\n", $self->{'OBJECT_ID'}, $path);
+        } else {
+            &eprint("misconfigured binstore object -- no OBJECT_PATH defined\n");
             return undef;
         }
-        binmode $self->{'IN_FILEH'};
-        &dprint("FILE OP: READ FROM binstore($self->{OBJECT_ID}) <= $self->{OBJECT_PATH}\n");
     }
 
     $rc = sysread($self->{'IN_FILEH'}, $buffer, $byte_count);
     if ( ! defined($rc) ) {
-        &eprintf("get_chunk() failed while reading: $!\n");
+        &eprintf("get_chunk() failed while reading %s: %s\n", $path, $!);
         return undef;
     }
     return $buffer;

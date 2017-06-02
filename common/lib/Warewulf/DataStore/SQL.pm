@@ -44,41 +44,41 @@ new($$)
     my $db_engine = $config->get('database driver') || 'mysql';
     my $plugin_path;
     my $plugin_class;
-    
+
     if ( substr($db_engine, 0, 1) eq '/' ) {
         if ( ! -f $db_engine ) {
-            &eprint("No database driver at path $db_engine\n");
+            &eprintf("No database driver at path %s\n", $db_engine);
         }
         elsif ( $db_engine =~ /([^\/]+)\.pm$/ ) {
             $plugin_path = $db_engine;
             $plugin_class = 'Warewulf::DataStore::SQL::' . $1;
-            &dprint("Database driver from module path: $plugin_class in $plugin_path\n");
+            &dprintf("Database driver from module path: %s in %s\n", $plugin_class, $plugin_path);
         }
         else {
-            &eprint("Uninterpretable Perl module path: $db_engine\n");
+            &eprintf("Uninterpretable Perl module path: %s\n", $db_engine);
         }
     }
     else {
         # Search the SQL/ subdirectory for the matching module:
         my @path = bsd_glob(dirname(__FILE__) . '/SQL/' . $db_engine . '*.pm', GLOB_NOCASE);
-        
+
         if ( scalar(@path) > 0 ) {
             if ( scalar(@path) == 1 ) {
                 if ( $path[0] =~ /^((\/.*)\.pm)$/ ) {
                     $plugin_path = $1;
                     $plugin_class = 'Warewulf::DataStore::SQL::' . basename($2);
-                    &dprint("Database driver from module name: $plugin_class in $plugin_path\n");
+                    &dprintf("Database driver from module name: %s in %s\n", $plugin_class, $plugin_path);
                 }
                 else {
-                    &eprint("Uninterpretable Perl module path: $path[0]\n");
+                    &eprintf("Uninterpretable Perl module path: %s\n", $path[0]);
                 }
             }
             else {
-                &eprint("Multiple matches for driver '$db_engine' ???\n");
+                &eprintf("Multiple matches for driver '%s' ???\n", $db_engine);
             }
         }
         else {
-            &eprint("No database driver: $db_engine\n");
+            &eprintf("No database driver: %s\n", $db_engine);
         }
     }
     if ( $plugin_path && $plugin_class ) {

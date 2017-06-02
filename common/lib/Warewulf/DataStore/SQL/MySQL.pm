@@ -34,16 +34,16 @@ Warewulf::DataStore::SQL::MySQL - MySQL Database interface to Warewulf
     This class should not be instantiated directly.  The new() method in
     the Warewulf::DataStore::SQL class should be used to retrieve the
     appropriate SQL DataStore object.
-        
+
     In addition to the configuration keys described for the parent class
     (Warewulf::DataStore::SQL::BaseClass), the MySQL implementation accepts
     the following keys in database.conf:
-    
+
       binstore chunk optimization     if no explicit "binstore chunk size" is provided,
                                       then an optimal chunk size should be calculated
                                       by querying the database under the following
                                       modes:
-                                      
+
                                         legacy      the chunk size is the value of
                                                     max_allowed_packet minus 768 KB;
                                                     this is the default (for backward
@@ -57,7 +57,7 @@ Warewulf::DataStore::SQL::MySQL - MySQL Database interface to Warewulf
     The 5% overhead was determined to be optimal (and valid) on a variety of
     max_allowed_packet sizes (1 MiB, 8 MiB, 16 MiB, 24 MiB).  The optimal max_allowed_packet
     observed for MariaDB on a basic CentOS 7 system was 16 MiB.
-    
+
     We require a minimum 1 MiB max_allowed_packet to keep VNFS storage optimal.
 
 =cut
@@ -83,13 +83,13 @@ init()
     if ( $self ) {
         if ( ! exists($self->{'BINSTORE_CHUNK_SIZE'}) ) {
             my $opt_mode = $config->get('binstore chunk optimization') || $MYSQL_BINSTORE_OPT_MODE_LEGACY;
-            
+
             $opt_mode = lc($opt_mode);
             if ( $opt_mode ne $MYSQL_BINSTORE_OPT_MODE_NETWORK
                  && $opt_mode ne $MYSQL_BINSTORE_OPT_MODE_STORAGE
                  && $opt_mode ne $MYSQL_BINSTORE_OPT_MODE_LEGACY )
             {
-                &wprint("invalid binstore chunk optimization mode: $opt_mode\n");
+                &wprintf("invalid binstore chunk optimization mode: %s\n", $opt_mode);
                 return undef;
             }
             $self->{'BINSTORE_CHUNK_OPT_MODE'} = $opt_mode;
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS meta (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
     name        VARCHAR(64),
     value       VARCHAR(256),
-    
+
     PRIMARY KEY (id)
 );
 CREATE INDEX meta_name_idx ON meta(name);
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS datastore (
     timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     serialized  BLOB,
     data        BLOB,
-    
+
     PRIMARY KEY (id)
 ) ENGINE=INNODB;
 CREATE INDEX datastore_type_idx ON datastore(type);
@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS binstore (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
     object_id   INT UNSIGNED,
     chunk       LONGBLOB,
-    
+
     FOREIGN KEY (object_id) REFERENCES datastore (id),
     PRIMARY KEY (id)
 ) ENGINE=INNODB;
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS lookup (
     object_id   INT UNSIGNED,
     field       VARCHAR(64) BINARY,
     value       VARCHAR(64) BINARY,
-    
+
     FOREIGN KEY (object_id) REFERENCES datastore (id),
     UNIQUE KEY (object_id, field, value),
     PRIMARY KEY (id)
@@ -164,26 +164,26 @@ sub
 default_chunk_size_db_impl()
 {
     my $self = shift;
-    
+
     if ( ! exists($self->{'BINSTORE_CHUNK_CALCULATED'}) ) {
         my $chunk_size;
         my $max_allowed_packet;
         my $aug_max_allowed_packet;
-        
+
         (undef, $max_allowed_packet) =  $self->{'DBH'}->selectrow_array("show variables LIKE 'max_allowed_packet'");
         if ( $max_allowed_packet < 1024 * 1024 ) {
             &eprintf("your mysql max_allowed_packet is less than 1 MiB (%d)\n", $max_allowed_packet);
             &eprint("warewulf VNFS operations require at least a 1 MiB max_allowed_packet\n");
             exit(1);
         } else {
-            &dprint("max_allowed_packet: $max_allowed_packet\n");
+            &dprintf("max_allowed_packet: %d\n", $max_allowed_packet);
         }
-        
+
         # Augment to account for overhead:
         $aug_max_allowed_packet = int(0.95 * $max_allowed_packet);
-        &dprint("max_allowed_packet - 5%: $aug_max_allowed_packet\n");
-        
-        if ( $self->{'BINSTORE_CHUNK_OPT_MODE'} eq $MYSQL_BINSTORE_OPT_MODE_NETWORK 
+        &dprintf("max_allowed_packet - 5%%: %d\n", $aug_max_allowed_packet);
+
+        if ( $self->{'BINSTORE_CHUNK_OPT_MODE'} eq $MYSQL_BINSTORE_OPT_MODE_NETWORK
              || $self->{'BINSTORE_CHUNK_OPT_MODE'} eq $MYSQL_BINSTORE_OPT_MODE_LEGACY ) {
             # One choice -- albeit one that may not remain consistent during usage of the
             # database -- is to use a fraction of the server's maximum _communications_ packet size.
@@ -220,18 +220,18 @@ default_chunk_size_db_impl()
             #    chunk_size = floor((1024 B / KB) * 0.95 * ((innodb_page_size / 6 KB) + 16/3))
             #
             (undef, $chunk_size) =  $self->{'DBH'}->selectrow_array("show variables LIKE 'innodb_page_size'");
-            &dprint("innodb_page_size: $chunk_size KB\n");
+            &dprintf("innodb_page_size: %d KB\n", $chunk_size);
             $chunk_size = int( 972.8 * (($chunk_size / 6144.0) + (16.0 / 3.0)) );
         }
         else {
             $chunk_size = $self->PARENT::default_chunk_size_db_impl();
         }
-        
+
         # Make sure we don't exceed the augmented max_allowed_packet size:
         if ( $chunk_size > $aug_max_allowed_packet ) {
             $chunk_size = $aug_max_allowed_packet;
         }
-        &dprint("Calculated chunk size = $chunk_size\n");
+        &dprintf("Calculated chunk size = %d\n", $chunk_size);
         $self->{'BINSTORE_CHUNK_CALCULATED'} = $chunk_size;
     }
     return $self->{'BINSTORE_CHUNK_CALCULATED'};
@@ -244,7 +244,7 @@ open_database_handle_impl()
     my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
     my $dbh;
     my $conn_str = "DBI:mysql:database=$db_name";
-    
+
     if ( $db_server ) {
         $conn_str .= ";host=$db_server";
         if ( $db_port && $db_port > 0 ) {
@@ -365,7 +365,7 @@ sub
 last_allocated_object_impl()
 {
     my $self = shift;
-    
+
     if (!exists($self->{'STH_LASTID'})) {
         my $sth = $self->{'DBH'}->prepare('SELECT LAST_INSERT_ID() AS id');
         if ( ! $sth ) {

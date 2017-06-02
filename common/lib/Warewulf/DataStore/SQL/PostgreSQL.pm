@@ -255,27 +255,6 @@ END_OF_SQL
 }
 
 
-sub
-allocate_object_impl()
-{
-    my $self = shift;
-    my ($type) = @_;
-
-    if (!exists($self->{'STH_INSTYPE'})) {
-        $self->{'STH_INSTYPE'} = $self->{'DBH'}->prepare('INSERT INTO datastore (type) VALUES (?)');
-        if (!exists($self->{'STH_INSTYPE'})) {
-            &eprintf("Unable to prepare object allocation query: %s\n", $self->{'DBH'}->errstr);
-            return undef;
-        }
-    }
-    if ( $self->{'STH_INSTYPE'}->execute($type) ) {
-        return $self->{'DBH'}->last_insert_id(undef, undef, 'datastore', 'id');
-    }
-    &eprintf("Unable to execute object allocation query: %s\n", $self->{'STH_INSTYPE'}->errstr);
-    return undef;
-}
-
-
 =back
 
 =head1 SEE ALSO

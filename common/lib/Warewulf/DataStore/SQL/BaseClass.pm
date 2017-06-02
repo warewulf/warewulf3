@@ -574,36 +574,43 @@ get_objects($$$@)
     my $sql_query = $self->get_objects_build_query_impl($type, $field, \@params, @strings);
 
     if ( $sql_query ) {
-        my $sth;
-
         dprint("$sql_query\n");
+        
+        my $sth = $self->{'DBH'}->prepare($sql_query);
 
-        $sth = $self->{'DBH'}->prepare($sql_query);
-        if ( $sth->execute(@params) ) {
-            while (my $h = $sth->fetchrow_hashref()) {
-                my $id = $h->{'id'};
-                my $type = $h->{'type'};
-                my $timestamp = $h->{'timestamp'};
-                my $o = Warewulf::DSO->unserialize($h->{'serialized'});
-                my $modname = ucfirst($type);
-                my $modfile = "Warewulf/$modname.pm";
+        if ( $sth ) {
+            if ( $sth->execute(@params) ) {
+                while (my $h = $sth->fetchrow_hashref()) {
+                    my $id = $h->{'id'};
+                    my $type = $h->{'type'};
+                    my $timestamp = $h->{'timestamp'};
+                    my $o = Warewulf::DSO->unserialize($h->{'serialized'});
+                    my $modname = ucfirst($type);
+                    my $modfile = "Warewulf/$modname.pm";
 
-                if (exists($INC{"$modfile"})) {
-                    if (ref($o) eq 'HASH') {
-                        &iprint("Working around old datatype format for type: $type\n");
-                        bless($o, "Warewulf::$modname");
+                    if (exists($INC{"$modfile"})) {
+                        if (ref($o) eq 'HASH') {
+                            &iprint("Working around old datatype format for type: $type\n");
+                            bless($o, "Warewulf::$modname");
+                        }
+                    } else {
+                        &eprint("Skipping data store object type '$type' (is Warewulf::$modname loaded?)\n");
+                        next;
                     }
-                } else {
-                    &eprint("Skipping data store object type '$type' (is Warewulf::$modname loaded?)\n");
-                    next;
+                    $o->set('_id', $id);
+                    $o->set('_type', $type);
+                    $o->set('_timestamp', $timestamp);
+                    $objectSet->add($o);
                 }
-                $o->set('_id', $id);
-                $o->set('_type', $type);
-                $o->set('_timestamp', $timestamp);
-                $objectSet->add($o);
+            } else {
+                &wprintf("Unable to execute get objects query: %s\n", $sth->errstr);
+                $objectSet = undef;
             }
+            $sth->finish();
+        } else {
+            &wprintf("Unable to prepare get objects query: %s\n", $self->{'DBH'}->errstr);
+            $objectSet = undef;
         }
-        $sth->finish();
     }
 
     return $objectSet;
@@ -657,18 +664,26 @@ get_lookups($$$@)
     my $sql_query = $self->get_lookups_build_query_impl($type, $field, \@params, @strings);
 
     if ( $sql_query ) {
-        my $sth;
-
-        dprint("$sql_query\n\n");
-        $sth = $self->{'DBH'}->prepare($sql_query);
-        $sth->execute(@params);
-
-        while (my $h = $sth->fetchrow_hashref()) {
-            if (exists($h->{'value'})) {
-                push(@ret, $h->{'value'});
+        &dprint("$sql_query\n");
+        
+        my $sth = $self->{'DBH'}->prepare($sql_query);
+        
+        if ( $sth ) {
+            if ( $sth->execute(@params) ) {
+                while (my $h = $sth->fetchrow_hashref()) {
+                    if (exists($h->{'value'})) {
+                        push(@ret, $h->{'value'});
+                    }
+                }
+            } else {
+                &wprintf("Unable to execute get lookups query: %s\n", $sth->errstr);
+                return undef;
             }
+            $sth->finish();
+        } else {
+            &wprintf("Unable to prepare get lookups query: %s\n", $self->{'DBH'}->errstr);
+            return undef;
         }
-        $sth->finish();
     }
     return @ret;
 }
@@ -699,10 +714,10 @@ Create/update one or more objects' representation in the database.  This functio
 validates the operation and calls-through to several helper functions that can be
 overridden by subclasses:
 
-    allocate_object_impl($type)
+    last_allocated_object_impl()
 
-      Must be overridden by subclasses; insert a new row into the datastore
-      table and return the object id associated with the new row.
+      Determine the integer id of the last item inserted into the datastore
+      table.
 
     update_datastore_impl($id, $serialized_data)
 
@@ -710,7 +725,7 @@ overridden by subclasses:
       datastore table).  The default implementation uses pretty generic SQL, so
       it probably will not need to be overridden.
 
-    lookups_build_query_impl($object, $params)
+    set_lookups_build_query_impl($object, $params)
 
       Build the SQL query that inserts lookup key-value pairs into the
       database.  The default implementation uses pretty generic SQL, so
@@ -732,9 +747,9 @@ persist($$)
 
     my (@objects) = @_;
     my $event = Warewulf::EventHandler->new();
-    my %events;
+    my %update_events;
     my @objlist;
-    my $rc;
+    my $objOkCount = 0;
     
     $event->eventloader();
 
@@ -744,114 +759,167 @@ persist($$)
         } elsif (ref($object) =~ /^Warewulf::/) {
             @objlist = ($object);
         } else {
-            &eprint("Invalid object type to persist():  $object\n");
+            &eprintf("Invalid object type to persist(): %s\n", ref($object));
             return undef;
         }
         foreach my $o (@objlist) {
             my $id = $o->get('_id');
             my $type;
-
+            my $success = 1;
+            
             if ($o->can('type')) {
                 $type = $o->type();
             } else {
-                &cprint("Cannot determine object type!  Is the DSO interface loaded for object class \"". ref($o) ."?\"\n");
-                &cprint("Sorry, this error is fatal.  Most likely a problem in $0.\n");
+                &cprintf("Cannot determine object type!  Is the DSO interface loaded for object class \"%s?\"\n". ref($o));
+                &cprintf("Sorry, this error is fatal.  Most likely a problem in %s.\n", $0);
                 kill('ABRT', $$);
             }
 
             $self->{'DBH'}->begin_work();
-
-            if (! $id ) {
-                &dprint("Persisting object as new\n");
-                my $event_retval = $event->handle("$type.new", $o);
-                if (! $event_retval->is_ok()) {
-                    my $nodename = $o->nodename() || 'UNDEF';
-                    my $message = $event_retval->message();
-                    &eprint("Could not add node $nodename\n");
-                    if ($message) {
-                        &eprint("$message\n");
+            
+            do {
+                if (! $id ) {
+                    &dprint("Persisting new object\n");
+                    
+                    my $event_retval = $event->handle("$type.new", $o);
+                    if (! $event_retval->is_ok()) {
+                        my $nodename = $o->nodename() || 'UNDEF';
+                        my $message = $event_retval->message();
+                        &eprint("Could not add node $nodename\n");
+                        if ($message) {
+                            &eprint("$message\n");
+                        }
+                        $success = 0;
+                        last;
                     }
-                    next;
-                }
-                #
-                # New object, we need to assign an object id first:
-                #
-                $id = $self->allocate_object_impl($type);
-                if ( ! $id ) {
-                    &eprint("Could not allocate new object of type '$type'\n");
-                    next;
-                }
-                &dprint("Inserted a new object into the data store (ID: $id)\n");
-                $o->set('_id', $id);
-            }
-
-            &dprint("Updating data store ID = $id\n");
-            if ( ! $self->update_datastore_impl($id, Warewulf::DSO->serialize($o)) ) {
-                    &eprint("Could not update object $id of type '$type'\n");
-                    next;
-            }
-
-            # Delete old lookups; this SQL is pretty straightforward, so we won't
-            # bother abstracting it:
-            $self->{'DBH'}->do('DELETE FROM lookup WHERE object_id = ?', undef, $id);
-            if ($o->can('lookups')) {
-                my @params;
-                my $sql_query = $self->lookups_build_query_impl($o, \@params);
-
-                if ( $sql_query ) {
-                    my $sth;
-
-                    &dprint("$sql_query\n\n");
-                    if ( @params && scalar(@params) > 0 ) {
-                        $sth = $self->{'DBH'}->prepare($sql_query);
-
-                        # Each element of @params is a reference to another
-                        # array:
-                        foreach my $param (@params) {
-                            $sth->execute(@$param);
+                    
+                    #
+                    # New object, we need to assign an object id first:
+                    #
+                    if (!exists($self->{'STH_INSTYPE'})) {
+                        my $sth = $self->{'DBH'}->prepare('INSERT INTO datastore (type) VALUES (?)');
+                        if ( ! $sth ) {
+                            &eprintf("Unable to prepare object allocation query: %s\n", $self->{'DBH'}->errstr);
+                            return undef;
+                        }
+                        $self->{'STH_INSTYPE'} = $sth;
+                    }
+                    if ( $self->{'STH_INSTYPE'}->execute($type) ) {
+                        $id = $self->{'DBH'}->last_allocated_object_impl();
+                        if ( ! $id ) {
+                            &eprint("Could not determine id of last allocated object of type '$type'\n");
+                            $success = 0;
+                            last;
                         }
                     } else {
-                        $sth = $self->{'DBH'}->prepare($sql_query);
-                        $sth->execute();
+                        &eprint("Could not allocate new object of type '$type'\n");
+                        $success = 0;
+                        last;
                     }
-                    $sth->finish() if ( $sth );
-                    
-                    # Consolidate all objects by type to run events on at once
-                    push(@{$events{"$type"}}, $o);
+                    &dprint("Inserted a new object into the data store (ID: $id)\n");
+                    $o->set('_id', $id);
+                }
+
+                &dprint("Updating data store ID = $id\n");
+                if ( ! $self->update_datastore_impl($id, Warewulf::DSO->serialize($o)) ) {
+                    &eprint("Could not update object $id of type '$type'\n");
+                    $success = 0;
+                    last;
+                }
+
+                # Delete old lookups; this SQL is pretty straightforward, so we won't
+                # bother abstracting it:
+                if ( ! $self->{'DBH'}->do('DELETE FROM lookup WHERE object_id = ?', undef, $id) ) {
+                    &wprintf("Unable to remove existing lookup tuples: %s\n", $self->{'DBH'}->errstr);
+                    $success = 0;
+                    last;
+                }
+                if ($o->can('lookups')) {
+                    my @params;
+                    my $sql_query = $self->set_lookups_build_query_impl($o, \@params);
+
+                    if ( $sql_query ) {
+                        &dprint("$sql_query\n");
+                        
+                        my $sth = $self->{'DBH'}->prepare($sql_query);
+                        
+                        if ( $sth ) {
+                            if ( scalar(@params) > 0 ) {
+
+                                # Each element of @params is a reference to another
+                                # array:
+                                foreach my $param (@params) {
+                                    if ( ! $sth->execute(@$param) ) {
+                                        &wprintf("Unable to execute set lookup query: %s\n", $self->{'DBH'}->errstr);
+                                        $success = 0;
+                                        last;
+                                    }
+                                }
+                                if ( ! $success ) {
+                                    last;
+                                }
+                            }
+                            elsif ( ! $sth->execute() ) {
+                                &wprintf("Unable to execute set lookup query: %s\n", $self->{'DBH'}->errstr);
+                                $success = 0;
+                                last;
+                            }
+                            $sth->finish();
+                        
+                            # Consolidate all objects by type to run update events on at once
+                            push(@{$update_events{"$type"}}, $o);
+                        } else {
+                            &wprintf("Unable to prepare set lookup query: %s\n", $self->{'DBH'}->errstr);
+                            $success = 0;
+                            last;
+                        }
+                    }
+                } else {
+                    dprint("Not adding lookup entries\n");
+                }
+            } while ( 0 );
+            
+            if ( $success ) {
+                if ( $self->{'DBH'}->commit() ) {
+                    &dprint("Finished persisting object $id\n");
+                    $objOkCount++;
+                } else {
+                    &wprintf("Failed to persist object $id: %s\n", $self->{'DBH'}->errstr);
                 }
             } else {
-                dprint("Not adding lookup entries\n");
+                if ( $self->{'DBH'}->rollback() ) {
+                    &dprint("Discarded changes to object $id\n");
+                } else {
+                    &wprintf("Failed to discard changes object $id: %s\n", $self->{'DBH'}->errstr);
+                    last;
+                }
             }
-            $rc = $self->{'DBH'}->commit();
-            &dprint("Finished persisting object $id: $rc\n");
         }
     }
     
-    # Run all events grouped together.
-    foreach my $type (keys %events) {
-        $event->handle("$type.modify", @{$events{"$type"}});
+    # Run all update events grouped together.
+    foreach my $type (keys %update_events) {
+        $event->handle("$type.modify", @{$update_events{"$type"}});
     }
 
-    return scalar(@objlist);
+    return $objOkCount;
 }
 
-=item allocate_object_impl($type)
+=item last_allocated_object_impl()
 
-Insert a new row in the datastore table and return its integer object id.
-Return undef on error.
+Return the object_id of the last allocated object in the
+datastore table.
 
-Must be overridden by subclasses.
+Subclasses can override.
 
 =cut
 
 sub
-allocate_object_impl()
+last_allocated_object_impl()
 {
     my $self = shift;
-    my ($type) = @_;
-
-    &wprint("the SQL base class is not a concrete implementation\n");
-    return undef;
+    
+    return $self->{'DBH'}->last_insert_id(undef, undef, 'datastore', 'id');
 }
 
 =item update_datastore_impl($id, $serialized_data)
@@ -872,23 +940,24 @@ update_datastore_impl()
     my ($id, $serialized_data) = @_;
 
     if (!exists($self->{'STH_SETOBJ'})) {
-        $self->{'STH_SETOBJ'} = $self->{'DBH'}->prepare('UPDATE datastore SET serialized = ? WHERE id = ?');
-        if (!exists($self->{'STH_SETOBJ'})) {
+        my $sth = $self->{'DBH'}->prepare('UPDATE datastore SET serialized = ? WHERE id = ?');
+        if ( ! $sth ) {
             &eprintf("Unable to prepare serialized form update query: %s\n", $self->{'DBH'}->errstr);
             return undef;
         }
+        $self->{'STH_SETOBJ'} = $sth;
     }
-    while ( 1 ) {
+    do {
         last if ! $self->{'STH_SETOBJ'}->bind_param(1, $serialized_data, $self->database_blob_type());
         last if ! $self->{'STH_SETOBJ'}->bind_param(2, $id);
         last if ! $self->{'STH_SETOBJ'}->execute;
         return 1;
-    }
+    } while ( 0 );
     &eprintf("Unable to execute serialized form update query: %s\n", $self->{'STH_SETOBJ'}->errstr);
     return undef;
 }
 
-=item lookups_build_query_impl($object, $paramsRef)
+=item set_lookups_build_query_impl($object, $paramsRef)
 
 Build an SQL query that will insert the key-value pairs associated with
 $object into the lookup table.
@@ -903,7 +972,7 @@ Subclasses can override.
 =cut
 
 sub
-lookups_build_query_impl()
+set_lookups_build_query_impl()
 {
     my $self = shift;
     my ($object, $paramsRef) = @_;
@@ -1006,14 +1075,15 @@ del_object_impl($$)
     #
     if ( ! $self->has_object_id_foreign_key_support() ) {
         if (!exists($self->{'STH_RMLOOK'})) {
-            $self->{'STH_RMLOOK'} = $self->{'DBH'}->prepare('DELETE FROM lookup WHERE object_id = ?');
-            if ( ! $self->{'STH_RMLOOK'} ) {
-                &wprint("Unable to prepare lookup removal query: " . $self->{'DBH'}->errstr . "\n");
+            my $sth = $self->{'DBH'}->prepare('DELETE FROM lookup WHERE object_id = ?');
+            if ( ! $sth ) {
+                &wprintf("Unable to prepare lookup removal query: %s\n", $self->{'DBH'}->errstr);
                 goto EARLY_EXIT;
             }
+            $self->{'STH_RMLOOK'} = $sth;
         }
         if ( ! $self->{'STH_RMLOOK'}->execute($object_id) ) {
-            &wprint("Unable to execute lookup removal query: " . $self->{'DBH'}->errstr . "\n");
+            &wprintf("Unable to execute lookup removal query: %s\n", $self->{'DBH'}->errstr);
             goto EARLY_EXIT;
         }
     }
@@ -1032,19 +1102,20 @@ del_object_impl($$)
     # At last, remove the object from the datastore:
     #
     if (!exists($self->{'STH_RMDS'})) {
-        $self->{'STH_RMDS'} = $self->{'DBH'}->prepare('DELETE FROM datastore WHERE id = ?');
-        if ( ! $self->{'STH_RMDS'} ) {
-            &wprint("Unable to prepare datastore removal query: " . $self->{'DBH'}->errstr . "\n");
+        my $sth = $self->{'DBH'}->prepare('DELETE FROM datastore WHERE id = ?');
+        if ( ! $sth ) {
+            &wprintf("Unable to prepare datastore removal query: %s\n", $self->{'DBH'}->errstr);
             goto EARLY_EXIT;
         }
+        $sth = $self->{'STH_RMDS'};
     }
     if ( ! $self->{'STH_RMDS'}->execute($object_id) ) {
-        &wprint("Unable to execute datastore removal query: " . $self->{'STH_RMDS'}->errstr . "\n");
+        &wprintf("Unable to execute datastore removal query: %s\n", $self->{'STH_RMDS'}->errstr);
         goto EARLY_EXIT;
     }
 
     if ( ! $self->{'DBH'}->commit() ) {
-        &wprint("Unable to commit object removal: " . $self->{'DBH'}->errstr . "\n");
+        &wprintf("Unable to commit object removal: %s\n", $self->{'DBH'}->errstr);
     }
 
     return 1;
@@ -1070,14 +1141,15 @@ del_object_binstore_db_impl()
     
     if ( ! $self->has_object_id_foreign_key_support() ) {
         if (!exists($self->{'STH_RMBS'})) {
-            $self->{'STH_RMBS'} = $self->{'DBH'}->prepare('DELETE FROM binstore WHERE object_id = ?');
-            if (!exists($self->{'STH_RMBS'})) {
-                &wprint("Unable to prepare binstore removal query: " . $self->{'DBH'}->errstr . "\n");
+            my $sth = $self->{'DBH'}->prepare('DELETE FROM binstore WHERE object_id = ?');
+            if ( ! $sth ) {
+                &wprintf("Unable to prepare binstore removal query: %s\n", $self->{'DBH'}->errstr);
                 return undef;
             }
+            $self->{'STH_RMBS'} = $sth;
         }
         if ( ! $self->{'STH_RMBS'}->execute($object_id) ) {
-            &wprint("Unable to execute binstore removal query: " . $self->{'DBH'}->errstr . "\n");
+            &wprintf("Unable to execute binstore removal query: %s\n", $self->{'DBH'}->errstr);
             return undef;
         }
     }
@@ -1197,9 +1269,17 @@ put_chunk_db_impl()
     my ($self, $buffer) = @_;
 
     if (!exists($self->{'STH_PUT'})) {
-        $self->{'STH_PUT'} = $self->{'DBH'}->prepare("INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)");
-        $self->{'DBH'}->do('DELETE FROM binstore WHERE object_id = ?', undef, $self->{'OBJECT_ID'});
+        my $sth = $self->{'DBH'}->prepare("INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)");
+        if ( ! $sth ) {
+            &wprintf("Unable to prepare binstore put chunk query: %s\n", $self->{'DBH'}->errstr);
+            return undef;
+        }
         &dprint("SQL: INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)\n");
+        if ( ! $self->{'DBH'}->do('DELETE FROM binstore WHERE object_id = ?', undef, $self->{'OBJECT_ID'}) ) {
+            &wprintf("Unable to remove binstore chunks for object %d: %s\n", $self->{'OBJECT_ID'}, $self->{'DBH'}->errstr);
+            return undef;
+        }
+        $self->{'STH_PUT'} = $sth;
     }
     if ( exists($self->{'STH_PUT'}) ) {
         if ( $self->{'STH_PUT'}->bind_param(1, $buffer, $self->database_blob_type()) ) {
@@ -1231,23 +1311,17 @@ put_chunk_fs_impl()
     if (!exists($self->{'OUT_FILEH'})) {
         $path = $self->{'OBJECT_PATH'} . '.new';
 
-        my $lock_exists;
         my $period = $self->{'BINSTORE_FS_RETRY_PERIOD'};
         my $retry = $self->{'BINSTORE_FS_RETRY_COUNT'};
 
-        while ( ($lock_exists = -f $path) && $retry-- ) {
+        while ( -f $path && $retry-- ) {
             &wprintf("update of object $object_id (" . $self->{'OBJECT_PATH'} . '.new) already in progress, waiting ' . $period . " seconds...\n");
             sleep($period);
         }
-        if ( $lock_exists ) {
-            &dprint("Failed to open binstore file for write: $path\n");
-            return undef;
-        }
-        if ( ! open($self->{'OUT_FILEH'}, '>' . $path) ) {
+        if ( ! sysopen($self->{'OUT_FILEH'}, $path, O_WRONLY | O_CREAT | O_EXCL, $self->{'BINSTORE_FS_CREATE_MODE'}) ) {
             &eprintf("put_chunk() failed while opening file for write: $path\n");
             return undef;
         }
-        chmod($self->{'BINSTORE_FS_CREATE_MODE'}, $path);
         binmode $self->{'OUT_FILEH'};
         &dprint("FILE OP: WRITE TO binstore($self->{OBJECT_ID}) => $path\n");
     }
@@ -1311,16 +1385,17 @@ get_chunk_db_impl()
     if (!exists($self->{'STH_GET'})) {
         my $query = "SELECT chunk FROM binstore WHERE object_id = $self->{OBJECT_ID} ORDER BY id";
         &dprint("SQL:  $query\n");
-        if ( ! ($self->{'STH_GET'} = $self->{'DBH'}->prepare($query)) ) {
+        my $sth = $self->{'DBH'}->prepare($query);
+        if ( ! $sth ) {
             &eprintf("get_chunk() failed with error:  %s\n", $self->{'DBH'}->errstr());
             return undef;
         }
-        if ( ! $self->{'STH_GET'}->execute() ) {
+        if ( ! $sth->execute() ) {
             &eprintf("get_chunk() failed with error:  %s\n", $self->{'STH_GET'}->errstr());
-            $self->{'STH_GET'}->finish();
-            delete( $self->{'STH_GET'} );
+            $sth->finish();
             return undef;
         }
+        $self->{'STH_GET'} = $sth;
     }
     my $chunk = $self->{'STH_GET'}->fetchrow_array();
     if ( ! $chunk ) {

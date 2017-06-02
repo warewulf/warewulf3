@@ -362,21 +362,19 @@ END_OF_SQL
 
 
 sub
-allocate_object_impl()
+last_allocated_object_impl()
 {
     my $self = shift;
-    my ($type) = @_;
-
-    if (!exists($self->{'STH_INSTYPE'})) {
-        $self->{'STH_INSTYPE'} = $self->{'DBH'}->prepare('INSERT INTO datastore (type) VALUES (?)');
-    }
-    if ( $self->{'STH_INSTYPE'}->execute($type) ) {
-        if (!exists($self->{'STH_LASTID'})) {
-            $self->{'STH_LASTID'} = $self->{'DBH'}->prepare('SELECT LAST_INSERT_ID() AS id');
+    
+    if (!exists($self->{'STH_LASTID'})) {
+        my $sth = $self->{'DBH'}->prepare('SELECT LAST_INSERT_ID() AS id');
+        if ( ! $sth ) {
+            &wprintf("Unable to prepare object id lookup query: %s\n", $self->{'DBH'}->errstr);
+            return undef;
         }
-        return $self->{'DBH'}->selectrow_array($self->{'STH_LASTID'});
+        $self->{'STH_LASTID'} = $sth;
     }
-    return undef;
+    return $self->{'DBH'}->selectrow_array($self->{'STH_LASTID'});
 }
 
 

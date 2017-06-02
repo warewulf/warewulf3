@@ -44,16 +44,21 @@ Warewulf::DataStore::SQL::MySQL - MySQL Database interface to Warewulf
                                       by querying the database under the following
                                       modes:
                                       
-                                        network     the chunk size = the value of the
-                                                    max_allowed_packet parameter for
-                                                    this connection/database/server
-                                        legacy      the chunk size is the value for
-                                                    'network' mode minus 768 KB if the
-                                                    value is greater than 768 KB; this
-                                                    is the default (for backward
+                                        legacy      the chunk size is the value of
+                                                    max_allowed_packet minus 768 KB;
+                                                    this is the default (for backward
                                                     compatibility)
+                                        network     the chunk size = the value of the
+                                                    max_allowed_packet parameter minus
+                                                    5% overhead
                                         storage     the chunk size is based on the
                                                     InnoDB page size
+
+    The 5% overhead was determined to be optimal (and valid) on a variety of
+    max_allowed_packet sizes (1 MiB, 8 MiB, 16 MiB, 24 MiB).  The optimal max_allowed_packet
+    observed for MariaDB on a basic CentOS 7 system was 16 MiB.
+    
+    We require a minimum 1 MiB max_allowed_packet to keep VNFS storage optimal.
 
 =cut
 
@@ -69,15 +74,15 @@ init()
     my ($config, $config_root) = @_;
 
     # Only initialize once:
-    if ($self && exists($self->{"DBH"}) && $self->{"DBH"}) {
+    if ($self && exists($self->{'DBH'}) && $self->{'DBH'}) {
         &dprint("DB Singleton exists, not going to initialize\n");
         return $self;
     }
 
     $self = $self->SUPER::init(@_);
     if ( $self ) {
-        if ( ! exists($self->{"BINSTORE_CHUNK_SIZE"}) ) {
-            my $opt_mode = $config->get("binstore chunk optimization") || $MYSQL_BINSTORE_OPT_MODE_LEGACY;
+        if ( ! exists($self->{'BINSTORE_CHUNK_SIZE'}) ) {
+            my $opt_mode = $config->get('binstore chunk optimization') || $MYSQL_BINSTORE_OPT_MODE_LEGACY;
             
             $opt_mode = lc($opt_mode);
             if ( $opt_mode ne $MYSQL_BINSTORE_OPT_MODE_NETWORK
@@ -87,7 +92,7 @@ init()
                 &wprint("invalid binstore chunk optimization mode: $opt_mode\n");
                 return undef;
             }
-            $self->{"BINSTORE_CHUNK_OPT_MODE"} = $opt_mode;
+            $self->{'BINSTORE_CHUNK_OPT_MODE'} = $opt_mode;
         }
     }
 
@@ -158,29 +163,45 @@ END_OF_SQL
 sub
 default_chunk_size_db_impl()
 {
-    if ( ! exists($self->{"BINSTORE_CHUNK_CALCULATED"}) ) {
+    my $self = shift;
+    
+    if ( ! exists($self->{'BINSTORE_CHUNK_CALCULATED'}) ) {
         my $chunk_size;
+        my $max_allowed_packet;
+        my $aug_max_allowed_packet;
         
-        if ( $self->{"BINSTORE_CHUNK_OPT_MODE"} eq $MYSQL_BINSTORE_OPT_MODE_NETWORK 
-             || $self->{"BINSTORE_CHUNK_OPT_MODE"} eq $MYSQL_BINSTORE_OPT_MODE_LEGACY ) {
+        (undef, $max_allowed_packet) =  $self->{'DBH'}->selectrow_array("show variables LIKE 'max_allowed_packet'");
+        if ( $max_allowed_packet < 1024 * 1024 ) {
+            &eprintf("your mysql max_allowed_packet is less than 1 MiB (%d)\n", $max_allowed_packet);
+            &eprint("warewulf VNFS operations require at least a 1 MiB max_allowed_packet\n");
+            exit(1);
+        } else {
+            &dprint("max_allowed_packet: $max_allowed_packet\n");
+        }
+        
+        # Augment to account for overhead:
+        $aug_max_allowed_packet = int(0.95 * $max_allowed_packet);
+        &dprint("max_allowed_packet - 5%: $aug_max_allowed_packet\n");
+        
+        if ( $self->{'BINSTORE_CHUNK_OPT_MODE'} eq $MYSQL_BINSTORE_OPT_MODE_NETWORK 
+             || $self->{'BINSTORE_CHUNK_OPT_MODE'} eq $MYSQL_BINSTORE_OPT_MODE_LEGACY ) {
             # One choice -- albeit one that may not remain consistent during usage of the
-            # database -- is to use the server's maximum _communications_ packet size.  Basically,
-            # this will produce a chunk size that will be delivered in optimal fashion between
-            # client and server.
-            (undef, $chunk_size) =  $self->{"DBH"}->selectrow_array("show variables LIKE 'max_allowed_packet'");
-            &dprint("max_allowed_packet: $chunk_size\n");
-            if ( ($self->{"BINSTORE_CHUNK_OPT_MODE"} eq $MYSQL_BINSTORE_OPT_MODE_LEGACY) && ($chunk_size >= 1048576) ) {
+            # database -- is to use a fraction of the server's maximum _communications_ packet size.
+            # Basically, this will produce a chunk size that will be delivered in optimal fashion
+            # between client and server.
+            if ( ($self->{'BINSTORE_CHUNK_OPT_MODE'} eq $MYSQL_BINSTORE_OPT_MODE_LEGACY) && ($max_allowed_packet > 768 * 1024) ) {
                 #
                 # Dropping 768 KB off the max_allowed_packet size was a recommended behavior
                 # but should probably make the storage less optimal.  We should only apply
                 # the subtration when the max_allowed_packet size exceeds the 1 MB
                 # threshold, too:
                 #
-                $chunk_size -= 768 * 1024;
+                $chunk_size = $max_allowed_packet - 768 * 1024;
+            } else {
+                $chunk_size = $aug_max_allowed_packet;
             }
-            $self->{"DATABASE_CHUNK_CALCULATED"} = $chunk_size;
         }
-        elsif ( $self->{"BINSTORE_CHUNK_OPT_MODE"} eq $MYSQL_BINSTORE_OPT_MODE_STORAGE ) {
+        elsif ( $self->{'BINSTORE_CHUNK_OPT_MODE'} eq $MYSQL_BINSTORE_OPT_MODE_STORAGE ) {
             # The InnoDB engine documentation states:
             #
             #   The maximum row length is slightly less than half a database page for 4KB,
@@ -198,16 +219,22 @@ default_chunk_size_db_impl()
             #
             #    chunk_size = floor((1024 B / KB) * 0.95 * ((innodb_page_size / 6 KB) + 16/3))
             #
-            (undef, $chunk_size) =  $self->{"DBH"}->selectrow_array("show variables LIKE 'innodb_page_size'");
+            (undef, $chunk_size) =  $self->{'DBH'}->selectrow_array("show variables LIKE 'innodb_page_size'");
             &dprint("innodb_page_size: $chunk_size KB\n");
-            $self->{"BINSTORE_CHUNK_CALCULATED"} = int( 972.8 * (($chunk_size / 6144.0) + (16.0 / 3.0)) );
+            $chunk_size = int( 972.8 * (($chunk_size / 6144.0) + (16.0 / 3.0)) );
         }
         else {
-            $self->{"BINSTORE_CHUNK_CALCULATED"} = $self->PARENT::default_chunk_size_db_impl();
+            $chunk_size = $self->PARENT::default_chunk_size_db_impl();
         }
-        &dprint("Calculated chunk size = $self->{BINSTORE_CHUNK_CALCULATED}\n");
+        
+        # Make sure we don't exceed the augmented max_allowed_packet size:
+        if ( $chunk_size > $aug_max_allowed_packet ) {
+            $chunk_size = $aug_max_allowed_packet;
+        }
+        &dprint("Calculated chunk size = $chunk_size\n");
+        $self->{'BINSTORE_CHUNK_CALCULATED'} = $chunk_size;
     }
-    return $self->{"BINSTORE_CHUNK_CALCULATED"};
+    return $self->{'BINSTORE_CHUNK_CALCULATED'};
 }
 
 
@@ -226,7 +253,7 @@ open_database_handle_impl()
     }
     $dbh = DBI->connect_cached($conn_str, $db_user, $db_pass);
     if ( $dbh ) {
-        $dbh->{"mysql_auto_reconnect"} = 1;
+        $dbh->{'mysql_auto_reconnect'} = 1;
     }
     return $dbh;
 }
@@ -241,14 +268,14 @@ get_objects_build_query_impl()
     my @query_opts;
 
     if ($type) {
-        push(@query_opts, 'datastore.type = '. $self->{"DBH"}->quote($type));
+        push(@query_opts, 'datastore.type = '. $self->{'DBH'}->quote($type));
     }
     if ($field) {
-        if (uc($field) eq "ID" or uc($field) eq "_ID") {
-            push(@query_opts, 'datastore.id IN ('. join(',', map { $self->{"DBH"}->quote($_) } @strings). ')');
+        if (uc($field) eq 'ID' or uc($field) eq '_ID') {
+            push(@query_opts, 'datastore.id IN ('. join(',', map { $self->{'DBH'}->quote($_) } @strings). ')');
             @strings = ();
         } else {
-            push(@query_opts, '(lookup.field = '. $self->{"DBH"}->quote(uc($field)) .' OR lookup.field = '. $self->{"DBH"}->quote(uc('_'. $field)) .')');
+            push(@query_opts, '(lookup.field = '. $self->{'DBH'}->quote(uc($field)) .' OR lookup.field = '. $self->{'DBH'}->quote(uc('_'. $field)) .')');
         }
     }
 
@@ -263,19 +290,19 @@ get_objects_build_query_impl()
             } elsif ($s =~ /[\*\?]/) {
                 $s =~ s/\*/\%/g;
                 $s =~ s/\?/\_/g;
-                push(@like_opts, 'lookup.value LIKE '. $self->{"DBH"}->quote($s));
+                push(@like_opts, 'lookup.value LIKE '. $self->{'DBH'}->quote($s));
             } else {
-                push(@in_opts, $self->{"DBH"}->quote($s));
+                push(@in_opts, $self->{'DBH'}->quote($s));
             }
         }
         if (@in_opts) {
             push(@string_query, 'lookup.value IN ('. join(',', @in_opts). ')');
         }
         if (@like_opts) {
-            push(@string_query, join(" OR ", @like_opts));
+            push(@string_query, join(' OR ', @like_opts));
         }
         if (@regexp_opts) {
-            push(@string_query, 'lookup.value REGEXP '. $self->{"DBH"}->quote('^('. join('|', @regexp_opts) .'$)'));
+            push(@string_query, 'lookup.value REGEXP '. $self->{'DBH'}->quote('^('. join('|', @regexp_opts) .'$)'));
         }
 
         if (@string_query) {
@@ -309,13 +336,13 @@ get_lookups_build_query_impl()
     my @query_opts;
 
     if ($type) {
-        push(@query_opts, 'datastore.type = '. $self->{"DBH"}->quote($type));
+        push(@query_opts, 'datastore.type = '. $self->{'DBH'}->quote($type));
     }
     if ($field) {
-        push(@query_opts, 'lookup.field = '. $self->{"DBH"}->quote(uc($field)));
+        push(@query_opts, 'lookup.field = '. $self->{'DBH'}->quote(uc($field)));
     }
     if (@strings) {
-        push(@query_opts, 'lookup.value IN ('. join(',', map { $self->{"DBH"}->quote($_) } @strings). ')');
+        push(@query_opts, 'lookup.value IN ('. join(',', map { $self->{'DBH'}->quote($_) } @strings). ')');
     }
     push(@query_opts, "lookup.field != 'ID'");
 
@@ -340,14 +367,14 @@ allocate_object_impl()
     my $self = shift;
     my ($type) = @_;
 
-    if (!exists($self->{"STH_INSTYPE"})) {
-        $self->{"STH_INSTYPE"} = $self->{"DBH"}->prepare("INSERT INTO datastore (type) VALUES (?)");
+    if (!exists($self->{'STH_INSTYPE'})) {
+        $self->{'STH_INSTYPE'} = $self->{'DBH'}->prepare('INSERT INTO datastore (type) VALUES (?)');
     }
-    if ( $self->{"STH_INSTYPE"}->execute($type) ) {
-        if (!exists($self->{"STH_LASTID"})) {
-            $self->{"STH_LASTID"} = $self->{"DBH"}->prepare("SELECT LAST_INSERT_ID() AS id");
+    if ( $self->{'STH_INSTYPE'}->execute($type) ) {
+        if (!exists($self->{'STH_LASTID'})) {
+            $self->{'STH_LASTID'} = $self->{'DBH'}->prepare('SELECT LAST_INSERT_ID() AS id');
         }
-        return $self->{"DBH"}->selectrow_array($self->{"STH_LASTID"});
+        return $self->{'DBH'}->selectrow_array($self->{'STH_LASTID'});
     }
     return undef;
 }

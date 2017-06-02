@@ -16,7 +16,7 @@ use Warewulf::DSO;
 use Warewulf::Object;
 use Warewulf::ObjectSet;
 use Warewulf::EventHandler;
-use DBI;
+use DBI qw(:sql_types);
 use Storable qw(freeze thaw);
 
 =head1 NAME
@@ -317,7 +317,7 @@ init()
             #
             # Set the creation mode for binstore files:
             #
-            my $create_mode = $config->get("binstore fs create mode") || '0660';
+            my $create_mode = $config->get('binstore fs create mode') || '0660';
             if ( ! $create_mode =~ /^[0-9]+$/ ) {
                 &eprint("Binstore file creation mode is invalid: $create_mode\n");
                 return undef;
@@ -325,16 +325,16 @@ init()
             # The mode MUST at least grant read-write to the user, and should
             # not have any special mode bits or execute bits:
             $create_mode = (oct($create_mode) | 0600) & 0666;
-            $self->{"BINSTORE_FS_CREATE_MODE"} = $create_mode;
+            $self->{'BINSTORE_FS_CREATE_MODE'} = $create_mode;
         }
         elsif ( $binstore_kind eq $BINSTORE_KIND_DATABASE ) {
-            # Nothing else needed...
+            # Nothing to do here:
         }
         else {
             &wprint("Invalid binstore kind: $binstore_kind\n");
             return undef;
         }
-        $self->{"BINSTORE_KIND"} = $binstore_kind;
+        $self->{'BINSTORE_KIND'} = $binstore_kind;
     } else {
         &wprint("Could not connect to the database, no database name provided\n");
         return undef;
@@ -355,14 +355,14 @@ DESTROY()
 {
     my $self = shift;
 
-    if ( $self->{"BINSTORE"} ) {
-        if ( exists($self->{"OUT_FILEH"}) ) {
-            close($self->{"OUT_FILEH"});
+    if ( $self->{'BINSTORE'} ) {
+        if ( exists($self->{'OUT_FILEH'}) ) {
+            close($self->{'OUT_FILEH'});
             # Rename to atomically replace:
-            rename($self->{"OBJECT_PATH"} . '.new', $self->{"OBJECT_PATH"});
+            rename($self->{'OBJECT_PATH'} . '.new', $self->{'OBJECT_PATH'});
         }
-        if ( exists($self->{"IN_FILEH"}) ) {
-            close($self->{"IN_FILEH"});
+        if ( exists($self->{'IN_FILEH'}) ) {
+            close($self->{'IN_FILEH'});
         }
     }
 }
@@ -381,7 +381,7 @@ Must be overridden by subclasses.
 sub
 version_of_class()
 {
-    &wprint("the SQL base class is not a concrete implementation");
+    &wprint("the SQL base class is not a concrete implementation\n");
     return undef;
 }
 
@@ -397,8 +397,8 @@ version_of_database()
 {
     my $self = shift;
 
-    if ( exists($self->{"DBH"}) ) {
-        my $rows = $self->{"DBH"}->selectall_arrayref("SELECT value FROM meta WHERE name = 'dbvers'");
+    if ( exists($self->{'DBH'}) ) {
+        my $rows = $self->{'DBH'}->selectall_arrayref("SELECT value FROM meta WHERE name = 'dbvers'");
         my $vers = -1;
 
         foreach my $row (@$rows) {
@@ -422,8 +422,23 @@ Must be overridden by subclasses.
 sub
 database_schema_string()
 {
-    &wprint("the SQL base class is not a concrete implementation");
+    &wprint("the SQL base class is not a concrete implementation\n");
     return undef;
+}
+
+
+=item database_blob_type()
+
+Return the SQL type used for BLOB data.
+
+Subclasses can override.
+
+=cut
+
+sub
+database_blob_type()
+{
+    return SQL_BLOB;
 }
 
 
@@ -440,7 +455,7 @@ open_database_handle_impl()
 {
     my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
 
-    &wprint("the SQL base class is not a concrete implementation");
+    &wprint("the SQL base class is not a concrete implementation\n");
     return undef;
 }
 
@@ -475,7 +490,7 @@ chunk_size()
 {
     my $self = shift;
 
-    return $self->{"BINSTORE_CHUNK_SIZE"} if ( exists($self->{"BINSTORE_CHUNK_SIZE"}) );
+    return $self->{'BINSTORE_CHUNK_SIZE'} if ( exists($self->{'BINSTORE_CHUNK_SIZE'}) );
     return $self->default_chunk_size_db_impl() if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
     return $self->default_chunk_size_fs_impl() if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
     return 4 * 1024;
@@ -547,9 +562,9 @@ get_objects($$$@)
     my $self = shift;
     my ($type, $field, @strings) = @_;
 
-    if (! $self->{"DBH"}) {
-        my $config = Warewulf::Config->new("database.conf");
-        my $config_root = Warewulf::Config->new("database-root.conf");
+    if (! $self->{'DBH'}) {
+        my $config = Warewulf::Config->new('database.conf');
+        my $config_root = Warewulf::Config->new('database-root.conf');
 
         $self->init($config, $config_root);
     }
@@ -563,18 +578,18 @@ get_objects($$$@)
 
         dprint("$sql_query\n");
 
-        $sth = $self->{"DBH"}->prepare($sql_query);
+        $sth = $self->{'DBH'}->prepare($sql_query);
         if ( $sth->execute(@params) ) {
             while (my $h = $sth->fetchrow_hashref()) {
-                my $id = $h->{"id"};
-                my $type = $h->{"type"};
-                my $timestamp = $h->{"timestamp"};
-                my $o = Warewulf::DSO->unserialize($h->{"serialized"});
+                my $id = $h->{'id'};
+                my $type = $h->{'type'};
+                my $timestamp = $h->{'timestamp'};
+                my $o = Warewulf::DSO->unserialize($h->{'serialized'});
                 my $modname = ucfirst($type);
                 my $modfile = "Warewulf/$modname.pm";
 
                 if (exists($INC{"$modfile"})) {
-                    if (ref($o) eq "HASH") {
+                    if (ref($o) eq 'HASH') {
                         &iprint("Working around old datatype format for type: $type\n");
                         bless($o, "Warewulf::$modname");
                     }
@@ -582,9 +597,9 @@ get_objects($$$@)
                     &eprint("Skipping data store object type '$type' (is Warewulf::$modname loaded?)\n");
                     next;
                 }
-                $o->set("_id", $id);
-                $o->set("_type", $type);
-                $o->set("_timestamp", $timestamp);
+                $o->set('_id', $id);
+                $o->set('_type', $type);
+                $o->set('_timestamp', $timestamp);
                 $objectSet->add($o);
             }
         }
@@ -609,7 +624,7 @@ get_objects_build_query_impl()
     my $self = shift;
     my ($type, $field, $paramsRef, @strings) = @_;
 
-    &wprint("the SQL base class is not a concrete implementation");
+    &wprint("the SQL base class is not a concrete implementation\n");
     return undef;
 }
 
@@ -629,9 +644,9 @@ get_lookups($$$@)
 {
     my $self = shift;
 
-    if (! $self->{"DBH"}) {
-        my $config = Warewulf::Config->new("database.conf");
-        my $config_root = Warewulf::Config->new("database-root.conf");
+    if (! $self->{'DBH'}) {
+        my $config = Warewulf::Config->new('database.conf');
+        my $config_root = Warewulf::Config->new('database-root.conf');
 
         $self->init($config, $config_root);
     }
@@ -645,12 +660,12 @@ get_lookups($$$@)
         my $sth;
 
         dprint("$sql_query\n\n");
-        $sth = $self->{"DBH"}->prepare($sql_query);
+        $sth = $self->{'DBH'}->prepare($sql_query);
         $sth->execute(@params);
 
         while (my $h = $sth->fetchrow_hashref()) {
-            if (exists($h->{"value"})) {
-                push(@ret, $h->{"value"});
+            if (exists($h->{'value'})) {
+                push(@ret, $h->{'value'});
             }
         }
         $sth->finish();
@@ -673,7 +688,7 @@ get_lookups_build_query_impl()
     my $self = shift;
     my ($type, $field, $paramsRef, @strings) = @_;
 
-    &wprint("the SQL base class is not a concrete implementation");
+    &wprint("the SQL base class is not a concrete implementation\n");
     return undef;
 }
 
@@ -708,9 +723,9 @@ persist($$)
 {
     my $self = shift;
 
-    if (! $self->{"DBH"}) {
-        my $config = Warewulf::Config->new("database.conf");
-        my $config_root = Warewulf::Config->new("database-root.conf");
+    if (! $self->{'DBH'}) {
+        my $config = Warewulf::Config->new('database.conf');
+        my $config_root = Warewulf::Config->new('database-root.conf');
 
         $self->init($config, $config_root);
     }
@@ -724,7 +739,7 @@ persist($$)
     $event->eventloader();
 
     foreach my $object (@objects) {
-        if (ref($object) eq "Warewulf::ObjectSet") {
+        if (ref($object) eq 'Warewulf::ObjectSet') {
             @objlist = $object->get_list();
         } elsif (ref($object) =~ /^Warewulf::/) {
             @objlist = ($object);
@@ -733,24 +748,24 @@ persist($$)
             return undef;
         }
         foreach my $o (@objlist) {
-            my $id = $o->get("_id");
+            my $id = $o->get('_id');
             my $type;
 
-            if ($o->can("type")) {
+            if ($o->can('type')) {
                 $type = $o->type();
             } else {
                 &cprint("Cannot determine object type!  Is the DSO interface loaded for object class \"". ref($o) ."?\"\n");
                 &cprint("Sorry, this error is fatal.  Most likely a problem in $0.\n");
-                kill("ABRT", $$);
+                kill('ABRT', $$);
             }
 
-            $self->{"DBH"}->begin_work();
+            $self->{'DBH'}->begin_work();
 
             if (! $id ) {
                 &dprint("Persisting object as new\n");
                 my $event_retval = $event->handle("$type.new", $o);
                 if (! $event_retval->is_ok()) {
-                    my $nodename = $o->nodename() || "UNDEF";
+                    my $nodename = $o->nodename() || 'UNDEF';
                     my $message = $event_retval->message();
                     &eprint("Could not add node $nodename\n");
                     if ($message) {
@@ -767,7 +782,7 @@ persist($$)
                     next;
                 }
                 &dprint("Inserted a new object into the data store (ID: $id)\n");
-                $o->set("_id", $id);
+                $o->set('_id', $id);
             }
 
             &dprint("Updating data store ID = $id\n");
@@ -778,8 +793,8 @@ persist($$)
 
             # Delete old lookups; this SQL is pretty straightforward, so we won't
             # bother abstracting it:
-            $self->{"DBH"}->do("DELETE FROM lookup WHERE object_id = ?", undef, $id);
-            if ($o->can("lookups")) {
+            $self->{'DBH'}->do('DELETE FROM lookup WHERE object_id = ?', undef, $id);
+            if ($o->can('lookups')) {
                 my @params;
                 my $sql_query = $self->lookups_build_query_impl($o, \@params);
 
@@ -788,7 +803,7 @@ persist($$)
 
                     &dprint("$sql_query\n\n");
                     if ( @params && scalar(@params) > 0 ) {
-                        $sth = $self->{"DBH"}->prepare($sql_query);
+                        $sth = $self->{'DBH'}->prepare($sql_query);
 
                         # Each element of @params is a reference to another
                         # array:
@@ -796,7 +811,7 @@ persist($$)
                             $sth->execute(@$param);
                         }
                     } else {
-                        $sth = $self->{"DBH"}->prepare($sql_query);
+                        $sth = $self->{'DBH'}->prepare($sql_query);
                         $sth->execute();
                     }
                     $sth->finish() if ( $sth );
@@ -807,7 +822,7 @@ persist($$)
             } else {
                 dprint("Not adding lookup entries\n");
             }
-            $rc = $self->{"DBH"}->commit();
+            $rc = $self->{'DBH'}->commit();
             &dprint("Finished persisting object $id: $rc\n");
         }
     }
@@ -835,7 +850,7 @@ allocate_object_impl()
     my $self = shift;
     my ($type) = @_;
 
-    &wprint("the SQL base class is not a concrete implementation");
+    &wprint("the SQL base class is not a concrete implementation\n");
     return undef;
 }
 
@@ -856,10 +871,21 @@ update_datastore_impl()
     my $self = shift;
     my ($id, $serialized_data) = @_;
 
-    if (!exists($self->{"STH_SETOBJ"})) {
-        $self->{"STH_SETOBJ"} = $self->{"DBH"}->prepare("UPDATE datastore SET serialized = ? WHERE id = ?");
+    if (!exists($self->{'STH_SETOBJ'})) {
+        $self->{'STH_SETOBJ'} = $self->{'DBH'}->prepare('UPDATE datastore SET serialized = ? WHERE id = ?');
+        if (!exists($self->{'STH_SETOBJ'})) {
+            &eprintf("Unable to prepare serialized form update query: %s\n", $self->{'DBH'}->errstr);
+            return undef;
+        }
     }
-    return $self->{"STH_SETOBJ"}->execute($serialized_data, $id);
+    while ( 1 ) {
+        last if ! $self->{'STH_SETOBJ'}->bind_param(1, $serialized_data, $self->database_blob_type());
+        last if ! $self->{'STH_SETOBJ'}->bind_param(2, $id);
+        last if ! $self->{'STH_SETOBJ'}->execute;
+        return 1;
+    }
+    &eprintf("Unable to execute serialized form update query: %s\n", $self->{'STH_SETOBJ'}->errstr);
+    return undef;
 }
 
 =item lookups_build_query_impl($object, $paramsRef)
@@ -919,13 +945,13 @@ del_object($$)
     my %events;
     my @objlist;
 
-    if (! $self->{"DBH"}) {
-        my $config = Warewulf::Config->new("database.conf");
-        my $config_root = Warewulf::Config->new("database-root.conf");
+    if (! $self->{'DBH'}) {
+        my $config = Warewulf::Config->new('database.conf');
+        my $config_root = Warewulf::Config->new('database-root.conf');
 
         $self->init($config, $config_root);
     }
-    if (ref($object) eq "Warewulf::ObjectSet") {
+    if (ref($object) eq 'Warewulf::ObjectSet') {
         @objlist = $object->get_list();
     } elsif (ref($object) =~ /^Warewulf::/) {
         @objlist = ($object);
@@ -936,7 +962,7 @@ del_object($$)
 
     # Remove each object:
     foreach my $o (@objlist) {
-        my $id = $o->get("_id");
+        my $id = $o->get('_id');
         my $type = $o->type;
 
         if ($id) {
@@ -971,22 +997,23 @@ sub
 del_object_impl($$)
 {
     my ($self, $object) = @_;
+    my $object_id = $object->get('_id');
 
-    $self->{"DBH"}->begin_work();
+    $self->{'DBH'}->begin_work();
 
     #
     # Scrub the lookup table:
     #
     if ( ! $self->has_object_id_foreign_key_support() ) {
-        if (!exists($self->{"STH_RMLOOK"})) {
-            $self->{"STH_RMLOOK"} = $self->{"DBH"}->prepare("DELETE FROM lookup WHERE object_id = ?");
-            if ( ! $self->{"STH_RMLOOK"} ) {
-                &wprint("Unable to prepare lookup removal query: " . $self->{"DBH"}->errstr . "\n");
+        if (!exists($self->{'STH_RMLOOK'})) {
+            $self->{'STH_RMLOOK'} = $self->{'DBH'}->prepare('DELETE FROM lookup WHERE object_id = ?');
+            if ( ! $self->{'STH_RMLOOK'} ) {
+                &wprint("Unable to prepare lookup removal query: " . $self->{'DBH'}->errstr . "\n");
                 goto EARLY_EXIT;
             }
         }
-        if ( ! $self->{"STH_RMLOOK"}->execute($object->get("_id")) ) {
-            &wprint("Unable to execute lookup removal query: " . $self->{"DBH"}->errstr . "\n");
+        if ( ! $self->{'STH_RMLOOK'}->execute($object_id) ) {
+            &wprint("Unable to execute lookup removal query: " . $self->{'DBH'}->errstr . "\n");
             goto EARLY_EXIT;
         }
     }
@@ -994,57 +1021,94 @@ del_object_impl($$)
     #
     # Scrub the binstore:
     #
-    if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE ) {
-        if ( ! $self->has_object_id_foreign_key_support() ) {
-            if (!exists($self->{"STH_RMBS"})) {
-                $self->{"STH_RMBS"} = $self->{"DBH"}->prepare("DELETE FROM binstore WHERE object_id = ?");
-                if ( ! $self->{"STH_RMBS"} ) {
-                    &wprint("Unable to prepare binstore removal query: " . $self->{"DBH"}->errstr . "\n");
-                    goto EARLY_EXIT;
-                }
-            }
-            if ( ! $self->{"STH_RMBS"}->execute($object->get("_id")) ) {
-                &wprint("Unable to execute binstore removal query: " . $self->{"DBH"}->errstr . "\n");
-                goto EARLY_EXIT;
-            }
-        }
+    if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE && ! $self->del_object_binstore_db_impl($buffer) ) {
+        goto EARLY_EXIT;
     }
-    elsif ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM ) {
-        # Delete the file from disk:
-        my($path) = $self->{"BINSTORE_PATH"} . '/' . $object->get('_id');
-        if ( -f $path ) {
-            if ( ! unlink($path) ) {
-                &wprint("Unable to remove file from binstore: $path\n");
-                goto EARLY_EXIT;
-            }
-        }
+    elsif ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM && ! $self->del_object_binstore_fs_impl($buffer) ) {
+        goto EARLY_EXIT;
     }
 
     #
     # At last, remove the object from the datastore:
     #
-    if (!exists($self->{"STH_RMDS"})) {
-        $self->{"STH_RMDS"} = $self->{"DBH"}->prepare("DELETE FROM datastore WHERE id = ?");
-        if ( ! $self->{"STH_RMDS"} ) {
-            &wprint("Unable to prepare datastore removal query: " . $self->{"DBH"}->errstr . "\n");
+    if (!exists($self->{'STH_RMDS'})) {
+        $self->{'STH_RMDS'} = $self->{'DBH'}->prepare('DELETE FROM datastore WHERE id = ?');
+        if ( ! $self->{'STH_RMDS'} ) {
+            &wprint("Unable to prepare datastore removal query: " . $self->{'DBH'}->errstr . "\n");
             goto EARLY_EXIT;
         }
     }
-    if ( ! $self->{"STH_RMDS"}->execute($object->get("_id")) ) {
-        &wprint("Unable to execute datastore removal query: " . $self->{"DBH"}->errstr . "\n");
+    if ( ! $self->{'STH_RMDS'}->execute($object_id) ) {
+        &wprint("Unable to execute datastore removal query: " . $self->{'STH_RMDS'}->errstr . "\n");
         goto EARLY_EXIT;
     }
 
-    if ( ! $self->{"DBH"}->commit() ) {
-        &wprint("Unable to commit object removal: " . $self->{"DBH"}->errstr . "\n");
+    if ( ! $self->{'DBH'}->commit() ) {
+        &wprint("Unable to commit object removal: " . $self->{'DBH'}->errstr . "\n");
     }
 
     return 1;
-
+    
 EARLY_EXIT:
-    $self->{"DBH"}->rollback();
+    $self->{'DBH'}->rollback();
     return 0;
 }
+
+
+=item del_object_binstore_db_impl($id)
+
+Function that removes an object's binstore data that's
+stored inside the database.
+
+=cut
+
+sub
+del_object_binstore_db_impl()
+{
+    my $self = shift;
+    my ($object_id) = @_;
+    
+    if ( ! $self->has_object_id_foreign_key_support() ) {
+        if (!exists($self->{'STH_RMBS'})) {
+            $self->{'STH_RMBS'} = $self->{'DBH'}->prepare('DELETE FROM binstore WHERE object_id = ?');
+            if (!exists($self->{'STH_RMBS'})) {
+                &wprint("Unable to prepare binstore removal query: " . $self->{'DBH'}->errstr . "\n");
+                return undef;
+            }
+        }
+        if ( ! $self->{'STH_RMBS'}->execute($object_id) ) {
+            &wprint("Unable to execute binstore removal query: " . $self->{'DBH'}->errstr . "\n");
+            return undef;
+        }
+    }
+    return 1;
+}
+
+
+=item del_object_binstore_fs_impl($id)
+
+Function that removes an object's binstore data that's
+stored in a directory in the file system.
+
+=cut
+
+sub
+del_object_binstore_fs_impl()
+{
+    my $self = shift;
+    my ($object_id) = @_;
+    
+    # Delete the file from disk:
+    my $path = $self->{'BINSTORE_PATH'} . '/' . $object_id;
+    if ( -f $path ) {
+        if ( ! unlink($path) ) {
+            &wprint("Unable to remove file from binstore: $path\n");
+            return undef;
+        }
+    }
+    return 1;
+}
+
 
 =item binstore($object_id);
 
@@ -1059,13 +1123,13 @@ binstore()
 {
     my ($self, $object_id) = @_;
 
-    if ( exists($self->{"DBH"}) ) {
+    if ( exists($self->{'DBH'}) ) {
         my $class = ref($self);
         my $dsh = {};
 
-        $dsh->{"DBH"} = $self->{"DBH"};
-        $dsh->{"OBJECT_ID"} = $object_id;
-        $dsh->{"BINSTORE"} = 1;
+        $dsh->{'DBH'} = $self->{'DBH'};
+        $dsh->{'OBJECT_ID'} = $object_id;
+        $dsh->{'BINSTORE'} = 1;
 
         # Copy all DATABASE_ and BINSTORE_ keys into the binstore object:
         while ( my($key, $value) = each(%$self) ) {
@@ -1075,8 +1139,8 @@ binstore()
         }
 
         # For filesystem binstore, stash the path to the object:
-        if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM ) {
-            $dsh->{"OBJECT_PATH"} = $self->{"BINSTORE_FS_PATH"} . '/' . $object_id;
+        if ( $self->{'BINSTORE_KIND'} eq $BINSTORE_KIND_FILESYSTEM ) {
+            $dsh->{'OBJECT_PATH'} = $self->{'BINSTORE_FS_PATH'} . '/' . $object_id;
         }
 
         return bless($dsh, $class);
@@ -1099,21 +1163,20 @@ put_chunk()
 {
     my ($self, $buffer) = @_;
 
-    if (!exists($self->{"BINSTORE"})) {
+    if (!exists($self->{'BINSTORE'})) {
         &eprint("Wrong object type\n");
         return 0;
     }
 
-    if ( !exists($self->{"DBH"}) ) {
+    if ( !exists($self->{'DBH'}) ) {
         &eprint("No database handle\n");
         return 0;
     }
 
-    if (!exists($self->{"OBJECT_ID"})) {
+    if (!exists($self->{'OBJECT_ID'})) {
         &eprint("Can not store into binstore without an object ID\n");
         return 0;
     }
-
     return $self->put_chunk_db_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
     return $self->put_chunk_fs_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
     return undef;
@@ -1133,17 +1196,20 @@ put_chunk_db_impl()
 {
     my ($self, $buffer) = @_;
 
-    if (!exists($self->{"STH_PUT"})) {
-        $self->{"STH_PUT"} = $self->{"DBH"}->prepare("INSERT INTO binstore (object_id, chunk) VALUES (?,?)");
-        $self->{"DBH"}->do("DELETE FROM binstore WHERE object_id = ?", undef, $self->{"OBJECT_ID"});
+    if (!exists($self->{'STH_PUT'})) {
+        $self->{'STH_PUT'} = $self->{'DBH'}->prepare("INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)");
+        $self->{'DBH'}->do('DELETE FROM binstore WHERE object_id = ?', undef, $self->{'OBJECT_ID'});
         &dprint("SQL: INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)\n");
     }
-
-    if (! $self->{"STH_PUT"}->execute($self->{"OBJECT_ID"}, $buffer)) {
-        &eprintf("put_chunk() failed with error:  %s\n", $self->{"STH_PUT"}->errstr());
-        return undef;
+    if ( exists($self->{'STH_PUT'}) ) {
+        if ( $self->{'STH_PUT'}->bind_param(1, $buffer, $self->database_blob_type()) ) {
+            if ( $self->{'STH_PUT'}->execute() ) {
+                return 1;
+            }
+        }
+        &eprintf("put_chunk() failed with error:  %s\n", $self->{'STH_PUT'}->errstr());
     }
-    return 1;
+    return undef;
 }
 
 
@@ -1162,31 +1228,31 @@ put_chunk_fs_impl()
     my ($self, $buffer) = @_;
     my ($rc, $path);
 
-    if (!exists($self->{"OUT_FILEH"})) {
-        $path = $self->{"OBJECT_PATH"} . '.new';
+    if (!exists($self->{'OUT_FILEH'})) {
+        $path = $self->{'OBJECT_PATH'} . '.new';
 
         my $lock_exists;
-        my $period = $self->{"BINSTORE_FS_RETRY_PERIOD"};
-        my $retry = $self->{"BINSTORE_FS_RETRY_COUNT"};
+        my $period = $self->{'BINSTORE_FS_RETRY_PERIOD'};
+        my $retry = $self->{'BINSTORE_FS_RETRY_COUNT'};
 
         while ( ($lock_exists = -f $path) && $retry-- ) {
-            &wprintf("update of object $object_id (" . $self->{"OBJECT_PATH"} . ".new) already in progress, waiting " . $period . " seconds...\n");
+            &wprintf("update of object $object_id (" . $self->{'OBJECT_PATH'} . '.new) already in progress, waiting ' . $period . " seconds...\n");
             sleep($period);
         }
         if ( $lock_exists ) {
             &dprint("Failed to open binstore file for write: $path\n");
             return undef;
         }
-        if ( ! open($self->{"OUT_FILEH"}, '>' . $path) ) {
+        if ( ! open($self->{'OUT_FILEH'}, '>' . $path) ) {
             &eprintf("put_chunk() failed while opening file for write: $path\n");
             return undef;
         }
-        chmod($self->{"BINSTORE_FS_CREATE_MODE"}, $path);
-        binmode $self->{"OUT_FILEH"};
+        chmod($self->{'BINSTORE_FS_CREATE_MODE'}, $path);
+        binmode $self->{'OUT_FILEH'};
         &dprint("FILE OP: WRITE TO binstore($self->{OBJECT_ID}) => $path\n");
     }
 
-    $rc = syswrite($self->{"OUT_FILEH"}, $buffer);
+    $rc = syswrite($self->{'OUT_FILEH'}, $buffer);
     if ( ! defined($rc) ) {
         &eprintf("put_chunk() failed while writing $path ($!)\n");
         return undef;
@@ -1209,21 +1275,20 @@ get_chunk()
 {
     my ($self) = @_;
 
-    if (!exists($self->{"BINSTORE"})) {
+    if (!exists($self->{'BINSTORE'})) {
         &eprint("Wrong object type\n");
         return 0;
     }
 
-    if ( !exists($self->{"DBH"}) ) {
+    if ( !exists($self->{'DBH'}) ) {
         &eprint("No database handle\n");
         return 0;
     }
 
-    if (!exists($self->{"OBJECT_ID"})) {
+    if (!exists($self->{'OBJECT_ID'})) {
         &eprint("Can not store into binstore without an object ID\n");
         return 0;
     }
-
     return $self->get_chunk_db_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE );
     return $self->get_chunk_fs_impl($buffer) if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM );
     return undef;
@@ -1243,13 +1308,26 @@ get_chunk_db_impl()
 {
     my ($self) = @_;
 
-    if (!exists($self->{"STH_GET"})) {
+    if (!exists($self->{'STH_GET'})) {
         my $query = "SELECT chunk FROM binstore WHERE object_id = $self->{OBJECT_ID} ORDER BY id";
         &dprint("SQL:  $query\n");
-        $self->{"STH_GET"} = $self->{"DBH"}->prepare($query);
-        $self->{"STH_GET"}->execute();
+        if ( ! ($self->{'STH_GET'} = $self->{'DBH'}->prepare($query)) ) {
+            &eprintf("get_chunk() failed with error:  %s\n", $self->{'DBH'}->errstr());
+            return undef;
+        }
+        if ( ! $self->{'STH_GET'}->execute() ) {
+            &eprintf("get_chunk() failed with error:  %s\n", $self->{'STH_GET'}->errstr());
+            $self->{'STH_GET'}->finish();
+            delete( $self->{'STH_GET'} );
+            return undef;
+        }
     }
-    return $self->{"STH_GET"}->fetchrow_array();
+    my $chunk = $self->{'STH_GET'}->fetchrow_array();
+    if ( ! $chunk ) {
+        $self->{'STH_GET'}->finish();
+        delete( $self->{'STH_GET'} );
+    }
+    return $chunk;
 }
 
 =item get_chunk_fs_impl();
@@ -1268,16 +1346,16 @@ get_chunk_fs_impl()
     my $byte_count = $self->chunk_size();
     my ($buffer, $rc);
 
-    if (!exists($self->{"IN_FILEH"})) {
-        if ( ! -f $self->{"OBJECT_PATH"} || ! -r $self->{"OBJECT_PATH"} || ! open($self->{"IN_FILEH"}, '<' . $self->{"OBJECT_PATH"}) ) {
+    if (!exists($self->{'IN_FILEH'})) {
+        if ( ! -f $self->{'OBJECT_PATH'} || ! -r $self->{'OBJECT_PATH'} || ! open($self->{'IN_FILEH'}, '<' . $self->{'OBJECT_PATH'}) ) {
             &eprintf("get_chunk() failed while opening file for read: $self->{OBJECT_PATH}\n");
             return undef;
         }
-        binmode $self->{"IN_FILEH"};
+        binmode $self->{'IN_FILEH'};
         &dprint("FILE OP: READ FROM binstore($self->{OBJECT_ID}) <= $self->{OBJECT_PATH}\n");
     }
 
-    $rc = sysread($self->{"IN_FILEH"}, $buffer, $byte_count);
+    $rc = sysread($self->{'IN_FILEH'}, $buffer, $byte_count);
     if ( ! defined($rc) ) {
         &eprintf("get_chunk() failed while reading: $!\n");
         return undef;

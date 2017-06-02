@@ -117,6 +117,13 @@ END_OF_SQL
 
 
 sub
+database_blob_type()
+{
+    return { pg_type => DBD::Pg::PG_BYTEA };
+}
+
+
+sub
 open_database_handle_impl()
 {
     my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
@@ -148,14 +155,14 @@ get_objects_build_query_impl()
     my @query_opts;
 
     if ($type) {
-        push(@query_opts, 'datastore.type = '. $self->{"DBH"}->quote($type));
+        push(@query_opts, 'datastore.type = '. $self->{'DBH'}->quote($type));
     }
     if ($field) {
-        if (uc($field) eq "ID" or uc($field) eq "_ID") {
-            push(@query_opts, 'datastore.id IN ('. join(',', map { $self->{"DBH"}->quote($_) } @strings). ')');
+        if (uc($field) eq 'ID' or uc($field) eq '_ID') {
+            push(@query_opts, 'datastore.id IN ('. join(',', map { $self->{'DBH'}->quote($_) } @strings). ')');
             @strings = ();
         } else {
-            push(@query_opts, '(lookup.field = '. $self->{"DBH"}->quote(uc($field)) .' OR lookup.field = '. $self->{"DBH"}->quote(uc('_'. $field)) .')');
+            push(@query_opts, '(lookup.field = '. $self->{'DBH'}->quote(uc($field)) .' OR lookup.field = '. $self->{'DBH'}->quote(uc('_'. $field)) .')');
         }
     }
 
@@ -170,19 +177,19 @@ get_objects_build_query_impl()
             } elsif ($s =~ /[\*\?]/) {
                 $s =~ s/\*/\%/g;
                 $s =~ s/\?/\_/g;
-                push(@like_opts, 'lookup.value LIKE '. $self->{"DBH"}->quote($s));
+                push(@like_opts, 'lookup.value LIKE '. $self->{'DBH'}->quote($s));
             } else {
-                push(@in_opts, $self->{"DBH"}->quote($s));
+                push(@in_opts, $self->{'DBH'}->quote($s));
             }
         }
         if (@in_opts) {
             push(@string_query, 'lookup.value IN ('. join(',', @in_opts). ')');
         }
         if (@like_opts) {
-            push(@string_query, join(" OR ", @like_opts));
+            push(@string_query, join(' OR ', @like_opts));
         }
         if (@regexp_opts) {
-            push(@string_query, 'lookup.value ~ '. $self->{"DBH"}->quote('^('. join('|', @regexp_opts) .'$)'));
+            push(@string_query, 'lookup.value ~ '. $self->{'DBH'}->quote('^('. join('|', @regexp_opts) .'$)'));
         }
 
         if (@string_query) {
@@ -254,51 +261,18 @@ allocate_object_impl()
     my $self = shift;
     my ($type) = @_;
 
-    if (!exists($self->{"STH_INSTYPE"})) {
-        $self->{"STH_INSTYPE"} = $self->{"DBH"}->prepare("INSERT INTO datastore (type) VALUES (?)");
+    if (!exists($self->{'STH_INSTYPE'})) {
+        $self->{'STH_INSTYPE'} = $self->{'DBH'}->prepare('INSERT INTO datastore (type) VALUES (?)');
+        if (!exists($self->{'STH_INSTYPE'})) {
+            &eprintf("Unable to prepare object allocation query: %s\n", $self->{'DBH'}->errstr);
+            return undef;
+        }
     }
-    $self->{"STH_INSTYPE"}->execute($type);
-    return $self->{"DBH"}->last_insert_id(undef, undef, 'datastore', 'id');
-}
-
-
-sub
-update_datastore_impl()
-{
-    my $self = shift;
-    my ($id, $serialized_data) = @_;
-    
-    if (!exists($self->{"STH_SETOBJ"})) {
-        $self->{"STH_SETOBJ"} = $self->{"DBH"}->prepare("UPDATE datastore SET serialized = ? WHERE id = ?");
+    if ( $self->{'STH_INSTYPE'}->execute($type) ) {
+        return $self->{'DBH'}->last_insert_id(undef, undef, 'datastore', 'id');
     }
-    $self->{"STH_SETOBJ"}->bind_param(1, $serialized_data, { pg_type => DBD::Pg::PG_BYTEA });
-    $self->{"STH_SETOBJ"}->bind_param(2, $id);
-    my $rc = $self->{"STH_SETOBJ"}->execute();
-    $self->{"STH_SETOBJ"}->finish();
-    return $rc;
-}
-
-
-sub
-put_chunk_db_impl()
-{
-    my ($self, $buffer) = @_;
-
-    if (!exists($self->{"STH_PUT"})) {
-        $self->{"STH_PUT"} = $self->{"DBH"}->prepare("INSERT INTO binstore (object_id, chunk) VALUES (?,?)");
-        $self->{"DBH"}->do("DELETE FROM binstore WHERE object_id = ?", undef, $self->{"OBJECT_ID"});
-        &dprint("SQL: INSERT INTO binstore (object_id, chunk) VALUES ($self->{OBJECT_ID},?)\n");
-    }
-    
-    $self->{"STH_PUT"}->bind_param(1, $self->{"OBJECT_ID"});
-    $self->{"STH_PUT"}->bind_param(2, $buffer, { pg_type => DBD::Pg::PG_BYTEA });
-    my $rc = $self->{"STH_PUT"}->execute();
-    $self->{"STH_PUT"}->finish();
-    if ( ! $rc ) {
-        &eprintf("put_chunk() failed with error:  %s\n", $self->{"STH_PUT"}->errstr());
-        return 0;
-    }
-    return 1;
+    &eprintf("Unable to execute object allocation query: %s\n", $self->{'STH_INSTYPE'}->errstr);
+    return undef;
 }
 
 

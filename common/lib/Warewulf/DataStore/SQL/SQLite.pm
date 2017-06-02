@@ -128,10 +128,10 @@ open_database_handle_impl()
     my $dbh = DBI->connect_cached("DBI:SQLite:dbname=$db_name", '', '');
 
     if ( $dbh ) {
-        $self->{"DATABASE_HAS_FOREIGN_KEYS"} = 1;
+        $self->{'DATABASE_HAS_FOREIGN_KEYS'} = 1;
         if ( ! $dbh->do('PRAGMA foreign_keys = ON') ) {
             &wprint('Failed to enable foreign key support on $db_name');
-            $self->{"DATABASE_HAS_FOREIGN_KEYS"} = 0;
+            $self->{'DATABASE_HAS_FOREIGN_KEYS'} = 0;
         }
         if ( $needsInit ) {
             my $saved_multi_stmt = $dbh->{'sqlite_allow_multiple_statements'};
@@ -182,7 +182,7 @@ default_chunk_size_db_impl()
 sub
 has_object_id_foreign_key_support()
 {
-    return $self->{"DATABASE_HAS_FOREIGN_KEYS"};
+    return $self->{'DATABASE_HAS_FOREIGN_KEYS'};
 }
 
 
@@ -195,14 +195,14 @@ get_objects_build_query_impl()
     my @query_opts;
 
     if ($type) {
-        push(@query_opts, 'datastore.type = '. $self->{"DBH"}->quote($type));
+        push(@query_opts, 'datastore.type = '. $self->{'DBH'}->quote($type));
     }
     if ($field) {
-        if (uc($field) eq "ID" or uc($field) eq "_ID") {
-            push(@query_opts, 'datastore.id IN ('. join(',', map { $self->{"DBH"}->quote($_) } @strings). ')');
+        if (uc($field) eq 'ID' or uc($field) eq '_ID') {
+            push(@query_opts, 'datastore.id IN ('. join(',', map { $self->{'DBH'}->quote($_) } @strings). ')');
             @strings = ();
         } else {
-            push(@query_opts, '(lookup.field = '. $self->{"DBH"}->quote(uc($field)) .' OR lookup.field = '. $self->{"DBH"}->quote(uc('_'. $field)) .')');
+            push(@query_opts, '(lookup.field = '. $self->{'DBH'}->quote(uc($field)) .' OR lookup.field = '. $self->{'DBH'}->quote(uc('_'. $field)) .')');
         }
     }
 
@@ -217,19 +217,19 @@ get_objects_build_query_impl()
             } elsif ($s =~ /[\*\?]/) {
                 $s =~ s/\*/\%/g;
                 $s =~ s/\?/\_/g;
-                push(@like_opts, 'lookup.value LIKE '. $self->{"DBH"}->quote($s));
+                push(@like_opts, 'lookup.value LIKE '. $self->{'DBH'}->quote($s));
             } else {
-                push(@in_opts, $self->{"DBH"}->quote($s));
+                push(@in_opts, $self->{'DBH'}->quote($s));
             }
         }
         if (@in_opts) {
             push(@string_query, 'lookup.value IN ('. join(',', @in_opts). ')');
         }
         if (@like_opts) {
-            push(@string_query, join(" OR ", @like_opts));
+            push(@string_query, join(' OR ', @like_opts));
         }
         if (@regexp_opts) {
-            push(@string_query, 'lookup.value REGEXP '. $self->{"DBH"}->quote('^('. join('|', @regexp_opts) .'$)'));
+            push(@string_query, 'lookup.value REGEXP '. $self->{'DBH'}->quote('^('. join('|', @regexp_opts) .'$)'));
         }
 
         if (@string_query) {
@@ -300,11 +300,11 @@ allocate_object_impl()
     my $self = shift;
     my ($type) = @_;
 
-    if (!exists($self->{"STH_INSTYPE"})) {
-        $self->{"STH_INSTYPE"} = $self->{"DBH"}->prepare("INSERT INTO datastore (type) VALUES (?)");
+    if (!exists($self->{'STH_INSTYPE'})) {
+        $self->{'STH_INSTYPE'} = $self->{'DBH'}->prepare('INSERT INTO datastore (type) VALUES (?)');
     }
-    if ( $self->{"STH_INSTYPE"}->execute($type) ) {
-        return $self->{"DBH"}->last_insert_id('', '', 'datastore', 'id');
+    if ( $self->{'STH_INSTYPE'}->execute($type) ) {
+        return $self->{'DBH'}->last_insert_id('', '', 'datastore', 'id');
     }
     return undef;
 }

@@ -1,0 +1,98 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2017 Maciej Dems <maciej.dems@p.lodz.pl>,
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH wwlivesync "1" "May 23 2017" "Warewulf 3.7"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+wwlivesync \- Synchronize nodes.
+.SH SYNOPSIS
+.B wwlivesync
+.RI [options]\ nodes
+.SH DESCRIPTION
+The live sync command will spawn rsync commands to update the running node
+operating system (VNFS) live. This command should only be used for minor VNFS
+updates, as large updates including library load could potentially break binary
+compatibility.
+.PP
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
+.\" respectively.
+.SH OPTIONS
+.B wwlivesync
+options:
+.PP
+.B \-l, \-\-lookup      
+.RS 4
+Identify nodes by specified property (default: "name").
+.RE
+.PP
+.B \-f, \-\-files       
+.RS 4
+Pass a list of files to sync instead of the entire VNFS.
+.RE
+.PP
+.B \-\-show        
+.RS 4
+Just print what it would do instead of actually do it.
+.RE
+.PP
+.B \-\-logdir      
+.RS 4
+Directory of per-node logs (/var/log/wwlivesync).
+.RE
+.PP
+.B \-\-verbose     
+.RS 4
+Increase verbosity level.
+.RE
+.PP
+.B \-\-quiet       
+.RS 4
+Decrease verbosity level.
+.RE
+.PP
+.B \-\-debug       
+.RS 4
+Print debugging messages.
+.RE
+.PP
+.B \-h, \-\-help        
+.RS 4
+Display usage summary.
+.RE
+.SH TARGETS
+The target(s) specify which node(s) will be affected by the chosen
+action(s).  By default, node(s) will be identified by their name(s).
+Use the \fI\-\-lookup\fR option to specify another property (e.g., "hwaddr"
+or "groups").
+.PP
+All targets can be bracket expanded as follows:
+.RS 4
+n00[0-99]       All nodes from n0000 through n0099 (inclusive)
+n00[00,10-99]   n0000 and all nodes from n0010 through n0099
+.RE
+.SH EXAMPLES
+.nf
+# wwlivesync n00[00-19]
+
+# wwlivesync --ipaddr 10.0.1.10 --netmask 255.255.0.0 --vnfs=sl6.vnfs 
+    --bootstrap=`uname -r` n0000 n0001
+
+# wwsh node new DEFAULT --groups=grp1,test
+# wwsh provision node DEFAULT --vnfs=sl6.vnfs --bootstrap=`uname -r`
+# wwlivesync --ipaddr 10.0.1.100 --netmask 255.255.0.0 n00[02-19]
+.fi

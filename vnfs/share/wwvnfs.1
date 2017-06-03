@@ -1,0 +1,91 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2017 Maciej Dems <maciej.dems@p.lodz.pl>,
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH wwvnfs "1" "May 23 2017" "Warewulf 3.7"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+wwvnfs \- create Warewulf Virtual Network File System
+.SH SYNOPSIS
+.B wwvnfs
+.RI [options]\ name
+.SH DESCRIPTION
+When wwvnfs is run for the first time on a VNFS, it will attempt to create a
+configuration file in the default warewulf config dir (\fI/etc/warewulf/vnfs/\fR) or in
+the users \fI~/.warewulf/vnfs\fR directory. Once the configuration file has been written
+and updated, you can simply run '\fIwwvnfs [vnfs_name]\fR' to rebuild the image. You can
+temporarily override any of these options via command line arguments.
+.PP
+.SH OPTIONS
+.B wwvnfs
+options:
+.PP
+.B \-c, \-\-chroot
+.RS 4
+Path to the chroot to use for this VNFS image.
+.RE
+.PP
+.B \-r, \-\-root
+.RS 4
+Alias for \-\-chroot
+.RE
+.PP
+.B \-h, \-\-help
+.RS 4
+Usage and help summary
+.RE
+.PP
+.B \-o, \-\-output
+.RS 4
+Output the binary VNFS to a file instead of importing it
+directly into Warewulf
+.RE
+.PP
+.B \-e, \-\-exclude
+.RS 4
+Exclude a file or directory from the VNFS image
+.RE
+.PP
+.B \-\-excludefile
+.RS 4
+Path to a file that contains a list of files and directories to
+exclude from the VNFS image
+.RE
+.PP
+.B \-\-hybridize
+.RS 4
+Hybridize a list of files or directories from the VNFS image
+(requires \-\-hybridpath to be set, or files are just excluded)
+.RE
+.PP
+.B \-\-hybridizefile
+.RS 4
+Path to a file that contains a list of files and directories to
+be hybridized from the VNFS image
+.RE
+.PP
+.B \-\-hybridpath
+.RS 4
+Path to use within the VNFS where the links will be pointed to in
+the final image (this needs to be added to the VNFS fstab!)
+.RE
+.SH EXAMPLES
+.nf
+# wwvnfs --chroot=/var/chroots/rhel-6
+# wwvnfs custom_name --chroot=/var/chroots/rhel-6 --hybridpath=/hybrid/vnfs_name
+# wwvnfs --chroot=/var/chroots/rhel-6 --output=rhel-6.vnfs
+# wwvnfs custom_name
+.fi

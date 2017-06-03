@@ -1,0 +1,871 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2017 Maciej Dems <maciej.dems@p.lodz.pl>,
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH wwsh "1" "May 23 2017" "Warewulf 3.7"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+wwsh \- Warewulf command line shell interface
+.SH SYNOPSIS
+.B wwsh
+.RI [wwsh\ options]\ [command]\ [object]\ [command\ options]
+.SH DESCRIPTION
+Welcome to the Warewulf shell interface. This application allows you
+to interact with the Warewulf backend database and modules via a
+single interface.
+.PP
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
+.\" respectively.
+.SH OPTIONS
+.B wwsh
+options:
+.PP
+.B \-d, \-\-debug
+.RS 4
+Enable debug output.
+.RE
+.PP
+.B \-\-help
+.RS 4
+Print short help.
+.RE
+.PP
+.B \-v, \-\-verbose
+.RS 4
+Enable verbose output.
+.RE
+.PP
+.B \-q, \-\-quiet
+.RS 4
+Enable quiet mode.
+.RE
+.PP
+.B \-y, \-\-yes, \-\-noask
+.RS 4
+Assume 'Yes' to all questions\&.
+.RE
+.SH COMMANDS
+.PP
+.B bootstrap
+.RS 4
+Manage your bootstrap images\&.
+.RE
+.PP
+.B dhcp
+.RS 4
+Manage DHCP service and configuration\&.
+.RE
+.PP
+.B events
+.RS 4
+Control how events are handled\&.
+.RE
+.PP
+.B exit
+.RS 4
+Exit/leave the Warewulf shell\&.
+.RE
+.PP
+.B file
+.RS 4
+Manage files within the Warewulf data store\&.
+.RE
+.PP
+.B help
+.RS 4
+Print command (module) help\&.
+.RE
+.PP
+.B node
+.RS 4
+Node manipulation commands\&.
+.RE
+.PP
+.B object
+.RS 4
+Generically manipulate all Warewulf data store entries\&.
+.RE
+.PP
+.B output
+.RS 4
+Set the output verbosity level\&.
+.RE
+.PP
+.B provision
+.RS 4
+Node provision manipulation commands\&.
+.RE
+.PP
+.B pxe
+.RS 4
+Manage PXE configuration\&.
+.RE
+.PP
+.B quit
+.RS 4
+Exit/leave the Warewulf shell\&.
+.RE
+.PP
+.B ssh
+.RS 4
+Spawn parallel ssh connections to nodes\&.
+.RE
+.PP
+.B vnfs
+.RS 4
+Manage your VNFS images\&.
+.RE
+.PP Below each of the above commands is described in detail:
+.SH bootstrap
+.SS Usage
+\fBwwsh bootstrap\fR \fI<command> [options] [targets]\fR
+.SS Summary
+This interface allows you to manage your bootstrap images within the Warewulf
+data store.
+.SS Commands
+.B import        
+.RS 4
+Import a bootstrap image into Warewulf.
+.RE
+.PP
+.B export        
+.RS 4
+Export a bootstrap image to the local file system.
+.RE
+.PP
+.B delete        
+.RS 4
+Delete a bootstrap image from Warewulf.
+.RE
+.PP
+.B list          
+.RS 4
+Show all of the currently imported bootstrap images.
+.RE
+.PP
+.B (re)build     
+.RS 4
+Build (or rebuild) the tftp bootable image(s) on this host.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SS Options
+.B \-n, \-\-name    
+.RS 4
+When importing a bootstrap use this name instead of the file name.
+.RE
+.PP
+.B \-1            
+.RS 4
+With list command, output bootstrap name only.
+.RE
+.SS Examples
+.nf
+Warewulf> bootstrap import /path/to/name.wwbs --name=bootstrap
+Warewulf> bootstrap export bootstrap1 bootstrap2 /tmp/exported_bootstrap/
+Warewulf> bootstrap list
+.fi
+.SH dhcp
+.SS Usage
+\fBwwsh dhcp\fR \fI<command>\fR
+.SS Summary
+The DHCP command configures/reconfigures the DHCP service.
+.SS Commands
+.B update        
+.RS 4
+Update the DHCP configuration, and restart the service.
+.RE
+.PP
+.B restart       
+.RS 4
+Restart the DHCP service.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SH events
+.SS Usage
+\fBwwsh events\fR \fI[command]\fR
+.SS Summary
+Control how/if events are handled.
+.SS Commands
+.B enable        
+.RS 4
+Enable all events for this shell (default).
+.RE
+.PP
+.B disable       
+.RS 4
+Disable the event handler.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SH file
+.SS Usage
+\fBwwsh file\fR \fI<command> [options] [targets]\fR
+.SS Summary
+The file command is used for manipulating file objects. It allows you to
+import, export, create, and modify files within the Warewulf data store.
+File objects may be used to supply files to nodes at provision time,
+dynamically create files or scripts based on Warewulf data and more.
+.SS Commands
+.B import           
+.RS 4
+Import a file into a file object.
+.RE
+.PP
+.B export           
+.RS 4
+Export file object(s).
+.RE
+.PP
+.B edit             
+.RS 4
+Edit the file in the data store directly.
+.RE
+.PP
+.B new              
+.RS 4
+Create a new file in the data store.
+.RE
+.PP
+.B set              
+.RS 4
+Set file attributes/metadata.
+.RE
+.PP
+.B show             
+.RS 4
+Show the contents of a file.
+.RE
+.PP
+.B list             
+.RS 4
+List a summary of imported file(s).
+.RE
+.PP
+.B print            
+.RS 4
+Print all file attributes.
+.RE
+.PP
+.B (re)sync         
+.RS 4
+Sync the data of a file object with its source(s).
+.RE
+.PP
+.B delete           
+.RS 4
+Remove a node configuration from the data store.
+.RE
+.PP
+.B help             
+.RS 4
+Show usage information.
+.RE
+.SS Options
+.B \-l, \-\-lookup     
+.RS 4
+Identify files by specified property (default: "name").
+.RE
+.PP
+.B \-p, \-\-program    
+.RS 4
+What external program should be used (edit/show).
+.RE
+.PP
+.B \-D, \-\-path       
+.RS 4
+Set destination (i.e., output) path for this file.
+.RE
+.PP
+.B \-o, \-\-origin     
+.RS 4
+Set origin (i.e., input) path for this file.
+.RE
+.PP
+.B \-m, \-\-mode       
+.RS 4
+Set permission attribute for this file.
+.RE
+.PP
+.B \-u, \-\-uid        
+.RS 4
+Set the UID for this file.
+.RE
+.PP
+.B \-g, \-\-gid        
+.RS 4
+Set the GID for this file.
+.RE
+.PP
+.B \-n, \-\-name       
+.RS 4
+Set the reference name for this file (not path!).
+.RE
+.PP
+.B \-\-interpreter
+.RS 4
+Set the interpreter name to parse this file.
+.RE
+.SS Note
+Use "UNDEF" to erase the current contents of a given field.
+.SS Examples
+.nf
+Warewulf> file import /path/to/file/to/import --name=hosts-file
+Warewulf> file import /path/to/file/to/import/with/given-name
+Warewulf> file edit given-name
+Warewulf> file set given-name --origin=UNDEF --mode=0700
+Warewulf> file set hosts-file --path=/etc/hosts --mode=0644 --uid=0
+Warewulf> file list
+Warewulf> file delete name123 given-name
+.fi
+.SH node
+.SS Usage
+\fBwwsh node\fR \fI<command> [options] [targets]\fR
+.SS Summary
+The node command is used for viewing and manipulating node objects.
+.SS Commands
+.B new           
+.RS 4
+Create a new node configuration.
+.RE
+.PP
+.B set           
+.RS 4
+Modify an existing node configuration.
+.RE
+.PP
+.B list          
+.RS 4
+List a summary of nodes.
+.RE
+.PP
+.B print         
+.RS 4
+Print the node configuration.
+.RE
+.PP
+.B delete        
+.RS 4
+Remove a node configuration from the data store.
+.RE
+.PP
+.B clone         
+.RS 4
+Clone a node configuration to another node.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SS Targets
+The target(s) specify which node(s) will be affected by the chosen action(s).
+By default, node(s) will be identified by their name(s).
+Use the \fI\-\-lookup\fR option to specify another property (e.g., "hwaddr"
+or "groups").
+.PP
+All targets can be bracket expanded as follows:
+.PP
+    n00[0-99]     All nodes from n0000 through n0099 (inclusive).
+    n00[00,10-99] n0000 and all nodes from n0010 through n0099.
+.SS Options
+.B \-l, \-\-lookup      
+.RS 4
+Identify nodes by specified property (default: "name").
+.RE
+.PP
+.B \-1                
+.RS 4
+With list command, output node name only.
+.RE
+.PP
+.B \-g, \-\-groups      
+.RS 4
+Specify all groups to which this node belongs.
+.RE
+.PP
+.B \-\-groupadd    
+.RS 4
+Add node to specified group(s).
+.RE
+.PP
+.B \-\-groupdel    
+.RS 4
+Remove node from specified group(s).
+.RE
+.PP
+.B \-D, \-\-netdev      
+.RS 4
+Specify network device to add or modify (defaults: eth0).
+.RE
+.PP
+.B \-\-netdel      
+.RS 4
+Remove specified netdev from node.
+.RE
+.PP
+.B \-\-netrename   
+.RS 4
+Rename a given network interface.
+.RE
+.PP
+.B \-I, \-\-ipaddr      
+.RS 4
+Set IP address of given netdev.
+.RE
+.PP
+.B \-M, \-\-netmask     
+.RS 4
+Set subnet mask of given netdev.
+.RE
+.PP
+.B \-N, \-\-network     
+.RS 4
+Set network address of netdev.
+.RE
+.PP
+.B \-G, \-\-gateway     
+.RS 4
+Set gateway of given netdev.
+.RE
+.PP
+.B \-H, \-\-hwaddr      
+.RS 4
+Set hardware/MAC address.
+.RE
+.PP
+.B \-f, \-\-fqdn        
+.RS 4
+Set FQDN of given netdev.
+.RE
+.PP
+.B \-m, \-\-mtu         
+.RS 4
+Set MTU of given netdev.
+.RE
+.PP
+.B \-p, \-\-hwprefix    
+.RS 4
+Specify a prefix for hardware/MAC address of a given netdev.
+.RE
+.PP
+.B \-c, \-\-cluster     
+.RS 4
+Specify cluster name for this node.
+.RE
+.PP
+.B \-\-domain      
+.RS 4
+Specify domain name for this node.
+.RE
+.PP
+.B \-n, \-\-name        
+.RS 4
+Specify new name for this node.
+.RE
+.PP
+.B \-e, \-\-enabled     
+.RS 4
+Set whether the node is enabled (defaults: True).
+.RE
+
+.SS Examples
+.nf
+Warewulf> node new n0000 --netdev=eth0 --hwaddr=xx:xx:xx:xx:xx:xx
+Warewulf> node set n0000 -D eth0 -I 10.0.0.10 -G 10.0.0.1
+Warewulf> node set n0000 --netdev=eth0 --netmask=255.255.255.0
+Warewulf> node set --groupadd=mygroup,hello,bye --cluster=mycluster n0000
+Warewulf> node set --groupdel=bye --set=vnfs=sl6.vnfs
+Warewulf> node list xx:xx:xx:xx:xx:xx --lookup=hwaddr
+Warewulf> node print --lookup=groups mygroup hello group123
+Warewulf> node clone n0000 new0000
+Warewulf> node set --enabled=false n0000
+.fi
+.SH object
+.SS Usage
+\fBwwsh object\fR \fI<command> [options] [targets]\fR
+.SS Summary
+The object command provides an interface for generically manipulating all
+object types within the Warewulf data store.
+.SS Commands
+.B modify        
+.RS 4
+Add, delete, and/or set object member variables.
+.RE
+.PP
+.B print         
+.RS 4
+Display object(s) and their members.
+.RE
+.PP
+.B delete        
+.RS 4
+Completely remove object(s) from the data store.
+.RE
+.PP
+.B dump          
+.RS 4
+Recursively dump objects in internal format.
+.RE
+.PP
+.B canonicalize  
+.RS 4
+Check and update objects to current standard format.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SS Options
+.B \-l, \-\-lookup  
+.RS 4
+Identify objects by specified property (default: "name").
+.RE
+.PP
+.B \-t, \-\-type    
+.RS 4
+Only operate on objects of the specified type.
+.RE
+.PP
+.B \-p, \-\-print   
+.RS 4
+Specify which fields are printed (":all" for all).
+.RE
+.PP
+.B \-s, \-\-set     
+.RS 4
+Set a member variable (or "field").
+.RE
+.PP
+.B \-a, \-\-add     
+.RS 4
+Add value(s) to specified member array variable.
+.RE
+.PP
+.B \-D, \-\-del     
+.RS 4
+Delete value(s) from specified member variable.
+.RE
+.SS Examples
+.nf
+Warewulf> object print -p :all
+Warewulf> object print -p _id,name,_type
+.fi
+.SS Warning
+This command is VERY POWERFUL. It is primarily intended for.
+developers and power users.  Please use CAREFULLY, if at all Data.
+stores which are corrupted by misuse of this command may not be
+recoverable.
+.PP
+.B USE AT YOUR OWN RISK!
+.SH output
+.SS Usage
+\fBwwsh output\fR \fI[command]\fR
+.SS Summary
+This command sets the desired command output verbosity level.
+.SS Commands
+.B normal        
+.RS 4
+The standard (and default) output level intended for normal usage
+.RE
+.PP
+.B quiet         
+.RS 4
+Only print warning, error, or critical messages..
+.RE
+.PP
+.B verbose       
+.RS 4
+Increase verbosity over the normal output level.
+.RE
+.PP
+.B debug         
+.RS 4
+Show debugging messages (very verbose).
+.RE
+.SS Examples
+.nf
+Warewulf> output verbose
+Warewulf> output normal
+.fi
+.SH provision
+.SS Usage
+\fBwwsh provision\fR \fI<command> [options] [targets]\fR
+.SS Summary
+The provision command is used for setting node provisioning attributes.
+.SS Commands
+.B set           
+.RS 4
+Modify an existing node configuration.
+.RE
+.PP
+.B list          
+.RS 4
+List a summary of the node(s) provision configuration.
+.RE
+.PP
+.B print         
+.RS 4
+Print the full node(s) provision configuration.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SS Targets
+The target is the specification for the node you wish to act on. All targets
+can be bracket expanded as follows:
+.PP
+    n00[0-99]     inclusively all nodes from n0000 to n0099.
+    n00[00,10-99] n0000 and inclusively all nodes from n0010 to n0099.
+.SS Options
+.B \-l, \-\-lookup      
+.RS 4
+How should we reference this node? (default is name).
+.RE
+.PP
+.B \-b, \-\-bootstrap   
+.RS 4
+Define the bootstrap image that this node should use.
+.RE
+.PP
+.B \-V, \-\-vnfs        
+.RS 4
+Define the VNFS that this node should use.
+.RE
+.PP
+.B \-\-master      
+.RS 4
+Specifically set the Warewulf master(s) for this node.
+.RE
+.PP
+.B \-\-files       
+.RS 4
+Define the files that should be provisioned to this node.
+.RE
+.PP
+.B \-\-fileadd     
+.RS 4
+Add a file to be provisioned to this node.
+.RE
+.PP
+.B \-\-filedel     
+.RS 4
+Remove a file to be provisioned to this node.
+.RE
+.PP
+.B \-\-preshell    
+.RS 4
+Start a shell on the node before provisioning (boolean).
+.RE
+.PP
+.B \-\-postshell   
+.RS 4
+Start a shell on the node after provisioning (boolean).
+.RE
+.PP
+.B \-\-postnetdown 
+.RS 4
+Shutdown the network after provisioning (boolean).
+.RE
+.PP
+.B \-\-bootlocal   
+.RS 4
+Boot the node from the local disk ("exit" or "normal").
+.RE
+.PP
+.B \-\-console     
+.RS 4
+Set a specific console for the kernel command line.
+.RE
+.PP
+.B \-\-kargs       
+.RS 4
+Define the kernel arguments (assumes "net.ifnames=0 biosdevname=0 quiet" if UNDEF).
+.RE
+.PP
+.B \-\-pxelinux    
+.RS 4
+Define a custom PXELINUX/boot image to use.
+.RE
+.PP
+.B \-\-selinux     
+.RS 4
+Boot node with SELinux support? (valid options are: UNDEF, ENABLED, and ENFORCED).
+.RE
+.PP
+.B \-\-dformat     
+.RS 4
+Partitions to format during bootstrap phase.
+.RE
+.PP
+.B \-\-dpartition  
+.RS 4
+Disk to partition during bootstrap phase.
+.RE
+.PP
+.B \-f, \-\-filesys     
+.RS 4
+Value of FILESYSTEMS variable.
+.RE
+.PP
+.B \-\-bootloader  
+.RS 4
+Disk to install bootloader to (STATEFUL).
+.RE
+.SS Examples
+.nf
+Warewulf> provision set n000[0-4] --bootstrap=2.6.30-12.x86_64
+Warewulf> provision set n00[00-99] --fileadd=ifcfg-eth0
+Warewulf> provision set -l=cluster mycluster --vnfs=rhel-6.0
+Warewulf> provision set -l=group mygroup hello group123
+Warewulf> provision set n00[0-4] --console=ttyS1,57600 --kargs="noacpi"
+Warewulf> provision list n00[00-99]
+.fi
+.SH pxe
+.SS Usage
+\fBwwsh pxe\fR \fI<command> [options] [targets]\fR
+.SS Summary
+Manage PXE configuration.
+.SS Commands
+.B update        
+.RS 4
+Update the PXE configuration.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SS Targets
+The target is the specification for the node you wish to act on. All targets
+can be bracket expanded as follows:
+.PP
+    n00[0-99]     inclusively all nodes from n0000 to n0099.
+    n00[00,10-99] n0000 and inclusively all nodes from n0010 to n0099.
+.SS Options
+.B \-l, \-\-lookup      
+.RS 4
+How should we reference this node? (default is name).
+.RE
+.SS Examples
+.nf
+Warewulf> pxe update
+Warewulf> pxe update n000[0-4]
+.fi
+.SH ssh
+.SS Usage
+\fBwwsh ssh\fR \fI[nodes/targets] [command]\fR
+.SS Summary
+Run ssh connections to node(s) in parallel by either node names, group
+or any other known lookup.
+.SS Targets
+The target(s) specify which node(s) will be affected by the chosen action(s).
+By default, node(s) will be identified by their name(s)..
+Use the \fI\-\-lookup\fR option to specify another property (e.g., "hwaddr"
+or "groups").
+.PP
+All targets can be bracket expanded as follows:
+.PP
+    n00[0-99]     All nodes from n0000 through n0099 (inclusive).
+    n00[00,10-99] n0000 and all nodes from n0010 through n0099.
+.SS Options
+.B \-l, \-\-lookup      
+.RS 4
+Identify nodes by specified property (default: "name").
+.RE
+.PP
+.B \-a, \-\-allnodes    
+.RS 4
+Send command to all configured nodes.
+.RE
+.SS Examples
+.nf
+Warewulf> ssh n00[00-49] hostname
+Warewulf> ssh -l groups compute,interactive hostname
+.fi
+.SH vnfs
+.SS Usage
+\fBwwsh vnfs\fR \fI<command> [options] [targets]\fR
+.SS Summary
+This interface allows you to manage your VNFS images within the Warewulf
+data store.
+.SS Commands
+.B import        
+.RS 4
+Import a VNFS image into Warewulf.
+.RE
+.PP
+.B export        
+.RS 4
+Export a VNFS image to the local file system.
+.RE
+.PP
+.B delete        
+.RS 4
+Delete a VNFS image from Warewulf.
+.RE
+.PP
+.B list          
+.RS 4
+Show all of the currently imported VNFS images.
+.RE
+.PP
+.B set           
+.RS 4
+Set any VNFS attributes.
+.RE
+.PP
+.B help          
+.RS 4
+Show usage information.
+.RE
+.SS Targets
+The target is the specification for the VNFS you wish to operate on.
+.SS Options
+.B \-n, \-\-name        
+.RS 4
+When importing a VNFS use this name instead of the file name.
+.RE
+.PP
+.B \-c, \-\-chroot      
+.RS 4
+Define the location of the template chroot.
+.RE
+.PP
+.B \-1                
+.RS 4
+With list command, output VNFS name only.
+.RE
+.SS Examples
+.nf
+Warewulf> vnfs import /path/to/name.vnfs --name=vnfs1
+Warewulf> vnfs export vnfs1 vnfs2 /tmp/exported_vnfs/
+Warewulf> vnfs list
+.fi

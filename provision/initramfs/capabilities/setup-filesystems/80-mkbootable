@@ -2,165 +2,249 @@
 #
 # Copyright (c) 2001-2003 Gregory M. Kurtzer
 #
-# Copyright (c) 2003-2011, The Regents of the University of California,
+# Copyright (c) 2003-2017, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory (subject to receipt of any
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
+# Copyright (c) 2017 Benjamin S. Allen
 
+# Exit on any non-zero exit code
+set -o errexit
 
-# Install a bootloader if $WWBOOTLOADER is set and the root device is known
-if [ -n "$WWBOOTLOADER" -a -f "/tmp/rootdev" ]; then
-    if ! echo $WWBOOTLOADER | grep -q "^/dev/"; then
-        WWBOOTLOADER="/dev/$WWBOOTLOADER"
+# Pipeline's return status is the value of the last (rightmost) command
+# to exit with a non-zero status, or zero if all commands exit successfully.
+set -o pipefail
+
+[ -f /etc/functions ] && . /etc/functions
+
+NEWROOT="${NEWROOT:=/newroot}"
+BOOTLOADER="${WWBOOTLOADER:-}"
+
+GRUBINSTALL="${WWGRUBINSTALL:-}"
+GRUBVERS="${WWGRUBVERS:-}"
+GRUBMKCONFIG="${WWGRUBMKCONFIG:-}"
+GRUBCFG="${WWGRUBCFG:-}"
+GRUBDEFAULTCONF="${WWGRUBDEFAULTCONF:=/etc/default/grub}"
+
+CONSOLE="${WWCONSOLE:-}"
+KARGS="${WWKARGS:=quiet}"
+
+# Parse the kernel console option for a serial TTY into values useful for /etc/default/grub
+parse_console() {
+  if [ -n "${CONSOLE}" ]; then
+    OIFS="${IFS}"
+    set -- $(echo "${CONSOLE}" | sed -nr "s/.*ttyS([0-9]),([0-9]{4,6})([n,o,e])?([5-8])?(r)?.*/\1 \2 \3 \4/p")
+    IFS="${OIFS}"
+
+    export SERIALUNIT="${$1:-}"
+    export SERIALSPEED="${$2:=115200}"
+    export SERIALPARITY="${$3:=no}"
+    export SERIALWORD="${$4:=8}"
+    
+    if [ "${SERIALPARITY}" = "n" ]; then
+        export SERIALPARITY=no
+    elif [ "${SERIALPARITY}" = "o" ]; then
+        export SERIALPARITY=odd
+    elif [ "${SERIALPARITY}" = "e" ]; then
+        export SERIALPARITY=even
     fi
-    if [ -b "$WWBOOTLOADER" ]; then
-        KERNEL=`cd $NEWROOT; find boot/vmlinuz-* 2>/dev/null | tail -n 1`
-        if [ -n "$KERNEL" ]; then
-            KERNELVERSION=`echo "$KERNEL" | sed -e 's@.*boot/vmlinuz-@@'`
-            if [ -x "$NEWROOT/sbin/dracut" ]; then
-                chroot $NEWROOT /sbin/dracut --force '' $KERNELVERSION
-                INITRD=`cd $NEWROOT; find boot/initr*-${KERNELVERSION}.img* 2>/dev/null | tail -n 1`
-            elif [ -x "$NEWROOT/sbin/mkinitrd" ]; then
-                INITRD=`cd $NEWROOT; find boot/initr*-${KERNELVERSION}.img* 2>/dev/null | tail -n 1`
-                if [ -n "$INITRD" ]; then
-                    INITRD="boot/initramfs-$KERNELVERSION.img"
-                fi
-                mount -t sysfs none $NEWROOT/sys  
-                chroot $NEWROOT /sbin/mkinitrd -f $INITRD $KERNELVERSION
-                umount $NEWROOT/sys
-            fi
-            if [ -z "${WWKARGS}" ]; then
-                WWKARGS="quiet"
-            fi
-            if [ -n "${WWCONSOLE}" ]; then
-                # Parse the kernel console option for serial settings for grub
-                sed_serial() { echo $1 | sed -nr "s/.*ttyS([0-9]),([0-9]{4,6})([n,o,e])?([5-8])?(r)?.*/\\${2}/p"; }
-                SERIALUNIT=`sed_serial ${WWCONSOLE} 1`
-                SERIALSPEED=`sed_serial ${WWCONSOLE} 2`
-                if [ -z $SERIALSPEED ]; then
-                    SERIALSPEED=115200
-                fi
-                SERIALPARITY=`sed_serial ${WWCONSOLE} 3`
-                if [ -z $SERIALPARITY ] || [ "$SERIALPARITY" = "n" ]; then
-                    SERIALPARITY=no
-                elif [ $SERIALPARITY = "o" ]; then
-                    SERIALPARITY=odd
-                elif [ $SERIALPARITY = "e" ]; then
-                    SERIALPARITY=even
-                fi
-                SERIALWORD=`sed_serial ${WWCONSOLE} 4`
-                if [ -z $SERIALWORD ]; then
-                    SERIALWORD=8
-                fi
-            fi
+  fi
+}
 
-            if [ -x "$NEWROOT/usr/sbin/grub2-install" ]; then
-                if [ -n "${WWCONSOLE}" ]; then
-                    echo "GRUB_CMDLINE_LINUX='${WWKARGS} console=tty0 console=${WWCONSOLE}'" >> $NEWROOT/etc/default/grub
-                    if [ -n "${SERIALUNIT}" ]; then
-                        echo "GRUB_TERMINAL='console serial'" >> $NEWROOT/etc/default/grub
-                        echo "GRUB_SERIAL_COMMAND='serial --speed=${SERIALSPEED} --unit=${SERIALUNIT} --word=${SERIALWORD} --parity=${SERIALPARITY}'" >> $NEWROOT/etc/default/grub
-                    fi
-                else
-                    echo "GRUB_CMDLINE_LINUX='${WWKARGS}'" >> $NEWROOT/etc/default/grub
-                fi                    
-                chroot $NEWROOT /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg >/dev/null
+update_default_conf() {
+  local CONF="${1}"
 
-                if chroot $NEWROOT /usr/sbin/grub2-install $WWBOOTLOADER >/dev/null; then
-                    exit 0
-                else
-                    echo "grub2-install failed."
-                    exit 255
-                fi
-            elif [ -x "$NEWROOT/sbin/grub-install" ]; then
-                ROOTDEV=`cat /tmp/rootdev`
-                if [ -n "$INITRD" -a -n "$KERNEL" ]; then
-                    if [ -f "$NEWROOT/etc/redhat-release" ]; then
-                        OSVERSION=`sed -e 's@ (.*@@' $NEWROOT/etc/redhat-release`
-                    elif [ -f "$NEWROOT/etc/release" ]; then
-                        OSVERSION=`cat $NEWROOT/etc/redhat-release | head -n 1`
-                    else
-                        OSVERSION="Warewulf"
-                    fi
-                    if [ -f /tmp/mptab ]; then
-                        if grep -q "^/boot " /tmp/mptab; then
-                            INITRD=${INITRD##boot/}
-                            KERNEL=${KERNEL##boot/}
-                        fi
-                    fi
+  if [ -n "${CONSOLE}" ]; then
+    parse_console
 
-                    echo "# This file was written by Warewulf bootstrap (capability setup-filesystems)" > $NEWROOT/boot/grub/device.map
-                    echo "(hd0) $WWBOOTLOADER" >> $NEWROOT/boot/grub/device.map
+    echo "GRUB_CMDLINE_LINUX='console=tty0 console=${CONSOLE} ${KARGS}'" >> "${CONF}"
+    if [ -n "${SERIALUNIT}" ]; then
+      echo "GRUB_TERMINAL='console serial'" >> "${CONF}"
+      echo "GRUB_SERIAL_COMMAND='serial --speed=${SERIALSPEED} --unit=${SERIALUNIT} --word=${SERIALWORD} --parity=${SERIALPARITY}'" >> "${CONF}"
+    fi
+  fi
 
-                    echo "# This file was written by Warewulf bootstrap (capability setup-filesystems)" > $NEWROOT/boot/grub/grub.conf
-                    if [ -n "${SERIALUNIT}" ]; then
-                        echo "serial --speed=${SERIALSPEED} --unit=${SERIALUNIT} --word=${SERIALWORD} --parity=${SERIALPARITY}" >> $NEWROOT/boot/grub/grub.conf
-                        echo "terminal_input console serial; terminal_output console serial" >> $NEWROOT/boot/grub/grub.conf
-                    fi
-                    echo "default 0" >>$NEWROOT/boot/grub/grub.conf
-                    echo "timeout 10" >>$NEWROOT/boot/grub/grub.conf
-                    echo "root (hd0,0)" >>$NEWROOT/boot/grub/grub.conf
-                    echo "" >>$NEWROOT/boot/grub/grub.conf
-                    echo "title $OSVERSION - $KERNELVERSION" >>$NEWROOT/boot/grub/grub.conf
-                    if [ -n "${WWCONSOLE}" ]; then
-                        echo "    kernel /$KERNEL ro root=$ROOTDEV rhgb ${WWKARGS} console=tty0 console=${WWCONSOLE}" >>$NEWROOT/boot/grub/grub.conf
-                    else
-                        echo "    kernel /$KERNEL ro root=$ROOTDEV rhgb ${WWKARGS}" >>$NEWROOT/boot/grub/grub.conf
-                    fi
-                    echo "    initrd /$INITRD" >>$NEWROOT/boot/grub/grub.conf
+}
 
-                    if [ -f "/tmp/mtab" ]; then
-                        cp /tmp/mtab $NEWROOT/etc/mtab
-                    fi
+# Check if running under EFI
+check_efi() {
+  [ -d "/sys/firmware/efi" ]
+}
 
-                    mkdir $NEWROOT/dev/mapper
-                    mknod $NEWROOT/dev/mapper/control c 10 58
+# Check if the VNFS already has a grubx installed
+check_grubx() {
+  local GRUBX
 
-                    if chroot $NEWROOT /sbin/grub-install $WWBOOTLOADER >/dev/null; then
-                        exit 0
-                    else
-                        gscript="/root/grubinstall.sh";
-                        grubscript=${NEWROOT}${gscript};
-                        grubtext=$NEWROOT/root/grubinstall.txt;
+  for GRUBX in "${NEWROOT}"/boot/efi/EFI/*/grubx64.efi; do
+    if [ -e "${GRUBX}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
-                        echo -n "Running grub-install failed. Trying manually.";
+grub_version() {
+  local GRUBINSTALL=$1
+  local VERS
 
-                        # Setup Commands to install GRUB
-                        echo "root (hd0,0)" > $grubtext;
-                        echo "setup (hd0)" >> $grubtext;
-                        echo "quit" >> $grubtext;
+  VERS=$(${NEWROOT}${GRUBINSTALL} --version | grep -Eo '[0-9]+\.[0-9]+')
 
-                        # Bash script to run grub.
-                        echo "#!/bin/bash" > $grubscript;
-                        echo "/sbin/grub --batch < /root/grubinstall.txt &>/root/grubinstall.out" >> $grubscript;
-                        chmod 755 $grubscript;
+  if expr "${VERS}" \< 2; then
+    GRUBVERS=1
+    return 0
+  elif expr "${VERS}" \>\= 2 && expr "${VERS}" \< 3; then
+    GRUBVERS=2
+    return 0
+  fi
 
-                        if chroot $NEWROOT $gscript &>/dev/null; then
-                            exit 0;
-                        else
-                            echo "Running grub-install failed!"
-                            exit 255
-                        fi
-                    fi
-                else
-                    echo "Could not find INITRD and/or KERNEL version!"
-                    exit 2
-                fi
-            else
-                echo "GRUB is not installed!"
-                exit 2
-            fi
-        else
-            echo "Could not identify kernel version in VNFS!"
-            exit 2
-        fi
+  return 1
+}
+
+find_grub_install() {
+  local PATHS
+
+  if [ -z "${1:-}" ]; then
+    PATHS="/usr/sbin/grub2-install /usr/sbin/grub-install /sbin/grub-install"
+  else
+    PATHS="${1}"
+  fi
+
+  for path in ${PATHS}; do
+    if [ -x "${NEWROOT}/${path}" ]; then
+      GRUBINSTALL="${path}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+find_grub_mkconfig() {
+  local PATHS
+
+  if [ -z "${1:-}" ]; then
+    PATHS="/usr/sbin/grub2-mkconfig /usr/sbin/grub-mkconfig"
+  else
+    PATHS="${1}"
+  fi
+
+  for path in ${PATHS}; do
+    if [ -x "${NEWROOT}/${path}" ]; then
+      GRUBMKCONFIG="${path}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Attempt to figure out where to put grub.cfg
+find_grub_cfg() {
+  if [ -z "${GRUBCFG:-}" ]; then
+    if check_efi && [ -h ${NEWROOT}/etc/grub2-efi.cfg ]; then
+      GRUBCFG=$(chroot /newroot readlink -f /etc/grub2-efi.cfg)
+    elif ! check_efi && [ -h ${NEWROOT}/etc/grub2.cfg ]; then
+      GRUBCFG=$(chroot /newroot readlink -f /etc/grub2.cfg)
+    elif [ -d "${NEWROOT}/boot/grub2" ]; then
+      GRUBCFG=/boot/grub2/grub.cfg
+    elif [ -d "${NEWROOT}/boot/grub" ]; then
+      GRUBCFG=/boot/grub/grub.cfg
     else
-        echo "BOOTLOADER=$BOOTLOADER is invalid!"
-        exit 2
+      return 1
     fi
-else
+  fi
+  return 0
+}
+
+check_and_mount() {
+  local SOURCE="${1}"
+  local MOUNTPOINT="${2}"
+  local TYPE="${3}"
+  local OPTS="${4}"
+  local MTAB="${5:-}"
+  if [ -z "${MTAB}" ]; then
+    MTAB=/proc/mounts
+  fi
+
+  if grep -q "^${SOURCE} ${MOUNTPOINT} ${TYPE}" "${MTAB}"; then
+    if grep -q "^${SOURCE} ${MOUNTPOINT} ${TYPE} ${OPTS}" "${MTAB}"; then
+      return 0
+    else
+      mount -o remount,"${OPTS}" "${MOUNTPOINT}"
+      return $?
+    fi
+  else
+    mkdir -p "${MOUNTPOINT}" && \
+    mount -t "${TYPE}" -o "${OPTS}" "${SOURCE}" "${MOUNTPOINT}"
+    return $?
+  fi
+}
+
+{
+  if [ -n "${BOOTLOADER}" ]; then
+    if [ "${BOOTLOADER:0:5}" != "/dev/" ]; then
+      BOOTLOADER="/dev/${BOOTLOADER}"
+    fi
+    if [ ! -e "${BOOTLOADER}" ]; then
+      echo "BOOTLOADER=$BOOTLOADER is doesn't exist."
+      exit 2
+    elif [ ! -b "${BOOTLOADER}" ]; then
+      echo "BOOTLOADER=$BOOTLOADER is not a block device."
+      exit 2
+    fi
+  else
+    # Skipping
     exit 1
-fi
+  fi
 
-# vim: filetype=sh:syntax=sh:expandtab:ts=4:sw=4:
+  if ! find_grub_install "${GRUBINSTALL}"; then
+    echo "grub-install or grub2-install is not installed."
+    exit 2
+  fi
 
+  if ! grub_version "${GRUBINSTALL}"; then
+    echo "Could not determine version of Grub."
+    exit 2
+  fi
+
+  if [ "${GRUBVERS}" -eq 2 ]; then
+    if ! find_grub_mkconfig "${GRUBMKCONF}"; then
+      echo "grub-mkconfig or grub2-mkconfig is not installed."
+      exit 2
+    fi
+  elif [ "${GRUBVERS}" -eq 1 ]; then
+    # For now no-op Grub v1
+    echo "Grub version not supported: ${GRUBVERS}"
+    exit 2
+  else
+    echo "Unknown Grub version: ${GRUBVERS}"
+    exit 2
+  fi
+
+  check_and_mount sysfs "${NEWROOT}/sys" sysfs rw,relatime
+  check_and_mount proc "${NEWROOT}/proc" proc rw,relatime
+
+  if ! find_grub_cfg; then
+    echo "Could not determine correct path for grub.cfg"
+    exit 2
+  fi
+
+  update_default_conf "${NEWROOT}${GRUBDEFAULTCONF}"
+
+  # If running under EFI and grubx is already installed, only generate a new config.
+  if check_efi && check_grubx; then
+    if ! chroot "${NEWROOT}" "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
+      echo "grub-mkconfig failed."
+      exit 2
+    fi
+  else
+    if ! chroot "${NEWROOT}" "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
+      echo "grub-mkconfig failed."
+      exit 2
+    fi 
+    if chroot "${NEWROOT}" "${GRUBINSTALL}" "${BOOTLOADER}" >/dev/null; then
+       exit 0
+    else
+      echo "grub-install failed."
+      exit 2
+    fi
+  fi
+}

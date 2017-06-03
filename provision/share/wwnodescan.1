@@ -1,0 +1,148 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2017 Maciej Dems <maciej.dems@p.lodz.pl>,
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH wwnodescan "1" "May 23 2017" "Warewulf 3.7"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+wwnodescan \-  Scan for new systems making DHCP requests.
+.SH SYNOPSIS
+.B wwnodescan
+.RI [options]\ nodes
+.SH DESCRIPTION
+You can scan for any number of nodes; this program will exit after all
+specified nodes have been found.  The IP address provided will be
+incremented for each node found, and nodes will be added in the order
+given on the command line.
+.PP
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
+.\" respectively.
+.SH OPTIONS
+.B wwnodescan
+options:
+.SS General options
+.PP
+.B \-d, \-\-debug
+.RS 4
+Enable debug output.
+.RE
+.PP
+.B \-h, \-\-help            
+.RS 4
+Show the help/utilization summary.
+.RE
+.PP
+.B \-d, \-\-debug           
+.RS 4
+Display debugging information.
+.RE
+.PP
+.B \-v, \-\-verbose         
+.RS 4
+Be more verbose in output.
+.RE
+.PP
+.B \-f, \-\-file <file>     
+.RS 4
+Create Warewulf script instead of auto-import.
+.RE
+.PP
+.B \-l, \-\-listen <iface>  
+.RS 4
+Interface to listen on (tcpdump -D for list).
+.RE
+.PP
+.B \-c, \-\-tcpdump <cmd>   
+.RS 4
+Specify the full path to the tcpdump command.
+.RE
+.PP
+.B \-T, \-\-tshark <cmd>    
+.RS 4
+Specify the full path to the tshark command (Only IB Mode).
+.RE
+.PP
+.B \-x, \-\-max [<cnt>]     
+.RS 4
+Exit after <cnt> new nodes (0 for auto).
+.RE
+.SS Modes
+.PP
+.B \-t, \-\-test            
+.RS 4
+Test mode; do not modify data store.
+.RE
+.PP
+.B \-r, \-\-replace         
+.RS 4
+Replace existing nodes (by name).
+.RE
+.PP
+.B \-a, \-\-autoconfig      
+.RS 4
+Assign HW addresses to unassigned nodes.
+.RE
+.PP
+.B \-I, \-\-infiniband      
+.RS 4
+Use tshark to look for Client Identifier, compatible with Mellanox FlexBoot.
+.RE
+.SS Settings
+.PP
+.B \-n, \-\-netdev <dev>    
+.RS 4
+Network device for the new node(s).
+.RE
+.PP
+.B \-i, \-\-ipaddr <addr>   
+.RS 4
+IP address for the new node(s).
+.RE
+.PP
+.B \-m, \-\-netmask <mask>  
+.RS 4
+Netmask for the new node(s).
+.RE
+.PP
+.B \-V, \-\-vnfs <vnfs>     
+.RS 4
+VNFS for the node(s).
+.RE
+.PP
+.B \-b, \-\-bootstrap <name>
+.RS 4
+Bootstrap for the node(s).
+.RE
+.PP
+.B \-g, \-\-groups <groups> 
+.RS 4
+Groups for the node(s).
+.RE
+.SH DEFAULTS
+As with all object types, you can create a template node object called
+DEFAULT whose attributes will be used as the default values for all
+new nodes.  You can override some of these defaults using the options
+shown above.
+.SH EXAMPLES
+.nf
+# wwnodescan --ipaddr 10.0.1.10 --netmask 255.255.0.0 --vnfs=sl6.vnfs 
+    --bootstrap=`uname -r` n0000 n0001
+
+# wwsh node new DEFAULT --groups=grp1,test
+# wwsh provision node DEFAULT --vnfs=sl6.vnfs --bootstrap=`uname -r`
+# wwnodescan --ipaddr 10.0.1.100 --netmask 255.255.0.0 n00[02-19]
+.fi

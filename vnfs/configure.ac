@@ -39,5 +39,6 @@ AC_OUTPUT(Makefile
    lib/Warewulf/Makefile
    libexec/Makefile
    libexec/wwmkchroot/Makefile
+   share/Makefile
 )
 

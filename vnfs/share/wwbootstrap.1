@@ -1,0 +1,75 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2017 Maciej Dems <maciej.dems@p.lodz.pl>,
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH wwbootstrap "1" "May 23 2017" "Warewulf 3.7"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+wwbootstrap \- create Warewulf bootstrap images
+.SH SYNOPSIS
+.B wwbootstrap
+.RI [options]\ name
+.SH DESCRIPTION
+This command will create the bootstrap images that nodes use to
+bootstrap the provisioning process.
+.PP
+.SH OPTIONS
+.B wwbootstrap
+options:
+.PP
+.B \-c, \-\-chroot
+.RS 4
+Look into this chroot directory to find the kernel.
+.RE
+.PP
+.B \-r, \-\-root
+.RS 4
+Alias for \-\-chroot
+.RE
+.PP
+.B \-h, \-\-help
+.RS 4
+Usage and help summary
+.RE
+.PP
+.B \-\-config
+.RS 4
+What configuration file should be used (don't use
+full path, rather just the relative name as would be
+found in \fI$sysconfigdir/warewulf/bootstrap/\fR)
+otherwise the default bootstrap.conf is used.
+.RE
+.PP
+.B \-o, \-\-output
+.RS 4
+Output the bootstrap image to a file at the specified
+path location (default automatically imports the
+file into Warewulf instead of writing to disk).
+.RE
+.PP
+.B \-n, \-\-name
+.RS 4
+Specify the name to import this bootstrap into the
+data store with (note: only used when automatically
+importing into the data store)
+.RE
+.SH EXAMPLES
+.nf
+# wwbootstrap 2.6.32-71.el6.x86_64
+# wwbootstrap --config=testbootstrap 2.6.32-71.el6.x86_64
+# wwbootstrap --chroot=/path/to/chroot 2.6.32-71.el6.x86_64
+# wwbootstrap --output=test-bootstrap.wwbs 2.6.32-71.el6.x86_64
+.fi

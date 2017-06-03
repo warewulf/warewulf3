@@ -89,10 +89,10 @@ grub_version() {
 
   VERS=$(${NEWROOT}${GRUBINSTALL} --version | grep -Eo '[0-9]+\.[0-9]+')
 
-  if expr "${VERS}" \< 2; then
+  if expr "${VERS}" \< 2 >/dev/null; then
     GRUBVERS=1
     return 0
-  elif expr "${VERS}" \>\= 2 && expr "${VERS}" \< 3; then
+  elif expr "${VERS}" \>\= 2 >/dev/null && expr "${VERS}" \< 3 >/dev/null; then
     GRUBVERS=2
     return 0
   fi
@@ -139,10 +139,10 @@ find_grub_mkconfig() {
 # Attempt to figure out where to put grub.cfg
 find_grub_cfg() {
   if [ -z "${GRUBCFG:-}" ]; then
-    if check_efi && [ -h ${NEWROOT}/etc/grub2-efi.cfg ]; then
-      GRUBCFG=$(chroot /newroot readlink -f /etc/grub2-efi.cfg)
+    if check_efi && [ -h "${NEWROOT}/etc/grub2-efi.cfg" ]; then
+      GRUBCFG=$(chroot "${NEWROOT}" readlink -f /etc/grub2-efi.cfg)
     elif ! check_efi && [ -h ${NEWROOT}/etc/grub2.cfg ]; then
-      GRUBCFG=$(chroot /newroot readlink -f /etc/grub2.cfg)
+      GRUBCFG=$(chroot "${NEWROOT}" readlink -f /etc/grub2.cfg)
     elif [ -d "${NEWROOT}/boot/grub2" ]; then
       GRUBCFG=/boot/grub2/grub.cfg
     elif [ -d "${NEWROOT}/boot/grub" ]; then

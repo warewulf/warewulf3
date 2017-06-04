@@ -56,6 +56,8 @@ run_mkfs() {
 
   if [ -x /usr/bin/udevadm ]; then
     /usr/bin/udevadm settle --timeout=15 --exit-if-exists="${DEV}"
+  else
+    wait_for_blkdevice "${DEV}"
   fi
 
   msg_gray "   * formatting ${DEV}"
@@ -91,6 +93,26 @@ run_mkfs() {
       wwskipped
     ;;
   esac
+}
+
+wait_for_blkdevice() {
+  BLKDEVICE="${1}"
+  TRIES="${2:-}"
+
+  [ -z "${TRIES:-}" ] && TRIES=10
+  
+  local TRY=1
+
+  while [ ${TRY} -le "${TRIES}" ]; do
+    if /bin/dd if="${BLKDEVICE}" of=/dev/null bs=512 count=1 >/dev/null 2>&1; then
+      return 0
+    else
+      sleep 1
+    fi
+
+    TRY=$(( TRY + 1 ))
+  done
+  return 1
 }
 
 update_fstab_and_mount() {

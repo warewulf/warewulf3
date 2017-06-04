@@ -87,7 +87,7 @@ grub_version() {
   local GRUBINSTALL=$1
   local VERS
 
-  VERS=$(${NEWROOT}${GRUBINSTALL} --version | grep -Eo '[0-9]+\.[0-9]+')
+  VERS=$(chroot ${NEWROOT} ${GRUBINSTALL} --version | grep -Eo '[0-9]+\.[0-9]+')
 
   if expr "${VERS}" \< 2 >/dev/null; then
     GRUBVERS=1
@@ -111,8 +111,10 @@ find_grub_install() {
 
   for path in ${PATHS}; do
     if [ -x "${NEWROOT}/${path}" ]; then
-      GRUBINSTALL="${path}"
-      return 0
+      if chroot "${NEWROOT}" "${path}" --help >/dev/null 2>&1; then
+        GRUBINSTALL="${path}"
+        return 0
+      fi
     fi
   done
   return 1

@@ -142,9 +142,9 @@ find_grub_mkconfig() {
 find_grub_cfg() {
   if [ -z "${GRUBCFG:-}" ]; then
     if check_efi && [ -h "${NEWROOT}/etc/grub2-efi.cfg" ]; then
-      GRUBCFG=$(chroot "${NEWROOT}" readlink -f /etc/grub2-efi.cfg)
+      GRUBCFG=$(chroot "${NEWROOT}" /bin/readlink -f /etc/grub2-efi.cfg)
     elif ! check_efi && [ -h ${NEWROOT}/etc/grub2.cfg ]; then
-      GRUBCFG=$(chroot "${NEWROOT}" readlink -f /etc/grub2.cfg)
+      GRUBCFG=$(chroot "${NEWROOT}" /bin/readlink -f /etc/grub2.cfg)
     elif [ -d "${NEWROOT}/boot/grub2" ]; then
       GRUBCFG=/boot/grub2/grub.cfg
     elif [ -d "${NEWROOT}/boot/grub" ]; then
@@ -223,6 +223,10 @@ check_and_mount() {
 
   check_and_mount sysfs "${NEWROOT}/sys" sysfs rw,relatime
   check_and_mount proc "${NEWROOT}/proc" proc rw,relatime
+  if check_efi; then
+    modprobe efivarfs 2>/dev/null || true
+    check_and_mount efivars "${NEWROOT}/sys/firmware/efi/efivars" efivarfs rw,relatime
+  fi
 
   if ! find_grub_cfg; then
     echo "Could not determine correct path for grub.cfg"

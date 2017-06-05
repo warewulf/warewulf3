@@ -126,7 +126,7 @@ database_blob_type()
 sub
 open_database_handle_impl()
 {
-    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
+    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass, $is_root) = @_;
     my $conn_str = "DBI:Pg:database=$db_name";
     
     if ( $db_server ) {

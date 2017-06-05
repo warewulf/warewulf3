@@ -47,7 +47,7 @@ PSQL_GOT_PASSWORD=0
 PSQL_USE_SUDO=1
 declare -a PSQL_ARGS
 
-psql_cli_args()
+psql_setup_cli_args()
 {
     local args
 
@@ -139,6 +139,7 @@ DBROOTPASS="$(egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/datab
 BINSTORE_KIND="$(egrep "^binstore kind\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
 BINSTORE_FS_PATH="$(egrep "^binstore fs path\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
 
+
 if [ "$DATASTORE" = "mysql" ]; then
     if wwpackage_check mysql-server; then
         wwservice_activate mysqld mysql
@@ -160,34 +161,30 @@ if [ "$DATASTORE" = "mysql" ]; then
         wwprint "Database version: $DBVERS\n"
     else
         wwprint "Database version: UNDEF (need to create database)\n"
-        SCHEMA="$(perl -e 'use Warewulf::DataStore::SQL::MySQL;print Warewulf::DataStore::SQL::MySQL->database_schema_string();')"
-        if [ $? -eq 0 -a -n "$SCHEMA" ]; then
+        perl -e 'use Warewulf::DataStore::SQL::MySQL;print Warewulf::DataStore::SQL::MySQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
+        if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a $(wc -l "${SCRIPT_TMPDIR}/schema") ]; then
             wwprint "Creating database schema"
-            if echo "$SCHEMA" | mysql $CLI_ARGS "$DBNAME"; then
-                reply_success
-            else
-                reply_error
-                exit 255
-            fi
+            wwrun mysql $CLI_ARGS "$DBNAME" < "${SCRIPT_TMPDIR}/schema" || exit 255
+        else
+            wwprint "Unable to generate database schema from class Warewulf::DataStore::SQL::MySQL\n" RED
+            exit 255
         fi
     fi
 
     if [ -n "$DBUSER" -a "$DBUSER" != "root" ]; then
         wwprint "Updating database permissions for base user"
-        if echo "GRANT SELECT ON $DBNAME.* TO $DBUSER IDENTIFIED BY '$DBPASS';" | mysql $CLI_ARGS $DBNAME; then
-            reply_success
-        else
-            reply_error
-        fi
+        wwrun mysql $CLI_ARGS $DBNAME <<END_OF_SQL
+GRANT SELECT ON $DBNAME.*
+    TO $DBUSER IDENTIFIED BY '$DBPASS'
+END_OF_SQL
     fi
 
     if [ -n "$DBROOTUSER" -a "$DBROOTUSER" != "root" ]; then
         wwprint "Updating database permissions for root user"
-        if echo "GRANT ALL PRIVILEGES ON $DBNAME.* TO $DBROOTUSER IDENTIFIED BY '$DBROOTPASS';" | mysql $CLI_ARGS $DBNAME; then
-            reply_success
-        else
-            reply_error
-        fi
+        wwrun mysql $CLI_ARGS $DBNAME <<END_OF_SQL
+GRANT SELECT ON $DBROOTUSER.*
+    TO $DBUSER IDENTIFIED BY '$DBROOTPASS'
+END_OF_SQL
     fi
 elif [ "$DATASTORE" = "postgresql" ]; then
     if wwpackage_check postgresql-server; then
@@ -197,40 +194,52 @@ elif [ "$DATASTORE" = "postgresql" ]; then
         exit 255
     fi
 
-    psql_cli_args
+    psql_setup_cli_args
 
     OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --command="SELECT value FROM meta WHERE name = 'dbvers'" 2>&1)"
     if [ $? -ne 0 ]; then
         if [[ $OUTPUT =~ database.*does\ not\ exist ]]; then
             wwprint "Creating database $DBNAME"
             OUTPUT="$(psql_do_cmd --command="CREATE DATABASE $DBNAME" 2>&1)"
-            echo $OUTPUT
             if [ $? -ne 0 ]; then
                 reply_error
+                wwprintf "%s\n" RED "$OUTPUT"
                 exit 255
             else
                 reply_success
             fi
         fi
-        wwprint "Creating database schema"
-        SCHEMA="$(perl -e 'use Warewulf::DataStore::SQL::PostgreSQL;print Warewulf::DataStore::SQL::PostgreSQL->database_schema_string();')"
-        if [ $? -eq 0 -a -n "$SCHEMA" ]; then
-            SCHEMA_TMPDIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename 0).XXXXXXXXXXXX")
-            printf "%s" "$SCHEMA" > "${SCHEMA_TMPDIR}/psql.schema"
-            chmod 755 "${SCHEMA_TMPDIR}"
-            chmod 644 "${SCHEMA_TMPDIR}/psql.schema"
-            OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --file="${SCHEMA_TMPDIR}/psql.schema" 2>&1)"
+    fi
+
+    DBVERS="$(echo "select value from meta where name = 'dbvers' LIMIT 1;" | psql_do_cmd --dbname="$DBNAME" 2>/dev/null)"
+    if [ -n "$DBVERS" ]; then
+        wwprint "Database version: $DBVERS\n"
+    else
+        wwprint "Database version: UNDEF (need to create database)\n"
+        perl -e 'use Warewulf::DataStore::SQL::PostgreSQL;print Warewulf::DataStore::SQL::PostgreSQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
+        if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a $(wc -l "${SCRIPT_TMPDIR}/schema") ]; then
+            wwprint "Creating database schema"
+            if [ $PSQL_USE_SUDO -ne 0 ]; then
+                #
+                # The database server user will need access to the file:
+                #
+                chmod 755 "${SCHEMA_TMPDIR}"
+                chmod 644 "${SCHEMA_TMPDIR}/schema"
+            fi
+            OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --file="${SCHEMA_TMPDIR}/schema" 2>&1)"
             rc=$?
-            rm -rf "${SCHEMA_TMPDIR}"
+            if [ $PSQL_USE_SUDO -ne 0 ]; then
+                chmod 700 "${SCHEMA_TMPDIR}"
+            fi
             if [ $rc -eq 0 ]; then
                 reply_success
             else
-                printf "%s\n\n" "$OUTPUT"
                 reply_error
+                wwprintf "%s\n" RED "$OUTPUT"
                 exit 255
             fi
         else
-            reply_error
+            wwprint "Unable to generate database schema from class Warewulf::DataStore::SQL::PostgreSQL\n" RED
             exit 255
         fi
     fi
@@ -242,6 +251,7 @@ elif [ "$DATASTORE" = "postgresql" ]; then
             reply_success
         else
             reply_error
+            wwprintf "%s\n" RED "$OUTPUT"
         fi
     fi
 
@@ -252,6 +262,31 @@ elif [ "$DATASTORE" = "postgresql" ]; then
             reply_success
         else
             reply_error
+            wwprintf "%s\n" RED "$OUTPUT"
+        fi
+    fi
+elif [ "$DATASTORE" = "sqlite" ]; then
+    #
+    # For SQLite we just want to be sure the "sqlite" package exists:
+    #
+    if wwpackage_check sqlite; then
+        :
+    else
+        wwprint "No database package seems to exist for sqlite!\n" error
+        exit 255
+    fi
+
+    if [ ! -f "$DBNAME" ]; then
+        wwprint "Creating database $DBNAME"
+        #
+        # Get the database initialized by making an instance of the class:
+        #
+        OUTPUT="$(perl -e 'use Warewulf::DataStore::SQL;$d=Warewulf::DataStore::SQL->new();exit(0) if $d->{'DBH'}; exit(1);' 2>&1)"
+        if [ $? -eq 0 ]; then
+            reply_success
+        else
+            reply_error
+            wwprintf "%s\n" RED "$OUTPUT"
         fi
     fi
 else
@@ -276,6 +311,11 @@ if [ $? -eq 0 ]; then
                     mkdir -p "$OUTPUT"
                     if [ $? -eq 0 ]; then
                         reply_success
+                        #
+                        # We'll 0755 the binstore directory because the web server user
+                        # will need access to it:
+                        #
+                        chmod 755 "$OUTPUT"
                     else
                         reply_error
                     fi

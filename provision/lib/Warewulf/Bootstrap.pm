@@ -141,14 +141,18 @@ bootstrap_import()
                 my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat($path);
 
                 if (open(FILE, $path)) {
+                    my $was_stored = 1;
                     while(my $length = sysread(FILE, $buffer, $db->chunk_size())) {
                         &dprint("Chunked $length bytes of $path\n");
-                        $binstore->put_chunk($buffer);
+                        if ( ! $binstore->put_chunk($buffer) ) {
+                            $was_stored = 0;
+                            last;
+                        }
                         $import_size += $length;
                     }
                     close FILE;
 
-                    if ($import_size) {
+                    if ($was_stored && $import_size) {
                         $self->size($import_size);
                         $self->checksum(digest_file_hex_md5($path));
                         $db->persist($self);

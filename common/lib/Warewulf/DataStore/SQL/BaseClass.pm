@@ -11,6 +11,7 @@
 package Warewulf::DataStore::SQL::BaseClass;
 
 use Warewulf::Config;
+use Warewulf::ACVars;
 use Warewulf::Logger;
 use Warewulf::DSO;
 use Warewulf::Object;
@@ -18,6 +19,7 @@ use Warewulf::ObjectSet;
 use Warewulf::EventHandler;
 use DBI qw(:sql_types);
 use Storable qw(freeze thaw);
+use Fcntl;
 
 =head1 NAME
 
@@ -78,7 +80,7 @@ Warewulf::DataStore::SQL::BaseClass - Common database implementation details
 
       binstore fs path          for the filesystem binstore option, the directory
                                 in which binary objects would be stored.  Defaults
-                                to /var/lib/warewulf/binstore.
+                                to ${STATEDIR}/binstore.
 
       binstore fs create mode   for the filesystem binstore option, the permissions
                                 mode (in octal) to apply to the copy-in file.  File
@@ -201,7 +203,8 @@ init()
     my $db_port = $config->get('database port');
     my $db_user = $config->get('database user');
     my $db_pass = $config->get('database password');
-
+    my $is_root = 0;
+    
     #
     # If we can read the root configuration file, then we
     # should use the user and password found therein
@@ -211,6 +214,7 @@ init()
 
         if ( ($v = $config_root->get('database user')) ) {
             $db_user = $v;
+            $is_root = 1;
         }
         if ( ($v = $config_root->get('database password')) ) {
             $db_pass = $v;
@@ -223,7 +227,7 @@ init()
         &dprintf("DATABASE PORT:      \n", $db_port) if $db_port;
         &dprintf("DATABASE USER:      \n", $db_user) if $db_user;
 
-        my $dbh = $self->open_database_handle_impl($db_name, $db_server, $db_port, $db_user, $db_pass);
+        my $dbh = $self->open_database_handle_impl($db_name, $db_server, $db_port, $db_user, $db_pass, $is_root);
         if ( ! $dbh ) {
             return undef;
         }
@@ -277,7 +281,14 @@ init()
             #
             # Test the set the path to the binstore directory:
             #
-            my $binstore_path = $config->get('binstore fs path') || '/var/lib/warewulf/binstore';
+            my $binstore_path = $config->get('binstore fs path') || 'binstore';
+          
+            #
+            # A relative path is relative to the STATEDIR:
+            #
+            if ( substr($binstore_path, 0, 1) ne '/' ) {
+                $binstore_path = Warewulf::ACVars->get("STATEDIR") . '/warewulf/' . $binstore_path;
+            }
 
             if ( ! -e $binstore_path ) {
                 &wprintf("Binstore path does not exist: %s\n", $binstore_path);
@@ -317,7 +328,7 @@ init()
             #
             # Set the creation mode for binstore files:
             #
-            my $create_mode = $config->get('binstore fs create mode') || '0660';
+            my $create_mode = $config->get('binstore fs create mode') || '0644';
             if ( ! $create_mode =~ /^[0-9]+$/ ) {
                 &eprintf("Binstore file creation mode is invalid: %s\n", $create_mode);
                 return undef;
@@ -453,7 +464,7 @@ Must be overridden by subclasses.
 sub
 open_database_handle_impl()
 {
-    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
+    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass, $is_root) = @_;
 
     &wprint("the SQL base class is not a concrete implementation\n");
     return undef;
@@ -802,7 +813,7 @@ persist($$)
                         $self->{'STH_INSTYPE'} = $sth;
                     }
                     if ( $self->{'STH_INSTYPE'}->execute($type) ) {
-                        $id = $self->{'DBH'}->last_allocated_object_impl();
+                        $id = $self->last_allocated_object_impl();
                         if ( ! $id ) {
                             &eprintf("Could not determine id of last allocated object of type '%s'\n", $type);
                             $success = 0;
@@ -1318,10 +1329,12 @@ put_chunk_fs_impl()
                 &wprintf("update of object %d (%s) already in progress, waiting %d seconds...\n", $object_id, $path, $period);
                 sleep($period);
             }
-            if ( ! sysopen($self->{'OUT_FILEH'}, $path, O_WRONLY | O_CREAT | O_EXCL, $self->{'BINSTORE_FS_CREATE_MODE'}) ) {
+            my $fh;
+            if ( ! sysopen($fh, $path, O_WRONLY | O_CREAT | O_EXCL, $self->{'BINSTORE_FS_CREATE_MODE'}) ) {
                 &eprintf("put_chunk() failed while opening file for write: %s\n", $path);
                 return undef;
             }
+            $self->{'OUT_FILEH'} = $fh;
             binmode $self->{'OUT_FILEH'};
             &dprintf("FILE OP: WRITE TO binstore(%d) => %s\n", $self->{'OBJECT_ID'}, $path);
         } else {
@@ -1429,10 +1442,12 @@ get_chunk_fs_impl()
     if (!exists($self->{'IN_FILEH'})) {
         if ( exists($self->{'OBJECT_PATH'}) ) {
             $path = $self->{'OBJECT_PATH'};
-            if ( ! -f $path || ! -r $path || ! open($self->{'IN_FILEH'}, '<' . $path) ) {
+            my $fh;
+            if ( ! -f $path || ! -r $path || ! open($fh, '<' . $path) ) {
                 &eprintf("get_chunk() failed while opening file for read: %s\n", $path);
                 return undef;
             }
+            $self->{'IN_FILEH'} = $fh;
             binmode $self->{'IN_FILEH'};
             &dprintf("FILE OP: READ FROM binstore(%d) <= %s\n", $self->{'OBJECT_ID'}, $path);
         } else {

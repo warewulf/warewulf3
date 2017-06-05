@@ -241,7 +241,7 @@ default_chunk_size_db_impl()
 sub
 open_database_handle_impl()
 {
-    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
+    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass, $is_root) = @_;
     my $dbh;
     my $conn_str = "DBI:mysql:database=$db_name";
 

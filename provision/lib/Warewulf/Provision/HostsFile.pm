@@ -229,7 +229,10 @@ update_datastore()
     my $read_length = 0;
     while($read_length != $len) {
         my $buffer = substr($hosts, $read_length, $datastore->chunk_size());
-        $binstore->put_chunk($buffer);
+        if ( ! $binstore->put_chunk($buffer) ) {
+            &eprint("Incomplete hosts file written to binstore\n");
+            last;
+        }
         $read_length += length($buffer);
     }
 

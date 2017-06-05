@@ -117,7 +117,15 @@ END_OF_SQL
 sub
 open_database_handle_impl()
 {
-    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass) = @_;
+    my ($self, $db_name, $db_server, $db_port, $db_user, $db_pass, $is_root) = @_;
+
+    #
+    # If the $db_name is a relative path, make it relative to the statedir:
+    #
+    if ( substr($db_name, 0, 1) ne '/' ) {
+        $db_name = Warewulf::ACVars->get("STATEDIR") . '/warewulf/' . $db_name;
+    }
+    &dprintf("Will use SQLite database at path %s\n", $db_name);
 
     #
     # If the path $db_name does not exist, then we'll need to initialize
@@ -125,15 +133,35 @@ open_database_handle_impl()
     #
     my $needsInit = ( ! -f $db_name );
 
-    my $dbh = DBI->connect_cached("DBI:SQLite:dbname=$db_name", '', '');
-
+    my $dbh;
+    
+    #
+    # Note that passing the read-only option to the connect() function
+    # will only work in DBD::SQLite 1.42 and later.  Prior to that, the
+    # default SQLite behavior is used -- try to open read-write first, and
+    # if that fails open read-only.  Since we check to see if the database
+    # file exists or not, we can avoid that default behavior when it doesn't
+    # exist.  But be aware:  as long as the user has write access to the
+    # database file, s/he does NOT need to be root to modify it through wwsh
+    # commands, etc.
+    #
+    if ( $is_root ) {
+        $dbh = DBI->connect_cached("DBI:SQLite:dbname=$db_name", undef, undef);
+    }
+    elsif ( ! $needsInit ) {
+        $dbh = DBI->connect_cached("DBI:SQLite:dbname=$db_name", undef, undef, { sqlite_open_flags => SQLITE_OPEN_READONLY });
+    }
+    else {
+        &eprint("Non-root user cannot initialize the SQLite datastore database.\n");
+        &eprint("Please run 'wwinit database' as root before proceeding.\n");
+    }
     if ( $dbh ) {
         $self->{'DATABASE_HAS_FOREIGN_KEYS'} = 1;
         if ( ! $dbh->do('PRAGMA foreign_keys = ON') ) {
             &wprint('Failed to enable foreign key support on $db_name');
             $self->{'DATABASE_HAS_FOREIGN_KEYS'} = 0;
         }
-        if ( $needsInit ) {
+        if ( $needsInit && $is_root ) {
             my $saved_multi_stmt = $dbh->{'sqlite_allow_multiple_statements'};
 
             $dbh->{'sqlite_allow_multiple_statements'} = 1;

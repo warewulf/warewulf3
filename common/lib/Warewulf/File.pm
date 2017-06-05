@@ -409,18 +409,27 @@ sync()
         &dprint("Persisting file object \"$name\"\n");
         $total_len = length($data);
         $digest = Digest::MD5->new()->add($data);
-
+        
+        my $was_stored = 1;
+        
         while ($total_len > $cur_len) {
             my $buffer = substr($data, $start, $db->chunk_size());
 
-            $binstore->put_chunk($buffer);
+            if ( ! $binstore->put_chunk($buffer) ) {
+                $was_stored = 0;
+                last;
+            }
             $start += $db->chunk_size();
             $cur_len += length($buffer);
             &dprint("Chunked $cur_len of $total_len\n");
         }
-        $self->checksum($digest->hexdigest());
-        $self->size($total_len);
-        $db->persist($self);
+        if ( $was_stored ) {
+            $self->checksum($digest->hexdigest());
+            $self->size($total_len);
+            $db->persist($self);
+        } else {
+            &eprint("Failure:  only wrote $cur_len of $total_len bytes to binstore\n");
+        }
     } else {
         &dprint("Skipping file object \"$name\" as it has no origin paths set\n");
     }
@@ -455,6 +464,7 @@ file_import()
     my ($import_size, $format) = (0, "");
     my ($buffer, $digest);
     local *FILE;
+    my $was_stored = 1;
 
     if (! $id) {
         &eprint("This object has no ID!\n");
@@ -477,7 +487,7 @@ file_import()
         return undef;
     } elsif (-f _) {
         my $length;
-
+        
         if (!open(FILE, $path)) {
             &eprint("Could not open import file \"$path\" for reading:  $!\n");
             return undef;
@@ -497,12 +507,15 @@ file_import()
                 }
             }
             &dprint("Chunked $length bytes of $path\n");
-            $binstore->put_chunk($buffer);
+            if ( ! $binstore->put_chunk($buffer) ) {
+                $was_stored = 0;
+                last;
+            }
             $digest->add($buffer);
             $import_size += $length;
         }
-        if (!defined($length) && (! $import_size)) {
-            eprint("Unable to import $path:  $!\n");
+        if (!$was_stored || (!defined($length) && (! $import_size))) {
+            &eprint("Unable to import $path:  $!\n");
             return undef;
         }
         close FILE;
@@ -511,26 +524,35 @@ file_import()
 
         $format = "link";
         &dprint("Importing symlink:  $path -> $target\n");
-        $binstore->put_chunk($target);
-        $digest->add($target);
-        $import_size += length($target);
+        if ( $binstore->put_chunk($target) ) {
+            $digest->add($target);
+            $import_size += length($target);
+        } else {
+            $was_stored = 0;
+        }
     } elsif (-b _ || -c _) {
         my ($major, $minor) = ($statinfo[6] >> 8, $statinfo[6] & 0xff);
 
         $format = "block";
         &dprintf("Importing %s special device $path:  0x%02x (%d), 0x%02x (%d)\n",
                  ((-b _) ? ("block") : ("character")), $major, $major, $minor, $minor);
-        $binstore->put_chunk($statinfo[6]);
-        $digest->add($statinfo[6]);
-        $import_size += length($statinfo[6]);
+        if ( $binstore->put_chunk($statinfo[6]) ) {
+            $digest->add($statinfo[6]);
+            $import_size += length($statinfo[6]);
+        } else {
+            $was_stored = 0;
+        }
     } elsif (-d _) {
         my $target = $path;
 
         $format = "directory";
         &dprint("Importing directory: $path\n");
-        $binstore->put_chunk($target);
-        $digest->add($target);
-        $import_size += length($target);
+        if ( $binstore->put_chunk($target) ) {
+            $digest->add($target);
+            $import_size += length($target);
+        } else {
+            $was_stored = 0;
+        }
     } else {
         &dprintf("Importing %s $path\n",
                  ((S_ISFIFO($statinfo[2]))
@@ -539,12 +561,17 @@ file_import()
                      ? ("UNIX socket")
                      : ("<unknown type>"))));
     }
-    $self->mode($statinfo[2]);
-    $self->filetype($statinfo[2]);
-    $self->size($import_size);
-    $self->checksum($digest->hexdigest());
-    $self->format($format);
-    $db->persist($self);
+    if ( $was_stored ) {
+        $self->mode($statinfo[2]);
+        $self->filetype($statinfo[2]);
+        $self->size($import_size);
+        $self->checksum($digest->hexdigest());
+        $self->format($format);
+        if ( ! $db->persist($self) ) {
+            &eprint("Unable to persist $path\n");
+            return undef;
+        }
+    }
     return $import_size;
 }
 

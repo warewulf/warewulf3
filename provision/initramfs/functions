@@ -136,6 +136,7 @@ _doreboot() {
         echo "Rebooting system... Please stand by"
         echo
         sleep 2
+        sync
         wwlogger "Node rebooting"
         /sbin/reboot -n -f
     fi
@@ -160,7 +161,8 @@ wwreboot() {
     echo "System will reboot automatically when you close the shell."
     echo
     rm /reboot
-    setsid cttyhack sh
+    setsid /bin/cttyhack /bin/sh
+    sync
     wwlogger "Node rebooting"
     /sbin/reboot -n -f
 }

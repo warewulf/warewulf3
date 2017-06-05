@@ -246,11 +246,12 @@ check_and_mount() {
       echo "grub-mkconfig failed."
       exit 2
     fi 
-    if chroot "${NEWROOT}" "${GRUBINSTALL}" "${BOOTLOADER}" >/dev/null; then
-       exit 0
-    else
+    if ! chroot "${NEWROOT}" "${GRUBINSTALL}" "${BOOTLOADER}" >/dev/null; then
       echo "grub-install failed."
       exit 2
     fi
   fi
+
+  umount "${NEWROOT}/sys" && true
+  umount "${NEWROOT}/proc" && true
 }

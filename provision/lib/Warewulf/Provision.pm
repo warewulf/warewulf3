@@ -8,6 +8,7 @@
 
 package Warewulf::Provision;
 
+use Warewulf::ACVars;
 use Warewulf::Object;
 use Warewulf::Logger;
 use Warewulf::DataStore;
@@ -529,12 +530,13 @@ sub fs()
       "fstab" => 6,
     );
 
-
+    my $fs_cmds_dir = Warewulf::ACVars->get("SYSCONFDIR") . "/warewulf/filesystem/";
+    
     if (defined($path)) {
         if ($path eq "UNDEF") {
             @data = undef;
             $self->del("fs");
-        } elsif (open(FILE, $path)) {
+        } elsif (open(FILE, $path) || open(FILE, $fs_cmds_dir . $path)) {
             &dprint("   Opening file to import for FS: $path\n");
             while (my $line = <FILE>) {
                 if ($line =~ /^$/ || $line =~ /^#.+/) {

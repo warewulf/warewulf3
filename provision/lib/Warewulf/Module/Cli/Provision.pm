@@ -729,14 +729,8 @@ exec()
             printf("%15s: %-16s = %s\n", $name, "PXELINUX", $o->pxelinux() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "SELINUX", $o->selinux() || "UNDEF");
             printf("%15s: %-16s = \"%s\"\n", $name, "KARGS", $kargs);
-            if ($o->get("filesystems")) {
-                printf("%15s: %-16s = %s\n", $name, "FILESYSTEMS", join(",", $o->get("filesystems")));
-            }
-            if ($o->get("diskformat")) {
-                printf("%15s: %-16s = %s\n", $name, "DISKFORMAT", join(",", $o->get("diskformat")));
-            }
-            if ($o->get("diskpartition")) {
-                printf("%15s: %-16s = %s\n", $name, "DISKPARTITION", join(",", $o->get("diskpartition")));
+            if ($o->get("fs")) {
+                printf("%15s: %-16s = \"%s\"\n", $name, "FS", join(",", $o->get("fs")));
             }
             if ($o->get("bootloader")) {
                 printf("%15s: %-16s = %s\n", $name, "BOOTLOADER", join(",", $o->get("bootloader")));

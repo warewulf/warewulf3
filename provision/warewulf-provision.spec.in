@@ -76,6 +76,10 @@ available the included GPL software.
 %install
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
 
+%post
+if [ $1 -eq 2 ] ; then
+  echo "To update software within existing bootstraps run: wwsh bootstrap rebuild"
+fi
 
 %post server
 usermod -a -G warewulf apache >/dev/null 2>&1 || :

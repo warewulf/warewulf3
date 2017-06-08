@@ -34,7 +34,7 @@ run_parted() {
           /usr/sbin/parted --align=optimal --script "${SELECT_DISK}" "${PARTED_CMDS}" && wwsuccess 
         } || { 
           wwfailure
-          exit 255 
+          exit 2
         }
       fi
       ;;
@@ -56,8 +56,6 @@ run_mkfs() {
 
   if [ -x /usr/bin/udevadm ]; then
     /usr/bin/udevadm settle --timeout=15 --exit-if-exists="${DEV}"
-  else
-    wait_for_blkdevice "${DEV}"
   fi
 
   msg_gray "   * formatting ${DEV}"
@@ -66,53 +64,48 @@ run_mkfs() {
     swap)
       {
         /sbin/mkswap "${DEV}" >/dev/null 2>&1 && wwsuccess 
-      } || wwfailure
+      } || {
+        wwfailure
+        exit 2
+      }
     ;;
     ext2)
       {
         /sbin/mkfs.ext2 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
-      } || wwfailure
+      } || {
+        wwfailure
+        exit 2
+      }
     ;;
     ext3)
       {
         /sbin/mkfs.ext3 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
-      } || wwfailure
+      } || { 
+        wwfailure
+        exit 2
+      }
     ;;
     ext4)
       {
         /sbin/mkfs.ext4 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
-      } || wwfailure
+      } || {
+        wwfailure
+        exit 2
+      }
     ;;
     vfat)
       {
         /sbin/mkfs.vfat "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
-      } || wwfailure
+      } || { 
+        wwfailure
+        exit 2
+      }
     ;;
     *)
       wwlogger "Unsupported filesystem type in mkfs command: ${TYPE}"
       wwskipped
     ;;
   esac
-}
-
-wait_for_blkdevice() {
-  BLKDEVICE="${1}"
-  TRIES="${2:-}"
-
-  [ -z "${TRIES:-}" ] && TRIES=10
-  
-  local TRY=1
-
-  while [ ${TRY} -le "${TRIES}" ]; do
-    if /bin/dd if="${BLKDEVICE}" of=/dev/null bs=512 count=1 >/dev/null 2>&1; then
-      return 0
-    else
-      sleep 1
-    fi
-
-    TRY=$(( TRY + 1 ))
-  done
-  return 1
 }
 
 update_fstab_and_mount() {
@@ -128,7 +121,10 @@ update_fstab_and_mount() {
     {
       mkdir -p "${NEWROOT}${MOUNTPOINT}" && \
       mount "${NEWROOT}${MOUNTPOINT}" && wwsuccess
-    } || wwfailure
+    } || {
+      wwfailure
+      exit 2
+    }
   else 
     wwskipped
   fi

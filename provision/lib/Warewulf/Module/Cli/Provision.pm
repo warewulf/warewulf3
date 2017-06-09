@@ -84,6 +84,7 @@ help()
     $h .= "     -l, --lookup        How should we reference this node? (default is name)\n";
     $h .= "     -b, --bootstrap     Define the bootstrap image that this node should use\n";
     $h .= "     -V, --vnfs          Define the VNFS that this node should use\n";
+    $h .= "         --validate      Enable checksum validation of VNFS on boot\n";
     $h .= "         --master        Specifically set the Warewulf master(s) for this node\n";
 # TODO: Bootserver is not being used yet...
 #    $h .= "         --bootserver    If you have multiple DHCP/TFTP servers, which should be\n";
@@ -178,6 +179,7 @@ exec()
     my $opt_lookup = "name";
     my $opt_bootstrap;
     my $opt_vnfs;
+    my $opt_validate;
     my $opt_preshell;
     my $opt_postshell;
     my $opt_postreboot;
@@ -219,6 +221,7 @@ exec()
         'bootserver=s'  => \@opt_bootserver,
         'b|bootstrap=s' => \$opt_bootstrap,
         'V|vnfs=s'      => \$opt_vnfs,
+        'validate=s'    => \$opt_validate,
         'preshell=s'    => \$opt_preshell,
         'postshell=s'   => \$opt_postshell,
         'postreboot=s'  => \$opt_postreboot,
@@ -304,6 +307,31 @@ exec()
                 } else {
                     &eprint("No VNFS named: $opt_vnfs\n");
                 }
+            }
+        }
+
+        if (defined($opt_validate)) {
+            if (uc($opt_validate) eq "UNDEF" or
+                uc($opt_validate) eq "FALSE" or
+                uc($opt_validate) eq "NO" or
+                uc($opt_validate) eq "N" or
+                $opt_validate == 0
+            ) {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->validate_vnfs(0);
+                    &dprint("Disabling checksum validation for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("   UNDEF: %-20s\n", "VALIDATE_VNFS"));
+            } else {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->validate_vnfs(1);
+                    &dprint("Enabling checksum validation for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("     SET: %-20s = %s\n", "VALIDATE_VNFS", 1));
             }
         }
 

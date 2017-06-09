@@ -404,6 +404,29 @@ postreboot()
 }
 
 
+=item validate_vnfs($bool)
+
+Set or return the validate_vnfs boolean
+
+=cut
+
+sub
+validate_vnfs()
+{
+    my ($self, $bool) = @_;
+
+    if (defined($bool)) {
+        if ($bool) {
+            $self->set("validate_vnfs", 1);
+        } else {
+            $self->del("validate_vnfs");
+        }
+    }
+
+    return $self->get("validate_vnfs");
+}
+
+
 =item selinux($value)
 
 Set or return SELinux support

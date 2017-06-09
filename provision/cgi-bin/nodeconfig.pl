@@ -15,6 +15,8 @@ use Warewulf::Node;
 use Warewulf::Logger;
 use Warewulf::Object;
 use Warewulf::ObjectSet;
+use Warewulf::Vnfs;
+use Warewulf::Provision;
 
 &set_log_level("WARNING");
 
@@ -96,6 +98,16 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
         }
 
 
+    }
+    my ($vnfsid) = $node->vnfsid();
+    if ($vnfsid) {
+        my $vnfs_obj = $db->get_objects("vnfs", "_id", $vnfsid)->get_object(0);
+        if ($vnfs_obj) {
+            my $vnfs_name = $vnfs_obj->name();
+            print "WWVNFS_NAME=\"$vnfs_name\"\nexport WWVNFS_NAME\n";
+            my $vnfs_checksum = $vnfs_obj->checksum();
+            print "WWVNFS_CHECKSUM=\"$vnfs_checksum\"\nexport WWVNFS_CHECKSUM\n";
+        }
     }
 }
 

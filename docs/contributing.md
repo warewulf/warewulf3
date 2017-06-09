@@ -1,6 +1,6 @@
 # Contributing
 
-Interested in helping out on the Warewulf project? Join us on [Slack](warewulf.slack.com) and let us know how your interested in helping!
+Interested in helping out on the Warewulf project? Join us on our [mailing list](https://groups.google.com/a/lbl.gov/forum/#!forum/warewulf) or [Slack](warewulf.slack.com) and let us know how your interested in helping! (Ask for access to Slack via our mailing list!)
 
 ## Source Code
 

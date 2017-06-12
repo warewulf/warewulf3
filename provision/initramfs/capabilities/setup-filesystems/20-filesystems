@@ -21,7 +21,7 @@ set -o pipefail
 [ -f /etc/functions ] && . /etc/functions
 
 # By default mount a tmpfs volumne for root
-WWFS=${WWFS:="select tmpfs,fstab "" / tmpfs rw:relatime:seclabel:mode=555 0 0"}
+WWFS=${WWFS:="select tmpfs,fstab "" / tmpfs rw:relatime:mode=555 0 0"}
 
 run_parted() {
   local SELECT_DISK="${1}"

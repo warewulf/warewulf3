@@ -41,7 +41,7 @@ while true; do
 
         if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
             exit 0
-	      fi
+        fi
 
     done
     echo -n "."

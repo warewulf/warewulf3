@@ -48,22 +48,29 @@ while true; do
         wwlogger "vnfs ${WWVNFS_NAME}, ${WWVNFSID}, ${WWVNFS_CHECKSUM:-undef}"
         msg_gray "   * fetching ${WWVNFS_NAME} (ID:${WWVNFSID})"
 
-        {
-            wget -q -O /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" 2>&1 && wwsuccess
-        } || wwfailure
+        wget -q -O /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >/dev/null 2>&1
+        WGETEXIT=$?
 
-        if [ -n "${TEE_PID:-}" ]; then
-            wait "${TEE_PID}" || true
+        if [ "${WGETEXIT}" -eq 0 ]; then
+            wwsuccess
+
+            if [ -n "${TEE_PID:-}" ]; then
+                wait "${TEE_PID}" || true
+            fi
+
+            if [ -n "${MD5SUM_PID:-}" ]; then
+                wait "${MD5SUM_PID}" || true
+            fi
+
+            msg_gray "   * extracting"
+            {
+                wait "${EXTRACT_PID}" && wwsuccess
+            } || wwfailure
+        else
+            wwretrying
+            kill "${EXTRACT_PID}" "${TEE_PID:-}" "${MD5SUM_PID:-}" 2>/dev/null || true
+            continue
         fi
-
-        if [ -n "${MD5SUM_PID:-}" ]; then
-            wait "${MD5SUM_PID}" || true
-        fi
-
-        msg_gray "   * extracting"
-        {
-            wait "${EXTRACT_PID}" && wwsuccess
-        } || wwfailure
 
         msg_gray "   * checksum ${WWVNFS_CHECKSUM:-}"
          "   * checksum ${WWVNFS_CHECKSUM:-}"

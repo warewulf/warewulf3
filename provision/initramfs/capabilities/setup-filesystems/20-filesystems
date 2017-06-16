@@ -109,8 +109,13 @@ run_mkfs() {
 }
 
 update_fstab_and_mount() {
-  local ENTRY="${1}"
-  local NEWROOT="${2}"
+  local SELECT_DISK="${1}"
+  local ENTRY="${2}"
+  local NEWROOT="${3}"
+
+  if [ "${ENTRY:0:5}" != "UUID=" ] && [ "${ENTRY:0:6}" != "LABEL=" ]; then
+    ENTRY="${SELECT_DISK}${ENTRY}"
+  fi
 
   # Prepend NEWROOT to mount points, transform options field ":" delim to fstab format with commas
   echo "${ENTRY}" | /usr/bin/awk -v NEWROOT="${NEWROOT}" '{ $2 = NEWROOT $2; gsub(/:/,",",$4); print }' >> /etc/fstab
@@ -171,7 +176,7 @@ update_fstab_and_mount() {
       # Run any accumulated parted commands before continuing with fstab
       run_parted "${SELECT_DISK}" "${PARTED_CMDS}"
       PARTED_CMDS=""
-      update_fstab_and_mount "${SELECT_DISK}${FSCMD:6}" "${NEWROOT}"
+      update_fstab_and_mount "${SELECT_DISK}" "${FSCMD:6}" "${NEWROOT}"
     ;;
 
     mkfs*)

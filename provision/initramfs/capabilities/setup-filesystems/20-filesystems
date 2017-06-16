@@ -71,7 +71,7 @@ run_mkfs() {
     ;;
     ext2)
       {
-        /sbin/mkfs.ext2 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.ext2 -q -F ${OPTS} "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || {
         wwfailure
         exit 2
@@ -79,7 +79,7 @@ run_mkfs() {
     ;;
     ext3)
       {
-        /sbin/mkfs.ext3 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.ext3 -q -F ${OPTS} "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || { 
         wwfailure
         exit 2
@@ -87,7 +87,7 @@ run_mkfs() {
     ;;
     ext4)
       {
-        /sbin/mkfs.ext4 -q -F "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.ext4 -q -F ${OPTS} "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || {
         wwfailure
         exit 2
@@ -95,7 +95,7 @@ run_mkfs() {
     ;;
     vfat)
       {
-        /sbin/mkfs.vfat "${OPTS}" "${DEV}" >/dev/null 2>&1 && wwsuccess
+        /sbin/mkfs.vfat ${OPTS} "${DEV}" >/dev/null 2>&1 && wwsuccess
       } || { 
         wwfailure
         exit 2

@@ -117,12 +117,14 @@ update_fstab_and_mount() {
     ENTRY="${SELECT_DISK}${ENTRY}"
   fi
 
-  # Prepend NEWROOT to mount points, transform options field ":" delim to fstab format with commas
-  echo "${ENTRY}" | /usr/bin/awk -v NEWROOT="${NEWROOT}" '{ $2 = NEWROOT $2; gsub(/:/,",",$4); print }' >> /etc/fstab
-  echo "${ENTRY}" | /usr/bin/awk -v NEWROOT="${NEWROOT}" '{ gsub(/:/,",",$4); print }' >> "${TEMPDIR}/fstab"
+  # Add entry to fstab that will be moved into the NEWROOT chroot, transform options field ":" delim to commas
+  echo "${ENTRY}" | /usr/bin/awk '{ gsub(/:/,",",$4); print }' >> "${TEMPDIR}/fstab"
+
   MOUNTPOINT=$(echo "${ENTRY}" | /usr/bin/awk '{ print $2 }')
   msg_gray "   * mounting ${MOUNTPOINT}"
   if [ "${MOUNTPOINT:0:1}" = "/" ]; then
+    # Prepend NEWROOT to mount points, transform options field ":" delim to fstab format with commas
+    echo "${ENTRY}" | /usr/bin/awk -v NEWROOT="${NEWROOT}" '{ $2 = NEWROOT $2; gsub(/:/,",",$4); print }' >> /etc/fstab
     {
       mkdir -p "${NEWROOT}${MOUNTPOINT}" && \
       mount "${NEWROOT}${MOUNTPOINT}" && wwsuccess

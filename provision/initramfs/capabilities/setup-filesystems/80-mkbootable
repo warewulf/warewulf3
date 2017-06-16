@@ -17,17 +17,17 @@ set -o pipefail
 
 [ -f /etc/functions ] && . /etc/functions
 
-NEWROOT="${NEWROOT:=/newroot}"
+NEWROOT="${NEWROOT:-/newroot}"
 BOOTLOADER="${WWBOOTLOADER:-}"
 
 GRUBINSTALL="${WWGRUBINSTALL:-}"
 GRUBVERS="${WWGRUBVERS:-}"
 GRUBMKCONFIG="${WWGRUBMKCONFIG:-}"
 GRUBCFG="${WWGRUBCFG:-}"
-GRUBDEFAULTCONF="${WWGRUBDEFAULTCONF:=/etc/default/grub}"
+GRUBDEFAULTCONF="${WWGRUBDEFAULTCONF:-/etc/default/grub}"
 
 CONSOLE="${WWCONSOLE:-}"
-KARGS="${WWKARGS:=quiet}"
+KARGS="${WWKARGS:-quiet}"
 
 # Parse the kernel console option for a serial TTY into values useful for /etc/default/grub
 parse_console() {
@@ -36,10 +36,10 @@ parse_console() {
     set -- $(echo "${CONSOLE}" | sed -nr "s/.*ttyS([0-9]),([0-9]{4,6})([n,o,e])?([5-8])?(r)?.*/\1 \2 \3 \4/p")
     IFS="${OIFS}"
 
-    export SERIALUNIT="${$1:-}"
-    export SERIALSPEED="${$2:=115200}"
-    export SERIALPARITY="${$3:=no}"
-    export SERIALWORD="${$4:=8}"
+    export SERIALUNIT="${1:-}"
+    export SERIALSPEED="${2:-115200}"
+    export SERIALPARITY="${3:-no}"
+    export SERIALWORD="${4:-8}"
     
     if [ "${SERIALPARITY}" = "n" ]; then
         export SERIALPARITY=no

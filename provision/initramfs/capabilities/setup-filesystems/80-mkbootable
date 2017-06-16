@@ -180,6 +180,29 @@ check_and_mount() {
   fi
 }
 
+# Grub's 10_linux checks for device UUID symlinks exist in /dev/disk/by-uuid
+# before it'll use UUIDs for the root device.
+dev_symlinks() {
+  local DEVFS
+  local DEV
+  local PART
+  local UUID
+  local LABEL
+
+  DEVFS="${1}"
+  DEV="${2}"
+
+  mkdir -p "${DEVFS}/disk/by-uuid"
+
+  for PART in ${DEV}*; do
+    eval $(blkid "${PART}" | cut -f2 -d: || true)
+    if [ -n "${UUID:-}" ]; then
+      ln -fs "${PART}" "${DEVFS}/disk/by-uuid/${UUID}"
+      unset UUID
+    fi
+  done
+}
+
 {
   if [ -n "${BOOTLOADER}" ]; then
     if [ "${BOOTLOADER:0:5}" != "/dev/" ]; then
@@ -227,6 +250,8 @@ check_and_mount() {
     modprobe efivarfs 2>/dev/null || true
     check_and_mount efivars "${NEWROOT}/sys/firmware/efi/efivars" efivarfs rw,relatime
   fi
+
+  dev_symlinks "${NEWROOT}/dev" "${BOOTLOADER}"
 
   if ! find_grub_cfg; then
     echo "Could not determine correct path for grub.cfg"

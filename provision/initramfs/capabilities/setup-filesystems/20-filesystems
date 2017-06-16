@@ -63,7 +63,7 @@ run_mkfs() {
   case $TYPE in
     swap)
       {
-        /sbin/mkswap "${DEV}" >/dev/null 2>&1 && wwsuccess 
+        /sbin/mkswap ${OPTS} "${DEV}" >/dev/null 2>&1 && wwsuccess 
       } || {
         wwfailure
         exit 2

@@ -27,26 +27,25 @@ while true; do
         fi
 
         gunzip < /tmp/vnfs-download | bsdtar -pxf - &
-        #gunzip < /tmp/vnfs-download | tar -xf - &
+        EXTRACT_PID=$!
 
-        wget -q -O /tmp/vnfs-download http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR 2>&1
+        wget -q -O /tmp/vnfs-download http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR >/dev/null 2>&1
         WGETEXIT=$?
 
-        wait
-        if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
-            echo
-            exit 0
-	fi
+        if [ "${WGETEXIT}" -ne 0 ]; then
+          kill "${EXTRACT_PID}"
+          continue
+        else 
+          wait "${EXTRACT_PID}"
+        fi
 
-#        ( wget -O - "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" | gunzip | tar -xf - ) 2>&1
-#        if [ -f "$NEWROOT/sbin/init" ]; then
-#            echo
-#            exit 0
-#        fi
+        if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
+            exit 0
+        fi
+
     done
     echo -n "."
     throttled_sleep
 done
-echo
 
 exit 1

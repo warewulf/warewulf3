@@ -248,10 +248,7 @@ add()
     }
     foreach my $newval (@vals) {
         if (defined($newval)) {
-            # NOTE:  This prevents undef from being a value in this array
-            if (!scalar(grep { $_ eq $newval } @{$self->{$key}})) {
-                push @{$self->{$key}}, $newval;
-            }
+            push @{$self->{$key}}, $newval;
         }
     }
     return @{$self->{$key}};

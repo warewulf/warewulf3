@@ -125,6 +125,11 @@ wwfailure() {
     msg_red "ERROR\n"
 }
 
+wwretrying() {
+    echo -en "\\033[72G"
+    msg_gray "RETRYING\n"
+}
+
 _doreboot() {
     local SLEEP=$1
     touch /reboot

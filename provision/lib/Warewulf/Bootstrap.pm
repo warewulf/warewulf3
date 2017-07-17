@@ -18,6 +18,7 @@ use Warewulf::Provision::Tftp;
 use File::Basename;
 use File::Path;
 use Digest::MD5 qw(md5_hex);
+use POSIX qw(uname);
 
 
 our @ISA = ('Warewulf::Object');
@@ -109,6 +110,20 @@ size()
 }
 
 
+=item arch($string)
+
+Set or return the architecture of the raw file stored within the data store.
+
+=cut
+
+sub
+arch()
+{
+    my $self = shift;
+
+    return $self->prop("arch", qr/^([a-zA-Z0-9_]+)$/, @_);
+}
+
 =item bootstrap_import($file)
 
 Import a bootstrap image at the defined path into the data store directly.
@@ -123,12 +138,18 @@ sub
 bootstrap_import()
 {
     my ($self, $path) = @_;
+    my (undef, undef, undef, undef, $machine) = POSIX::uname();
 
     my $id = $self->id();
 
     if (! $id) {
         &eprint("This object has no ID!\n");
         return();
+    }
+
+    if (! $self->arch()) {
+        &dprint("This object has no arch, defaulting to current system's arch");
+        $self->arch($machine);
     }
 
     if ($path) {

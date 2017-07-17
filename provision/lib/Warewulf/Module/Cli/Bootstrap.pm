@@ -21,6 +21,7 @@ use Warewulf::DSO::Bootstrap;
 use Getopt::Long;
 use File::Basename;
 use File::Path;
+use POSIX qw(uname);
 use Text::ParseWords;
 
 our @ISA = ('Warewulf::Module::Cli');
@@ -74,11 +75,12 @@ help()
     $h .= "OPTIONS:\n";
     $h .= "\n";
     $h .= "     -n, --name      When importing a bootstrap use this name instead of the file name\n";
+    $h .= "     -a, --arch      Architecture of bootstrap to use instead of the current machine\n";
     $h .= "     -1              With list command, output bootstrap name only\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
     $h .= "\n";
-    $h .= "     Warewulf> bootstrap import /path/to/name.wwbs --name=bootstrap\n";
+    $h .= "     Warewulf> bootstrap import /path/to/name.wwbs --name=bootstrap --arch=x86_64\n";
     $h .= "     Warewulf> bootstrap export bootstrap1 bootstrap2 /tmp/exported_bootstrap/\n";
     $h .= "     Warewulf> bootstrap list\n";
     $h .= "\n";
@@ -158,6 +160,7 @@ exec()
     GetOptions(
         'n|name=s'      => \$opt_name,
         'l|lookup=s'    => \$opt_lookup,
+        'a|arch=s'      => \$opt_arch,
         '1'             => \$opt_single,
     );
 
@@ -222,6 +225,7 @@ exec()
                         $path = $1;
                         if (-f $path) {
                             my $name;
+                            my $arch;
                             my $objSet;
                             my $obj;
                             if ($opt_name) {
@@ -229,6 +233,12 @@ exec()
                             } else {
                                 $name = basename($path);
                                 $name =~ s/\.wwbs$//;
+                            }
+                            if ($opt_arch) {
+                                $arch = $opt_arch;
+                            } else {
+                                &dprint("Architecture not specified, defaulting the local system architecture\n");
+                                (undef, undef, undef, undef, $arch) = POSIX::uname();
                             }
                             $objSet = $db->get_objects("bootstrap", $opt_lookup, $name);
 
@@ -247,6 +257,7 @@ exec()
                                 &dprint("Creating a new Warewulf bootstrap object\n");
                                 $obj = Warewulf::Bootstrap->new();
                                 $obj->name($name);
+                                $obj->arch($arch);
                                 &dprint("Persisting the new Warewulf bootstrap object with name: $name\n");
                                 $db->persist($obj);
                             }
@@ -303,11 +314,12 @@ exec()
                         printf("%-32s\n", $obj->name() || "UNDEF");
                     }
                 } else {
-                    &nprint("BOOTSTRAP NAME            SIZE (M)\n");
+                    &nprint("BOOTSTRAP NAME            SIZE (M)      ARCH\n");
                     foreach my $obj ($objSet->get_list("name")) {
-                        printf("%-25s %-8.1f\n",
+                        printf("%-25s %-13.1f %s\n",
                             $obj->name() || "UNDEF",
-                            $obj->size() ? $obj->size()/(1024*1024) : "0"
+                            $obj->size() ? $obj->size()/(1024*1024) : "0",
+                            $obj->arch() || "UNDEF",
                         );
                         $return_count ++;
                     }

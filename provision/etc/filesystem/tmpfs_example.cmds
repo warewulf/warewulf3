@@ -1,0 +1,3 @@
+# Tmpfs root (equivalent to 20-filesystems' default settings)
+select tmpfs
+fstab "" / tmpfs rw:relatime:mode=555 0 0

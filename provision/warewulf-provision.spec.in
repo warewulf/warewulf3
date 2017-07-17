@@ -11,7 +11,7 @@ Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common
-BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel
+BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel device-mapper-devel
 Conflicts: warewulf < 3
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
@@ -107,6 +107,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/warewulf/provision.conf
 %config(noreplace) %{_sysconfdir}/warewulf/livesync.conf
 %config(noreplace) %{_sysconfdir}/warewulf/defaults/provision.conf
+%{_sysconfdir}/warewulf/filesystem/*
 %{_localstatedir}/warewulf/*
 %{_mandir}/*
 %{perl_vendorlib}/Warewulf/Bootstrap.pm

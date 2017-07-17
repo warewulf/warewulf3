@@ -8,6 +8,7 @@
 
 package Warewulf::Provision;
 
+use Warewulf::ACVars;
 use Warewulf::Object;
 use Warewulf::Logger;
 use Warewulf::DataStore;
@@ -521,59 +522,80 @@ sub bootloader()
     return $self->prop("bootloader", qr/^([a-zA-Z0-9_\/]+)$/, @val);
 }
 
-=item diskformat($value)
+=item fs($path)
 
-Set or return diskformat:
-
-$value = The comma seperated list of partations to format. i.e. sda1,sda2
+Set or return FS for disk provisioning
 =cut
 
-sub diskformat()
+sub fs()
 {
-    my $self = shift;
-    my @val = @_;
+    my ($self, $path) = @_;
+    my @data;
+    my %valid_cmds = (
+      "align-check" => 2,
+      "help" => 1,
+      "mklabel" => 1,
+      "mktable" => 1,
+      "mkpart"  => 3,
+      "name" => 2,
+      "print" => 1,
+      "quit" => 0,
+      "rescue" => 2,
+      "rm" => 1,
+      "select" => 1,
+      "disk_set" => 2,
+      "disk_toggle" => 1,
+      "set" => 3,
+      "toggle" => 2,
+      "unit" => 1,
+      "version" => 0,
+      "mkfs" => 2,
+      "fstab" => 6,
+    );
 
-    if ($_[0] eq "UNDEF") {
-        @val = undef;
+    my $fs_cmds_dir = Warewulf::ACVars->get("SYSCONFDIR") . "/warewulf/filesystem/";
+    
+    if (defined($path)) {
+        if ($path eq "UNDEF") {
+            @data = undef;
+            $self->del("fs");
+        } elsif (open(FILE, $path) || open(FILE, $fs_cmds_dir . $path)) {
+            &dprint("   Opening file to import for FS: $path\n");
+            while (my $line = <FILE>) {
+                if ($line =~ /^$/ || $line =~ /^#.+/) {
+                  next
+                }
+                chomp($line);
+                my @split_line = split /\s+/, $line;
+                if (defined $split_line[0] && exists $valid_cmds{$split_line[0]}) {
+                  if ($#split_line + 1 > $valid_cmds{$split_line[0]}) {
+                    if ($split_line[0] eq "fstab" && $split_line[4] =~ /,/) {
+                      &dprint("    Transforming commas in fstab options to colons, line: $line\n");
+                      $split_line[4] =~ tr/,/:/;
+                      push @data, join(" ", @split_line);
+                    } elsif ( $line =~ /,/ ) {
+                      &eprint("Command cannot contain commas, ignoring: $line\n");
+                      next
+                    } else {
+                      push @data, $line;
+                    } 
+                  } else {
+                    &wprint("Command does not have at least $valid_cmds{$split_line[0]} arguments, line: $line\n");
+                  }
+
+                } else {
+                  &wprint("Unknown command in line $line, cmd: $split_line[0]\n");
+                }
+            }
+            close FILE;
+            $self->set("fs", @data);
+        } else {
+            &eprint("Could not open filesystems configuration path \"$path\"\n");
+        }
     }
 
-    return $self->prop("diskformat", qr/^([a-zA-Z0-9_,]+)$/, @val);
-}
 
-=item diskpartition($value)
-
-Set or return diskpartition:
-
-$value - The disk to partition during bootstrap
-=cut
-
-sub diskpartition()
-{
-    my $self = shift;
-    my @val = @_;
-
-    if ($_[0] eq "UNDEF") {
-        @val = undef;
-    }
-
-    return $self->prop("diskpartition", qr/^([a-zA-Z0-9_]+)$/, @val);
-}
-
-=item filesystems($value)
-
-Set or return FILESYSTEMS for disk provisioning
-=cut
-
-sub filesystems()
-{
-    my ($self, $value) = @_;
-
-    # A better way??
-    if (defined($value)) {
-        $self->set("filesystems", $value);
-    }
-
-    return $self->get("filesystems");
+    return $self->get("fs");
 }
 
 =back

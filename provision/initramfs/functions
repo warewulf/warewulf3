@@ -110,6 +110,11 @@ wwsuccess() {
     msg_green "OK\n"
 }
 
+wwrunning() {
+    echo -en "\\033[73G"
+    msg_gray "RUNNING\n"
+}
+
 wwdone() {
     echo -en "\\033[76G"
     msg_red "DONE\n"

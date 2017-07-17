@@ -7,31 +7,29 @@
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
 
+SKIP_MTAB=1
 
-> $NEWROOT/etc/mtab
-
-# Sigh... setting permission with mkdir will only work if the directory
-#  doesn't already exist. So... 
-if [ ! -d $NEWROOT/dev/shm -o ! -k $NEWROOT/dev/shm ]; then
-    mkdir -p $NEWROOT/dev/shm
-    chmod 1777 $NEWROOT/dev/shm
+if [ ! -d "${NEWROOT}/dev/shm" ]; then
+    install -d -m 1777 "${NEWROOT}/dev/shm"
 fi
 
-sort -r /tmp/mptab | while read mp dev type perms opts; do
-    if [ "x$mp" == "x/" ]; then
-        echo "$dev $mp $type $opts 0 0" > $NEWROOT/etc/mtab
+# Newer distributions symlink to /proc/self/mounts, so don't populate mtab
+# if mtab is a symlink.
+if [ ! -h "${NEWROOT}/etc/mtab" ]; then
+    > "${NEWROOT}/etc/mtab"
+    SKIP_MTAB=0
+fi
+
+# Loop over any mounts to or under NEWROOT
+/usr/bin/awk -v NEWROOT="^${NEWROOT}" '$2 ~ NEWROOT {print}' /etc/mtab | sort -k 2 -r | while read dev mp type opts freq pass; do
+    if [ "${mp}" = "${NEWROOT}" ]; then
+      if [ "${SKIP_MTAB}" -eq 0 ]; then
+        echo "$dev / $type $opts $freq $pass" > "${NEWROOT}/etc/mtab"
+      fi
     else
-        if [ "x$mp" == "xnone" ]; then
-	    continue
-        fi
-        if ! umount $NEWROOT/$mp; then
-            mount -o remount,ro $NEWROOT/$mp
+        if ! umount "${mp}"; then
+            mount -o remount,ro "${mp}"
         fi
     fi
 done
-
-
-chroot $NEWROOT /bin/mount -t tmpfs none /dev/shm
-chroot $NEWROOT /bin/mount -t proc none /proc
-chroot $NEWROOT /bin/mount -t sysfs none /sys
 

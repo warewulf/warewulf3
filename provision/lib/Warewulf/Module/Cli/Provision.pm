@@ -102,9 +102,7 @@ help()
     $h .= "         --pxelinux      Define a custom PXELINUX/boot image to use\n";
     $h .= "         --selinux       Boot node with SELinux support? (valid options are: UNDEF,\n";
     $h .= "                         ENABLED, and ENFORCED)\n";
-    $h .= "         --dformat       Partitions to format during bootstrap phase\n";
-    $h .= "         --dpartition    Disk to partition during bootstrap phase\n";
-    $h .= "     -f, --filesys       Value of FILESYSTEMS variable\n";
+    $h .= "     -f, --filesystem    Specify a filesystem command file\n";
     $h .= "         --bootloader    Disk to install bootloader to (STATEFUL)\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
@@ -197,7 +195,7 @@ exec()
     my $opt_bootloader;
     my $opt_diskformat;
     my $opt_diskpartition;
-    my $opt_filesystems;
+    my $opt_filesystem;
     my $return_count;
     my $objSet;
     my @changes;
@@ -232,7 +230,7 @@ exec()
         'bootloader=s'  => \$opt_bootloader,
         'dformat=s'     => \$opt_diskformat,
         'dpartition=s'  => \$opt_diskpartition,
-        'f|filesys=s'   => \$opt_filesystems,
+        'f|filesystem=s' => \$opt_filesystem,
     );
 
     $command = shift(@ARGV);
@@ -672,60 +670,19 @@ exec()
             }
         }
 
-        if ($opt_diskformat) {
-            if ($opt_diskformat =~ /^([a-zA-Z0-9_,]+)$/) {
-                $opt_diskformat = $1;
-
-                foreach my $obj ($objSet->get_list()) {
-                    my $name = $obj->name() || "UNDEF";
-                    &dprint("$name : Setting DISKFORMAT to: $opt_diskformat\n");
-                    $obj->diskformat($opt_diskformat);
-                    $persist_bool = 1;
-                }
-                if (uc($opt_diskformat) eq "UNDEF") {
-                    push(@changes, sprintf("       DEL: %-20s\n", "DISKFORMAT"));
-                } else {
-                    push(@changes, sprintf("       SET: %-20s = %s\n", "DISKFORMAT", $opt_diskformat));
-                }
-            } else {
-                &eprint("Invalid option for DISKFORMAT.\n");
-            }
-        }
-
-        if ($opt_diskpartition) {
-            if ($opt_diskpartition =~ /^([a-zA-Z0-9_]+)$/) {
-                $opt_diskpartition = $1;
-
-                foreach my $obj ($objSet->get_list()) {
-                    my $name = $obj->name() || "UNDEF";
-                    &dprint("$name : Setting DISKPARTITION to: $opt_diskpartition\n");
-                    $obj->diskpartition($opt_diskpartition);
-                    $persist_bool = 1;
-                }
-                if (uc($opt_diskpartition) eq "UNDEF") {
-                    push(@changes, sprintf("       DEL: %-20s\n", "DISKPARTITION"));
-                } else {
-                    push(@changes, sprintf("       SET: %-20s = %s\n", "DISKPARTITION", $opt_diskpartition));
-                }
-            } else {
-                &eprint("Invalid option for DISKPARTITION.\n");
-            }
-        }
-
-        if ($opt_filesystems) {
-            #TODO : FILESYSTEMS can be... messy. Anyone think of a good check on it?
-            #  Or just pass and hope it's "right"?
+        if ($opt_filesystem) {
+            my @fsData;
             foreach my $obj ($objSet->get_list()) {
                 my $name = $obj->name() || "UNDEF";
-                &dprint("$name : Setting FILESYSTEMS to:\n  $opt_filesystems\n");
-                $obj->filesystems($opt_filesystems);
+                &dprint("$name : Import FS commands file from:\n  $opt_filesystem\n");
+                @fsData = $obj->fs($opt_filesystem);
                 $persist_bool = 1;
             }
 
-            if (uc($opt_filesystems) eq "UNDEF") {
-                push(@changes, sprintf("       DEL: %-20s\n", "FILESYSTEMS"));
+            if (uc($opt_filesystem) eq "UNDEF") {
+                push(@changes, sprintf("       DEL: %-20s\n", "FS"));
             } else {
-                push(@changes, sprintf("       SET: %-20s = %s\n", "FILESYSTEMS", $opt_filesystems));
+                push(@changes, sprintf("       SET: %-20s = %s\n", "FS", join(",", @fsData)));
             }
         }
 
@@ -800,14 +757,8 @@ exec()
             printf("%15s: %-16s = %s\n", $name, "PXELINUX", $o->pxelinux() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "SELINUX", $o->selinux() || "UNDEF");
             printf("%15s: %-16s = \"%s\"\n", $name, "KARGS", $kargs);
-            if ($o->get("filesystems")) {
-                printf("%15s: %-16s = %s\n", $name, "FILESYSTEMS", join(",", $o->get("filesystems")));
-            }
-            if ($o->get("diskformat")) {
-                printf("%15s: %-16s = %s\n", $name, "DISKFORMAT", join(",", $o->get("diskformat")));
-            }
-            if ($o->get("diskpartition")) {
-                printf("%15s: %-16s = %s\n", $name, "DISKPARTITION", join(",", $o->get("diskpartition")));
+            if ($o->get("fs")) {
+                printf("%15s: %-16s = \"%s\"\n", $name, "FS", join(",", $o->get("fs")));
             }
             if ($o->get("bootloader")) {
                 printf("%15s: %-16s = %s\n", $name, "BOOTLOADER", join(",", $o->get("bootloader")));

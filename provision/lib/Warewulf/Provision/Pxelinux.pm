@@ -17,6 +17,7 @@ use Warewulf::Object;
 use Warewulf::Network;
 use Warewulf::DataStore;
 use Warewulf::Provision::Tftp;
+use File::Basename;
 use File::Path;
 use POSIX qw(uname);
 
@@ -83,16 +84,16 @@ setup()
     my $self = shift;
     my $datadir = &Warewulf::ACVars::get("datadir");
     my $tftpdir = Warewulf::Provision::Tftp->new()->tftpdir();
-    my @tftpfiles = ("pxelinux.0", "lpxelinux.0", "ldlinux.c32", "ldlinux.e32", "ldlinux.e64", "syslinux64.efi", "syslinux32.efi");
-    my (undef, undef, undef, undef, $arch) = POSIX::uname();
+    my @tftpfiles = ("pcbios/pxelinux.0", "pcbios/lpxelinux.0", "pcbios/ldlinux.c32", "i386-efi/ldlinux.e32", "x86_64-efi/ldlinux.e64", "x86-64-efi/syslinux.efi", "i386-efi/syslinux.efi");
 
     if ($tftpdir) {
         foreach my $f (@tftpfiles) {
-            if (! -f "$tftpdir/warewulf/loader/$arch/$f") {
-                if (-f "$datadir/warewulf/$arch/$f") {
+            if (! -f "$tftpdir/warewulf/loader/$f") {
+                if (-f "$datadir/warewulf/$f") {
                     &iprint("Copying $f to the tftp root\n");
-                    mkpath("$tftpdir/warewulf/loader/$arch");
-                    system("cp $datadir/warewulf/$arch/$f $tftpdir/warewulf/loader/$arch/$f");
+                    my $dirname = dirname("$tftpdir/warewulf/loader/$f");
+                    mkpath($dirname);
+                    system("cp $datadir/warewulf/$f $tftpdir/warewulf/loader/$f");
                 } else {
                     &eprint("Could not locate Warewulf's internal $f! Things might be broken!\n");
                 }

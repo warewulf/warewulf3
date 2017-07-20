@@ -4,6 +4,8 @@ SYSLINUXTARGETS = lpxelinux.0 pxelinux.0 ldlinux.c32 syslinux64.efi syslinux32.e
 
 MAINTAINERCLEANFILES = Makefile.in
 
+MACHINE:=$(shell uname -m)
+
 all: $(SYSLINUXTARGETS)
 
 SYSLINUX_VERSION = 6.04-pre1
@@ -41,14 +43,14 @@ syslinux32.efi: syslinuxprepare
 	cp _work/$(SYSLINUX_DIR)/efi32/efi/syslinux.efi syslinux32.efi
 
 install-data-local: $(SYSLINUXTARGETS)
-	mkdir -p $(DESTDIR)/$(datadir)/warewulf/
+	mkdir -p $(DESTDIR)/$(datadir)/warewulf/$(MACHINE)
 	@ for i in $(SYSLINUXTARGETS); do \
-		install -m 644 $$i $(DESTDIR)/$(datadir)/warewulf/ ; \
+		install -m 644 $$i $(DESTDIR)/$(datadir)/warewulf/$(MACHINE)/ ; \
 	done
 
 uninstall-local:
 	@ for i in $(SYSLINUXTARGETS); do \
-		rm -f $(DESTDIR)/$(datadir)/warewulf/$$i ; \
+		rm -f $(DESTDIR)/$(datadir)/warewulf/$(MACHINE)/$$i ; \
 	done
 	rm -f prepare
 

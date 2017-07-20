@@ -238,13 +238,14 @@ delete_local_bootstrap()
     if ($self) {
         my $bootstrap_name = $self->get("name") || "UNDEF";
         my $bootstrap_id = $self->get("_id");
+        my $arch = $self->get("arch");
 
         &dprint("Going to delete bootstrap: $bootstrap_name\n");
 
-        if ($bootstrap_id =~ /^([0-9]+)$/) {
+        if ($bootstrap_id =~ /^([0-9]+)$/ && $arch) {
             my $id = $1;
             my $tftpboot = Warewulf::Provision::Tftp->new()->tftpdir();
-            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$bootstrap_id/";
+            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$arch/$bootstrap_id/";
 
             &nprint("Deleting local bootable bootstrap files: $bootstrap_name\n");
 
@@ -301,6 +302,11 @@ build_local_bootstrap()
     if ($self) {
         my $bootstrap_name = $self->name();
         my $bootstrap_id = $self->id();
+        my $arch = $self->arch();
+        if (! $arch) {
+            (undef, undef, undef, undef, $arch) = POSIX::uname();
+            &dprint("No architecture specified for bootstrap $bootstrap_name, default to local system");
+        }
 
         if (!$bootstrap_name) {
             &dprint("Skipping build_bootstrap() as the name is undefined\n");
@@ -319,11 +325,11 @@ build_local_bootstrap()
             my $id = $1;
             my $ds = Warewulf::DataStore->new();
             my $tftpboot = Warewulf::Provision::Tftp->new()->tftpdir();
-            my $initramfsdir = &Warewulf::ACVars::get("statedir") . "/warewulf/initramfs/";
+            my $initramfsdir = &Warewulf::ACVars::get("statedir") . "/warewulf/initramfs/$arch";
             my $randstring = &rand_string("12");
             my $tmpdir = "/var/tmp/wwinitrd.$randstring";
             my $binstore = $ds->binstore($bootstrap_id);
-            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$bootstrap_id/";
+            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$arch/$bootstrap_id/";
             my $initramfs = "$initramfsdir/initfs";
 
             &nprint("Integrating the Warewulf bootstrap: $bootstrap_name\n");

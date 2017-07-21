@@ -69,13 +69,14 @@ help()
     $h .= "         export          Export a bootstrap image to the local file system\n";
     $h .= "         delete          Delete a bootstrap image from Warewulf\n";
     $h .= "         list            Show all of the currently imported bootstrap images\n";
+    $h .= "         set             Set bootstrap attributes\n";
     $h .= "         (re)build       Build (or rebuild) the tftp bootable image(s) on this host\n";
     $h .= "         help            Show usage information\n";
     $h .= "\n";
     $h .= "OPTIONS:\n";
     $h .= "\n";
-    $h .= "     -n, --name      When importing a bootstrap use this name instead of the file name\n";
-    $h .= "     -a, --arch      Architecture of bootstrap to use instead of the current machine\n";
+    $h .= "     -n, --name      Name of bootstrap, defaults to the file name on import\n";
+    $h .= "     -a, --arch      Architecture of bootstrap, defaults to the current machine on import\n";
     $h .= "     -1              With list command, output bootstrap name only\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
@@ -83,6 +84,7 @@ help()
     $h .= "     Warewulf> bootstrap import /path/to/name.wwbs --name=bootstrap --arch=x86_64\n";
     $h .= "     Warewulf> bootstrap export bootstrap1 bootstrap2 /tmp/exported_bootstrap/\n";
     $h .= "     Warewulf> bootstrap list\n";
+    $h .= "     Warewulf> bootstrap set --arch=x86_64 name\n";
     $h .= "\n";
 
     return $h;
@@ -279,6 +281,56 @@ exec()
                 &eprint("USAGE: bootstrap import [bootstrap path]\n");
                 return undef;
             }
+        } elsif ($command eq "set") {
+            my $persist_count = 0;
+            my @changes;
+
+            if (! @ARGV) {
+                &eprint("To make changes, you must provide a list of bootstrap to operate on.\n");
+                return undef;
+            }
+            my $bootstrap = shift(@ARGV);
+
+            my $objSet = $db->get_objects("bootstrap", $opt_lookup, $bootstrap);
+
+            if ($opt_name) {
+                if ($objSet->count() == 1) {
+                    if (uc($opt_name) eq "UNDEF") {
+                        &eprint("You must define the name you wish to reference the bootstrap as!\n");
+                    } elsif ($opt_name =~ /^([a-zA-Z0-9_\.\-]+)$/) {
+                        $opt_name = $1;
+                        foreach my $obj ($objSet->get_list()) {
+                            my $bootstrapName = $obj->get("name") || "UNDEF";
+                            $obj->name($opt_name);
+                            &dprint("Setting new name for bootstrap $bootstrapName: $opt_name\n");
+                            $persist_count++;
+                        }
+                        push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "NAME", $opt_name));
+                    } else {
+                        &eprint("Option 'name' has invalid characters\n");
+                        return();
+                    }
+                } else {
+                    &eprint("Can not rename more then 1 bootstrap at a time!\n");
+                    return();
+                }
+            }
+
+            if ($opt_arch) {
+               foreach my $o ($objSet->get_list()) {
+                    $o->arch($opt_arch);
+                    $persist_count++;
+                }
+                push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "ARCH", $opt_arch));
+            }
+            if ($term->interactive()) {
+                if (! $self->confirm_changes($term, $objSet->count(), "Bootstrap(s)", @changes)) {
+                    return undef;
+                }
+            }
+
+            my $return_count = $db->persist($objSet);
+            &iprint("Updated $return_count object(s).\n");
 
         } else {
             $objSet = $db->get_objects($opt_type || $entity_type, $opt_lookup, &expand_bracket(@ARGV));

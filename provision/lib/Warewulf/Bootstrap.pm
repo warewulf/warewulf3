@@ -392,10 +392,24 @@ build_local_bootstrap()
 }
 
 
+=item canonicalize()
+Check and update the object if necessary. Returns the number of changes made.
+=cut
 
+sub
+canonicalize()
+{
+    my ($self) = @_;
+    my (undef, undef, undef, undef, $arch) = POSIX::uname();
+    my $changed = 0;
 
-
-
+    if (! $self->arch()) {
+        &iprint("This bootstrap has no arch define, defaulting to current system's arch");
+        $self->arch($arch);
+        $changed++;
+    }
+    return($changed);
+}
 
 
 =back

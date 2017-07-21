@@ -334,6 +334,11 @@ build_local_bootstrap()
 
             &nprint("Integrating the Warewulf bootstrap: $bootstrap_name\n");
 
+            if (! -d "$initramfsdir") {
+                &wprint("Could not locate the initramfs directory for bootstrap's architecture at $initramfsdir, SKIPPING...\n");
+                return();
+            }
+
             if (-f "$bootstrapdir/cookie") {
                 open(COOKIE, "$bootstrapdir/cookie");
                 chomp (my $cookie = <COOKIE>);
@@ -369,6 +374,7 @@ build_local_bootstrap()
                 system("cd $tmpdir/initramfs; cpio -i -u --quiet < $initramfsdir/base");
             } else {
                 &eprint("Could not locate the Warewulf bootstrap 'base' capability\n");
+                return();
             }
 
 

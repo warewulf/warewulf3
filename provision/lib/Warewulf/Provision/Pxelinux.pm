@@ -84,7 +84,7 @@ setup()
     my $self = shift;
     my $datadir = &Warewulf::ACVars::get("datadir");
     my $tftpdir = Warewulf::Provision::Tftp->new()->tftpdir();
-    my @tftpfiles = ("pcbios/pxelinux.0", "pcbios/lpxelinux.0", "pcbios/ldlinux.c32", "i386-efi/ldlinux.e32", "x86_64-efi/ldlinux.e64", "x86-64-efi/syslinux.efi", "i386-efi/syslinux.efi");
+    my @tftpfiles = ("pcbios/pxelinux.0", "pcbios/lpxelinux.0", "pcbios/ldlinux.c32", "i386-efi/ldlinux.e32", "x86_64-efi/ldlinux.e64", "x86_64-efi/syslinux.efi", "i386-efi/syslinux.efi");
 
     if ($tftpdir) {
         foreach my $f (@tftpfiles) {
@@ -95,7 +95,7 @@ setup()
                     mkpath($dirname);
                     system("cp $datadir/warewulf/$f $tftpdir/warewulf/loader/$f");
                 } else {
-                    &eprint("Could not locate Warewulf's internal $f! Things might be broken!\n");
+                    &eprint("Could not locate Warewulf's internal $datadir/warewulf/$f! Things might be broken!\n");
                 }
             }
         }
@@ -154,11 +154,11 @@ update()
         my $bootlocal = $nodeobj->bootlocal();
         my @masters = $nodeobj->get("master");
         my $bootstrapname;
-        my $arch = $nodeobj->arch($devname);
-        if (! $arch)
+        my $arch = $nodeobj->arch();
+        if (! $arch) {
             &dprint("No arch defined for node $nodename, using local system: $arch");
             (undef, undef, undef, undef, $arch) = POSIX::uname();
-        fi
+        }
 
         if (! $db_id) {
             &eprint("No DB ID associated with this node object object: $hostname/$nodename:$n\n");
@@ -174,10 +174,22 @@ update()
 
         if ($bootstrapid) {
             my $bootstrapObj = $db->get_objects("bootstrap", "_id", $bootstrapid)->get_object(0);
-            if ($bootstrapObj && $bootstrapObj->get("arch") != $arch) {
-                &wprint("Defined bootstrap architecture does not match architecture for $nodename, skipping...\n");
+            my $bootstrapName = $bootstrapObj->get("name");
+            my $bootstrapArch;
+
+            if ($bootstrapObj) {
+                $bootstrapArch = $bootstrapObj->get("arch");
+            }
+
+            if ($bootstrapObj && ! $bootstrapArch) {
+                &dprint("Bootstrap architecture not set for $bootstrapName, defaulting to local system...\n");
+                (undef, undef, undef, undef, $bootstrapArch) = POSIX::uname();
+            }
+
+            if ($bootstrapObj && $bootstrapArch && $bootstrapArch ne $arch) {
+                &wprint("Defined bootstrap architecture ($bootstrapArch) does not match architecture for $nodename ($arch), skipping...\n");
                 next;
-            elsif ($bootstrapObj) {
+            } elsif ($bootstrapObj) {
                 $bootstrapname = $bootstrapObj->name();
             } else {
                 &wprint("Defined bootstrap is not valid for node $nodename, skipping...\n");

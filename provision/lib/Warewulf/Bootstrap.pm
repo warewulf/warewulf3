@@ -335,7 +335,7 @@ build_local_bootstrap()
             &nprint("Integrating the Warewulf bootstrap: $bootstrap_name\n");
 
             if (! -d "$initramfsdir") {
-                &wprint("Could not locate the initramfs directory for bootstrap's architecture at $initramfsdir, SKIPPING...\n");
+                &wprint("Could not locate the initramfs directory for bootstrap's architecture at $initramfsdir, cannot integrate this bootstrap on this host...\n");
                 return();
             }
 

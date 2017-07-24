@@ -269,9 +269,18 @@ exec()
                 push(@changes, sprintf("   UNDEF: %-20s\n", "BOOTSTRAP"));
             } else {
                 my $bootstrapObj = $db->get_objects("bootstrap", "name", $opt_bootstrap)->get_object(0);
+                
                 if ($bootstrapObj and my $bootstrapid = $bootstrapObj->get("_id")) {
+                    
+                    my $bootstrapArch = $bootstrapObj->arch();
+
                     foreach my $obj ($objSet->get_list()) {
                         my $name = $obj->name() || "UNDEF";
+                        my $arch = $obj->arch();
+                        if ($arch && $bootstrapArch && $arch ne $bootstrapArch) {
+                          &eprint("Bootstrap ARCH ($bootstrapArch) does not match node ARCH ($arch), skipping!\n");
+                          next;
+                        }
                         $obj->bootstrapid($bootstrapid);
                         &dprint("Setting bootstrapid for node name: $name\n");
                         $persist_bool = 1;
@@ -295,8 +304,14 @@ exec()
             } else {
                 my $vnfsObj = $db->get_objects("vnfs", "name", $opt_vnfs)->get_object(0);
                 if ($vnfsObj and my $vnfsid = $vnfsObj->get("_id")) {
+                    my $vnfsArch = $vnfsObj->arch();
                     foreach my $obj ($objSet->get_list()) {
                         my $name = $obj->name() || "UNDEF";
+                        my $arch = $obj->arch();
+                        if ($arch && $vnfsArch && $arch ne $vnfsArch) {
+                          &eprint("Vnfs ARCH ($vnfsArch) does not match node ARCH ($arch), skipping!\n");
+                          next;
+                        }
                         $obj->vnfsid($vnfsid);
                         &dprint("Setting vnfsid for node name: $name\n");
                         $persist_bool = 1;

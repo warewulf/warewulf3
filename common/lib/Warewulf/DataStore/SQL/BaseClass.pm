@@ -1115,7 +1115,7 @@ del_object_impl($$)
             &wprintf("Unable to prepare datastore removal query: %s\n", $self->{'DBH'}->errstr);
             goto EARLY_EXIT;
         }
-        $sth = $self->{'STH_RMDS'};
+        $self->{'STH_RMDS'} = $sth;
     }
     if ( ! $self->{'STH_RMDS'}->execute($object_id) ) {
         &wprintf("Unable to execute datastore removal query: %s\n", $self->{'STH_RMDS'}->errstr);

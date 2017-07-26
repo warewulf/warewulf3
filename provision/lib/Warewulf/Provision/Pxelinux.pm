@@ -17,7 +17,9 @@ use Warewulf::Object;
 use Warewulf::Network;
 use Warewulf::DataStore;
 use Warewulf::Provision::Tftp;
+use File::Basename;
 use File::Path;
+use POSIX qw(uname);
 
 our @ISA = ('Warewulf::Object');
 
@@ -82,17 +84,18 @@ setup()
     my $self = shift;
     my $datadir = &Warewulf::ACVars::get("datadir");
     my $tftpdir = Warewulf::Provision::Tftp->new()->tftpdir();
-    my @tftpfiles = ("pxelinux.0", "lpxelinux.0", "ldlinux.c32", "ldlinux.e32", "ldlinux.e64", "syslinux64.efi", "syslinux32.efi");
+    my @tftpfiles = ("bin/undionly.kpxe", "bin-x86_64-efi/ipxe.efi", "bin-i386-efi/ipxe.efi");
 
     if ($tftpdir) {
         foreach my $f (@tftpfiles) {
-            if (! -f "$tftpdir/warewulf/$f") {
-                if (-f "$datadir/warewulf/$f") {
+            if (! -f "$tftpdir/warewulf/ipxe/$f") {
+                if (-f "$datadir/warewulf/ipxe/$f") {
                     &iprint("Copying $f to the tftp root\n");
-                    mkpath("$tftpdir/warewulf/");
-                    system("cp $datadir/warewulf/$f $tftpdir/warewulf/$f");
+                    my $dirname = dirname("$tftpdir/warewulf/ipxe/$f");
+                    mkpath($dirname);
+                    system("cp $datadir/warewulf/ipxe/$f $tftpdir/warewulf/ipxe/$f");
                 } else {
-                    &eprint("Could not locate Warewulf's internal $f! Things might be broken!\n");
+                    &eprint("Could not locate Warewulf's internal $datadir/warewulf/ipxe/$f! Things might be broken!\n");
                 }
             }
         }
@@ -102,7 +105,6 @@ setup()
 
     return($self);
 }
-
 
 =item update(@nodeobjects)
 
@@ -136,9 +138,9 @@ update()
         return();
     }
 
-    if (! -d "$tftproot/warewulf/pxelinux.cfg") {
-        &iprint("Creating pxelinux configuration directory: $tftproot/warewulf/pxelinux.cfg");
-        mkpath("$tftproot/warewulf/pxelinux.cfg");
+    if (! -d "$tftproot/warewulf/ipxe/cfg") {
+        &iprint("Creating ipxe configuration directory: $tftproot/warewulf/ipxe/cfg");
+        mkpath("$tftproot/warewulf/ipxe/cfg");
     }
 
     foreach my $nodeobj (@nodeobjs) {
@@ -151,6 +153,11 @@ update()
         my $bootlocal = $nodeobj->bootlocal();
         my @masters = $nodeobj->get("master");
         my $bootstrapname;
+        my $arch = $nodeobj->arch();
+        if (! $arch) {
+            &dprint("No arch defined for node $nodename, using local system: $arch");
+            (undef, undef, undef, undef, $arch) = POSIX::uname();
+        }
 
         if (! $db_id) {
             &eprint("No DB ID associated with this node object object: $hostname/$nodename:$n\n");
@@ -166,7 +173,22 @@ update()
 
         if ($bootstrapid) {
             my $bootstrapObj = $db->get_objects("bootstrap", "_id", $bootstrapid)->get_object(0);
+            my $bootstrapName = $bootstrapObj->get("name");
+            my $bootstrapArch;
+
             if ($bootstrapObj) {
+                $bootstrapArch = $bootstrapObj->get("arch");
+            }
+
+            if ($bootstrapObj && ! $bootstrapArch) {
+                &dprint("Bootstrap architecture not set for $bootstrapName, defaulting to local system...\n");
+                (undef, undef, undef, undef, $bootstrapArch) = POSIX::uname();
+            }
+
+            if ($bootstrapObj && $bootstrapArch && $bootstrapArch ne $arch) {
+                &wprint("Defined bootstrap architecture ($bootstrapArch) does not match architecture for $nodename ($arch), skipping...\n");
+                next;
+            } elsif ($bootstrapObj) {
                 $bootstrapname = $bootstrapObj->name();
             } else {
                 &wprint("Defined bootstrap is not valid for node $nodename, skipping...\n");
@@ -210,74 +232,68 @@ update()
 
             if ($hwaddr =~ /^([0-9a-zA-Z:]+)$/) {
                 $hwaddr = $1;
-                &iprint("Building Pxelinux configuration for: $nodename/$hwaddr\n");
+                &iprint("Building iPXE configuration for: $nodename/$hwaddr\n");
                 my $config = $hwaddr;
-                $config =~ s/:/-/g;
-                $config = $hwprefix ."-". $config;
 
                 if (! $bootstrapid) {
                     &iprint("Skipping $nodename-$devname-$hwaddr: No bootstrap defined\n");
-                    if (-f "$tftproot/warewulf/pxelinux.cfg/$config") {
+                    if (-f "$tftproot/warewulf/ipxe/cfg/$config") {
                         # If we know gotten this far, but not going to write a config, we
                         # can remove it.
-                        unlink("$tftproot/warewulf/pxelinux.cfg/$config");
+                        unlink("$tftproot/warewulf/ipxe/cfg/$config");
                     }
                     next;
                 }
 
-                &dprint("Creating pxelinux config at: $tftproot/warewulf/pxelinux.cfg/$config\n");
-                if (!open(PXELINUX, "> $tftproot/warewulf/pxelinux.cfg/$config")) {
-                    &eprint("Could not open PXELinux config: $!\n");
+                &dprint("Creating iPXE config at: $tftproot/warewulf/ipxe/cfg/$config\n");
+                if (!open(IPXE, "> $tftproot/warewulf/ipxe/cfg/$config")) {
+                    &eprint("Could not open iPXE config: $!\n");
                     next;
                 }
-                print PXELINUX "# Configuration for Warewulf node: $hostname\n";
-                print PXELINUX "# Warewulf data store ID: $db_id\n";
-                if (defined($bootlocal)) {
-                    print PXELINUX "DEFAULT bootlocal\n";
+                print IPXE "#!ipxe\n";
+                print IPXE "# Configuration for Warewulf node: $hostname\n";
+                print IPXE "# Warewulf data store ID: $db_id\n";
+                if (defined($bootlocal) && $bootlocal eq -1) {
+                    print IPXE "echo Set to bootlocal (exit), exiting iPXE to continue boot order\n";
+                    print IPXE "exit\n";
+                } elsif (defined($bootlocal) && $bootlocal eq 0)  {
+                    print IPXE "echo Set to bootlocal (normal), booting local disk\n";
+                    print IPXE "sanboot --no-describe --drive 0x80\n";
                 } else {
-                    print PXELINUX "DEFAULT bootstrap\n";
-                }
-                print PXELINUX "LABEL bootlocal\n";
 
-
-                if (defined($bootlocal)) {
-                    &dprint("$hostname: LOCALBOOT set to: $bootlocal\n");
-                    print PXELINUX "LOCALBOOT $bootlocal\n";
-                } else {
-                    print PXELINUX "LOCALBOOT 0\n";
+                    print IPXE "echo Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
+                    print IPXE "set base http://$master_ipaddr/WW/boot/warewulf\n";
+                    print IPXE "initrd \${base}/bootstrap/$arch/$bootstrapid/initfs.gz\n";
+                    print IPXE "kernel \${base}/bootstrap/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname ";
+                    print IPXE join(" ", @kargs) . " ";
+                    if ($console) {
+                        print IPXE "console=tty0 console=$console ";
+                    }
+                    if (scalar(@masters) > 0) {
+                        my $master = join(",", @masters);
+                        print IPXE "wwmaster=$master ";
+                    } else {
+                        print IPXE "wwmaster=$master_ipaddr ";
+                    }
+                    if ($devname and $node_ipaddr and $node_netmask) {
+                        print IPXE "wwipaddr=$node_ipaddr wwnetmask=$node_netmask wwnetdev=$devname wwhwaddr=$hwaddr ";
+                    } else {
+                        &dprint("$hostname: Skipping static network definition because configuration not complete\n");
+                    }
+                    if ($node_gateway) {
+                        print IPXE "wwgateway=$node_gateway ";
+                    } else {
+                        &dprint("$hostname: Skipping static gateway configuration as it is unconfigured\n");
+                    }
+                    if ($mtu) {
+                        print IPXE "wwmtu=$mtu";
+                    } else {
+                        &dprint("$hostname: Skipping static MTU configuration as it is unconfigured\n");
+                    }
+                    print IPXE "\nboot\n";
                 }
-                print PXELINUX "LABEL bootstrap\n";
-                print PXELINUX "SAY Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
-                print PXELINUX "KERNEL bootstrap/$bootstrapid/kernel\n";
-                print PXELINUX "APPEND ro initrd=bootstrap/$bootstrapid/initfs.gz wwhostname=$hostname ";
-                print PXELINUX join(" ", @kargs) . " ";
-                if ($console) {
-                    print PXELINUX "console=tty0 console=$console ";
-                }
-                if (scalar(@masters) > 0) {
-                    my $master = join(",", @masters);
-                    print PXELINUX "wwmaster=$master ";
-                } else {
-                    print PXELINUX "wwmaster=$master_ipaddr ";
-                }
-                if ($devname and $node_ipaddr and $node_netmask) {
-                    print PXELINUX "wwipaddr=$node_ipaddr wwnetmask=$node_netmask wwnetdev=$devname wwhwaddr=$hwaddr ";
-                } else {
-                    &dprint("$hostname: Skipping static network definition because configuration not complete\n");
-                }
-                if ($node_gateway) {
-                    print PXELINUX "wwgateway=$node_gateway ";
-                } else {
-                    &dprint("$hostname: Skipping static gateway configuration as it is unconfigured\n");
-                }
-                if ($mtu) {
-                    print PXELINUX "wwmtu=$mtu";
-                } else {
-                    &dprint("$hostname: Skipping static MTU configuration as it is unconfigured\n");
-                }
-                print PXELINUX "\n";
-                if (! close PXELINUX) {
-                    &eprint("Could not write Pxelinux configuration file: $!\n");
+                if (! close IPXE) {
+                    &eprint("Could not write iPXE configuration file: $!\n");
                 }
             } else {
                 &eprint("Node: $nodename-$devname: Bad characters in hwaddr: '$hwaddr'\n");

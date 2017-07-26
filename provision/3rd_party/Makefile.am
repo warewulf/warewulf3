@@ -1,56 +1,46 @@
 SUBDIRS = GPL BSD
 
-SYSLINUXTARGETS = lpxelinux.0 pxelinux.0 ldlinux.c32 syslinux64.efi syslinux32.efi ldlinux.e32 ldlinux.e64
+IPXETARGETS = bin/undionly.kpxe bin-x86_64-efi/ipxe.efi bin-i386-efi/ipxe.efi
 
 MAINTAINERCLEANFILES = Makefile.in
 
-all: $(SYSLINUXTARGETS)
+all: $(IPXETARGETS)
 
-SYSLINUX_VERSION = 6.04-pre1
-SYSLINUX_SOURCE = $(top_srcdir)/3rd_party/GPL/syslinux-$(SYSLINUX_VERSION).tar.gz
-SYSLINUX_DIR = syslinux-$(SYSLINUX_VERSION)
+IPXE_VERSION = 9ccd8fe5
+IPXE_SOURCE = $(top_srcdir)/3rd_party/GPL/ipxe-$(IPXE_VERSION).tar.xz
+IPXE_DIR = ipxe-$(IPXE_VERSION)
 
 
-syslinuxprepare:
-	@ if [ ! -d "_work/$(SYSLINUX_DIR)" ]; then \
-		echo "Extracting syslinux distribution" ;\
+prep:
+	@ if [ ! -d "_work/$(IPXE_DIR)" ]; then \
+		echo "Extracting IPXE" ;\
 		mkdir -p _work/ ;\
-		tar xzf $(SYSLINUX_SOURCE) -C _work/ ;\
+		tar -xJf $(IPXE_SOURCE) -C _work/ ;\
 	fi
-	touch prepare
 
-lpxelinux.0: syslinuxprepare
-	cp _work/$(SYSLINUX_DIR)/bios/core/lpxelinux.0 .
+bin/undionly.kpxe: prep
+	make -C _work/$(IPXE_DIR)/src bin/undionly.kpxe
 
-ldlinux.c32: syslinuxprepare
-	cp _work/$(SYSLINUX_DIR)/bios/com32/elflink/ldlinux/ldlinux.c32 .
+bin-x86_64-efi/ipxe.efi: prep
+	make -C _work/$(IPXE_DIR)/src bin-x86_64-efi/ipxe.efi
 
-ldlinux.e32: syslinuxprepare
-	cp _work/$(SYSLINUX_DIR)/efi32/com32/elflink/ldlinux/ldlinux.e32 .
+bin-i386-efi/ipxe.efi: prep
+	make -C _work/$(IPXE_DIR)/src bin-i386-efi/ipxe.efi
 
-ldlinux.e64: syslinuxprepare
-	cp _work/$(SYSLINUX_DIR)/efi64/com32/elflink/ldlinux/ldlinux.e64 .
-
-pxelinux.0: syslinuxprepare
-	cp _work/$(SYSLINUX_DIR)/bios/core/pxelinux.0 .
-
-syslinux64.efi: syslinuxprepare
-	cp _work/$(SYSLINUX_DIR)/efi64/efi/syslinux.efi syslinux64.efi
-
-syslinux32.efi: syslinuxprepare
-	cp _work/$(SYSLINUX_DIR)/efi32/efi/syslinux.efi syslinux32.efi
-
-install-data-local: $(SYSLINUXTARGETS)
+install-data-local: $(IPXETARGETS)
 	mkdir -p $(DESTDIR)/$(datadir)/warewulf/
-	@ for i in $(SYSLINUXTARGETS); do \
-		install -m 644 $$i $(DESTDIR)/$(datadir)/warewulf/ ; \
+	@ for i in $(IPXETARGETS); do \
+		installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i) ; \
+		mkdir -p $$installdir ; \
+		install -m 644 _work/$(IPXE_DIR)/src/$$i $$installdir/ ; \
 	done
 
 uninstall-local:
-	@ for i in $(SYSLINUXTARGETS); do \
-		rm -f $(DESTDIR)/$(datadir)/warewulf/$$i ; \
+	@ for i in $(IPXETARGETS); do \
+		installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i) ; \
+		rm -f $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i ; \
+		rmdir $$installdir 2>/dev/null || true ; \
 	done
-	rm -f prepare
 
 clean-local:
-	rm -rf _work prepare $(SYSLINUXTARGETS)
+	rm -rf _work 

@@ -1,5 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
+%define _cross_compile 0%{?cross_compile}
 
 Name: warewulf-provision
 Summary: Warewulf - Provisioning Module
@@ -12,6 +13,21 @@ Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common
 BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel device-mapper-devel
+
+
+%if 0%{?_cross_compile}
+
+%if "%{_arch}" == "x86_64"
+BuildRequires: gcc-aarch64-linux-gnu
+%endif
+
+%if "%{_arch}" == "aarch64"
+BuildRequires: gcc-x86_64-linux-gnu
+%endif
+
+%endif
+
+
 Conflicts: warewulf < 3
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
@@ -69,7 +85,13 @@ available the included GPL software.
 
 
 %build
-%configure
+
+%if 0%{?_cross_compile}
+  %configure --enable-cross-compile
+%else
+  %configure
+%endif
+
 %{__make} %{?mflags}
 
 

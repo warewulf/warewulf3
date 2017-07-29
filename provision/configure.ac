@@ -82,8 +82,6 @@ AC_ARG_ENABLE([cross_compile],
   AS_HELP_STRING([--enable-cross-compile], [Enable cross-compile of iPXE and Initramfs]))
 
 AC_CANONICAL_HOST
-build_arm64=no
-build_x86_64=no
 
 AS_CASE([$host_cpu],
     [x86_64],

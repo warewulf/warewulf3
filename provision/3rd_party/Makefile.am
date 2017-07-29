@@ -1,12 +1,12 @@
 SUBDIRS = GPL BSD
 
-IPXETARGETS = bin/undionly.kpxe bin-x86_64-efi/ipxe.efi bin-i386-efi/ipxe.efi
+IPXETARGETS = bin-i386-pcbios/undionly.kpxe bin-x86_64-efi/ipxe.efi bin-i386-efi/ipxe.efi bin-arm64-efi/snp.efi
 
 MAINTAINERCLEANFILES = Makefile.in
 
 all: $(IPXETARGETS)
 
-IPXE_VERSION = 9ccd8fe5
+IPXE_VERSION = 041d362
 IPXE_SOURCE = $(top_srcdir)/3rd_party/GPL/ipxe-$(IPXE_VERSION).tar.xz
 IPXE_DIR = ipxe-$(IPXE_VERSION)
 
@@ -18,21 +18,38 @@ prep:
 		tar -xJf $(IPXE_SOURCE) -C _work/ ;\
 	fi
 
-bin/undionly.kpxe: prep
-	make -C _work/$(IPXE_DIR)/src bin/undionly.kpxe
+bin-i386-pcbios/undionly.kpxe: prep
+
+if BUILD_X86_64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-pcbios/undionly.kpxe
+endif
 
 bin-x86_64-efi/ipxe.efi: prep
-	make -C _work/$(IPXE_DIR)/src bin-x86_64-efi/ipxe.efi
+
+if BUILD_X86_64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/ipxe.efi
+endif
 
 bin-i386-efi/ipxe.efi: prep
-	make -C _work/$(IPXE_DIR)/src bin-i386-efi/ipxe.efi
+
+if BUILD_X86_64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/ipxe.efi
+endif
+
+bin-arm64-efi/snp.efi: prep
+
+if BUILD_ARM64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi
+endif
 
 install-data-local: $(IPXETARGETS)
 	mkdir -p $(DESTDIR)/$(datadir)/warewulf/
 	@ for i in $(IPXETARGETS); do \
-		installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i) ; \
-		mkdir -p $$installdir ; \
-		install -m 644 _work/$(IPXE_DIR)/src/$$i $$installdir/ ; \
+		if [ -f _work/$(IPXE_DIR)/src/$$i ]; then \
+			installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i) ; \
+			mkdir -p $$installdir ; \
+			install -m 644 _work/$(IPXE_DIR)/src/$$i $$installdir/ ; \
+		fi ; \
 	done
 
 uninstall-local:

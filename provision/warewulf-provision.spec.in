@@ -150,13 +150,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/warewulf-httpd.conf
 %{_bindir}/*
 %attr(0750, root, apache) %{_libexecdir}/warewulf/cgi-bin/
-%{_datadir}/warewulf/ldlinux.c32
-%{_datadir}/warewulf/ldlinux.e32
-%{_datadir}/warewulf/ldlinux.e64
-%{_datadir}/warewulf/lpxelinux.0
-%{_datadir}/warewulf/pxelinux.0
-%{_datadir}/warewulf/syslinux32.efi
-%{_datadir}/warewulf/syslinux64.efi
+%{_datadir}/warewulf/ipxe/*
 %{perl_vendorlib}/Warewulf/Event/Bootstrap.pm
 %{perl_vendorlib}/Warewulf/Event/Dhcp.pm
 %{perl_vendorlib}/Warewulf/Event/Pxelinux.pm

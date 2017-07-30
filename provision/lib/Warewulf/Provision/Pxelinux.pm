@@ -96,7 +96,7 @@ setup()
                     my $dirname = dirname("$tftpdir/warewulf/ipxe/$f");
                     mkpath($dirname);
                     system("cp $datadir/warewulf/ipxe/$f $tftpdir/warewulf/ipxe/$f");
-                } elsif ($arch == "x86_64") {
+                } elsif ($arch eq "x86_64") {
                     &eprint("Could not locate Warewulf's internal $datadir/warewulf/ipxe/$f! Things might be broken!\n");
                 }
             }
@@ -108,7 +108,7 @@ setup()
                     my $dirname = dirname("$tftpdir/warewulf/ipxe/$f");
                     mkpath($dirname);
                     system("cp $datadir/warewulf/ipxe/$f $tftpdir/warewulf/ipxe/$f");
-                } elsif ($arch == "aarch64") {
+                } elsif ($arch eq "aarch64") {
                     &eprint("Could not locate Warewulf's internal $datadir/warewulf/ipxe/$f! Things might be broken!\n");
                 }
             }

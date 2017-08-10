@@ -262,8 +262,8 @@ if ($config->get("drivers")) {
         if ($check_compression) {
             my $dependencies = `ldd /sbin/depmod`;
             if (index($dependencies, "liblzma") == -1) {
-                $wprint("Using compressed kernel modules, but depmod doesn't support it\n");
-                $wprint("-> bootstrap will likely fail\n");
+                &wprint("Using compressed kernel modules, but depmod doesn't support it\n");
+                &wprint("-> bootstrap will likely fail\n");
             }
         }
     }

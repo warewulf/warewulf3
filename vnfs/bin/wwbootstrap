@@ -181,7 +181,7 @@ if ($config->get("drivers")) {
                 my $path = $1;
                 my @deps = split(/\s+/, $2);
                 my $name = basename($path);
-                $name =~ s/\.ko$//;
+                $name =~ s/\.ko(\.(xz|bz2|gz))?$//;
                 $mod_path{"$name"} = $path;
                 push(@mod_files, $path);
                 if (@deps) {

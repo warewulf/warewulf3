@@ -249,6 +249,23 @@ if ($config->get("drivers")) {
         &nprint("Number of drivers included in bootstrap: $module_count\n");
         &dprint("Running depmod\n");
         system("/sbin/depmod -a -b $tmpdir/initramfs $opt_kversion");
+
+        # Check for compression support in depmod if necessary
+        my $check_compression = undef;
+        open(DEP, "$opt_chroot/lib/modules/$opt_kversion/modules.dep");
+        while (my $line = <DEP>) {
+            if  ($_ =~ /\.ko\.(xz|bz2|gz)$/) {
+                $check_compression = 1;
+            }
+        }
+        close(DEP);
+        if ($check_compression) {
+            my $dependencies = `ldd /sbin/depmod`;
+            if (index($dependencies, "liblzma") == -1) {
+                $wprint("Using compressed kernel modules, but depmod doesn't support it\n");
+                $wprint("-> bootstrap will likely fail\n");
+            }
+        }
     }
 }
 

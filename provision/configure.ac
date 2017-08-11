@@ -120,6 +120,7 @@ AC_OUTPUT(
    etc/Makefile
    etc/defaults/Makefile
    etc/filesystem/Makefile
+   etc/filesystem/examples/Makefile
    etc/warewulf-httpd.conf
    initramfs/Makefile
    initramfs/capabilities/Makefile

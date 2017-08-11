@@ -14,3 +14,6 @@ ACVars.pm
 *~
 
 etc/warewulf-httpd.conf
+3rd_party/pcbios
+3rd_party/i386-efi
+3rd_party/x86_64-efi

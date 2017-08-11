@@ -10,6 +10,7 @@ package Warewulf::Node;
 use Warewulf::Object;
 use Warewulf::ObjectSet;
 use Warewulf::Logger;
+use POSIX qw(uname);
 
 our @ISA = ('Warewulf::Object');
 
@@ -304,6 +305,7 @@ canonicalize()
     my $netdevs = $self->get("netdevs");
     my $nodename = $self->get("nodename");
     my $name = $self->get("name");
+    my (undef, undef, undef, undef, $machine) = POSIX::uname();
     my $changed = 0;
 
     if ($netdevs) {
@@ -339,6 +341,11 @@ canonicalize()
     if ($name and ! $nodename) {
         &iprint("Updating name array ($name): ". join(",", split(/\./, $name)) ."\n");
         $self->name(split(/\./, $name));
+        $changed++;
+    }
+    if (! $self->arch()) {
+        &iprint("This node has no arch define, defaulting to current system's arch");
+        $self->arch($machine);
         $changed++;
     }
     return($changed);
@@ -694,6 +701,20 @@ enabled()
     my $ret = $self->prop("enabled", qr/^([0-1]|true|false|UNDEF)$/i, @_);
 
     return ((defined($ret)) ? ($ret) : (1));
+}
+
+=item arch($string)
+
+Set or return the architecture of the node.
+
+=cut
+
+sub
+arch()
+{
+    my $self = shift;
+
+    return $self->prop("arch", qr/^([a-zA-Z0-9_]+)$/, @_);
 }
 
 =back

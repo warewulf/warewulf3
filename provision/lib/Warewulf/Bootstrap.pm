@@ -18,6 +18,7 @@ use Warewulf::Provision::Tftp;
 use File::Basename;
 use File::Path;
 use Digest::MD5 qw(md5_hex);
+use POSIX qw(uname);
 
 
 our @ISA = ('Warewulf::Object');
@@ -109,6 +110,20 @@ size()
 }
 
 
+=item arch($string)
+
+Set or return the architecture of the raw file stored within the data store.
+
+=cut
+
+sub
+arch()
+{
+    my $self = shift;
+
+    return $self->prop("arch", qr/^([a-zA-Z0-9_]+)$/, @_);
+}
+
 =item bootstrap_import($file)
 
 Import a bootstrap image at the defined path into the data store directly.
@@ -123,12 +138,18 @@ sub
 bootstrap_import()
 {
     my ($self, $path) = @_;
+    my (undef, undef, undef, undef, $machine) = POSIX::uname();
 
     my $id = $self->id();
 
     if (! $id) {
         &eprint("This object has no ID!\n");
         return();
+    }
+
+    if (! $self->arch()) {
+        &dprint("This object has no arch, defaulting to current system's arch");
+        $self->arch($machine);
     }
 
     if ($path) {
@@ -217,13 +238,14 @@ delete_local_bootstrap()
     if ($self) {
         my $bootstrap_name = $self->get("name") || "UNDEF";
         my $bootstrap_id = $self->get("_id");
+        my $arch = $self->get("arch");
 
         &dprint("Going to delete bootstrap: $bootstrap_name\n");
 
-        if ($bootstrap_id =~ /^([0-9]+)$/) {
+        if ($bootstrap_id =~ /^([0-9]+)$/ && $arch) {
             my $id = $1;
             my $tftpboot = Warewulf::Provision::Tftp->new()->tftpdir();
-            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$bootstrap_id/";
+            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$arch/$bootstrap_id/";
 
             &nprint("Deleting local bootable bootstrap files: $bootstrap_name\n");
 
@@ -280,6 +302,11 @@ build_local_bootstrap()
     if ($self) {
         my $bootstrap_name = $self->name();
         my $bootstrap_id = $self->id();
+        my $arch = $self->arch();
+        if (! $arch) {
+            (undef, undef, undef, undef, $arch) = POSIX::uname();
+            &dprint("No architecture specified for bootstrap $bootstrap_name, default to local system");
+        }
 
         if (!$bootstrap_name) {
             &dprint("Skipping build_bootstrap() as the name is undefined\n");
@@ -298,14 +325,19 @@ build_local_bootstrap()
             my $id = $1;
             my $ds = Warewulf::DataStore->new();
             my $tftpboot = Warewulf::Provision::Tftp->new()->tftpdir();
-            my $initramfsdir = &Warewulf::ACVars::get("statedir") . "/warewulf/initramfs/";
+            my $initramfsdir = &Warewulf::ACVars::get("statedir") . "/warewulf/initramfs/$arch";
             my $randstring = &rand_string("12");
             my $tmpdir = "/var/tmp/wwinitrd.$randstring";
             my $binstore = $ds->binstore($bootstrap_id);
-            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$bootstrap_id/";
+            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$arch/$bootstrap_id/";
             my $initramfs = "$initramfsdir/initfs";
 
             &nprint("Integrating the Warewulf bootstrap: $bootstrap_name\n");
+
+            if (! -d "$initramfsdir") {
+                &wprint("Could not locate the initramfs directory for bootstrap's architecture at $initramfsdir, cannot integrate this bootstrap on this host...\n");
+                return();
+            }
 
             if (-f "$bootstrapdir/cookie") {
                 open(COOKIE, "$bootstrapdir/cookie");
@@ -342,6 +374,7 @@ build_local_bootstrap()
                 system("cd $tmpdir/initramfs; cpio -i -u --quiet < $initramfsdir/base");
             } else {
                 &eprint("Could not locate the Warewulf bootstrap 'base' capability\n");
+                return();
             }
 
 
@@ -365,10 +398,24 @@ build_local_bootstrap()
 }
 
 
+=item canonicalize()
+Check and update the object if necessary. Returns the number of changes made.
+=cut
 
+sub
+canonicalize()
+{
+    my ($self) = @_;
+    my (undef, undef, undef, undef, $arch) = POSIX::uname();
+    my $changed = 0;
 
-
-
+    if (! $self->arch()) {
+        &iprint("This bootstrap has no arch define, defaulting to current system's arch");
+        $self->arch($arch);
+        $changed++;
+    }
+    return($changed);
+}
 
 
 =back

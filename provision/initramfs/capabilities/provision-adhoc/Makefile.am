@@ -2,6 +2,8 @@ METHODSCRIPTS = 05-adhoc-pre 90-adhoc-post
 
 MAINTAINERCLEANFILES = Makefile.in
 
+MACHINE:=$(shell uname -m)
+
 rootfs:
 	rm -rf rootfs
 	mkdir -p rootfs/warewulf/provision/
@@ -14,11 +16,11 @@ capability.cpio: rootfs
 	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
 
 install-data-local: capability.cpio
-	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities
-	install -m 644 capability.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities/provision-adhoc
+	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities
+	install -m 644 capability.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities/provision-adhoc
 
 uninstall-local:
-	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities/provision-adhoc
+	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities/provision-adhoc
 
 clean-local:
 	rm -rf rootfs capability.cpio

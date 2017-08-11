@@ -17,7 +17,9 @@ use Warewulf::Object;
 use Warewulf::Network;
 use Warewulf::DataStore;
 use Warewulf::Provision::Tftp;
+use File::Basename;
 use File::Path;
+use POSIX qw(uname);
 
 our @ISA = ('Warewulf::Object');
 
@@ -82,17 +84,18 @@ setup()
     my $self = shift;
     my $datadir = &Warewulf::ACVars::get("datadir");
     my $tftpdir = Warewulf::Provision::Tftp->new()->tftpdir();
-    my @tftpfiles = ("pxelinux.0", "lpxelinux.0", "ldlinux.c32", "ldlinux.e32", "ldlinux.e64", "syslinux64.efi", "syslinux32.efi");
+    my @tftpfiles = ("pcbios/pxelinux.0", "pcbios/lpxelinux.0", "pcbios/ldlinux.c32", "i386-efi/ldlinux.e32", "x86_64-efi/ldlinux.e64", "x86_64-efi/syslinux.efi", "i386-efi/syslinux.efi");
 
     if ($tftpdir) {
         foreach my $f (@tftpfiles) {
-            if (! -f "$tftpdir/warewulf/$f") {
+            if (! -f "$tftpdir/warewulf/loader/$f") {
                 if (-f "$datadir/warewulf/$f") {
                     &iprint("Copying $f to the tftp root\n");
-                    mkpath("$tftpdir/warewulf/");
-                    system("cp $datadir/warewulf/$f $tftpdir/warewulf/$f");
+                    my $dirname = dirname("$tftpdir/warewulf/loader/$f");
+                    mkpath($dirname);
+                    system("cp $datadir/warewulf/$f $tftpdir/warewulf/loader/$f");
                 } else {
-                    &eprint("Could not locate Warewulf's internal $f! Things might be broken!\n");
+                    &eprint("Could not locate Warewulf's internal $datadir/warewulf/$f! Things might be broken!\n");
                 }
             }
         }
@@ -151,6 +154,11 @@ update()
         my $bootlocal = $nodeobj->bootlocal();
         my @masters = $nodeobj->get("master");
         my $bootstrapname;
+        my $arch = $nodeobj->arch();
+        if (! $arch) {
+            &dprint("No arch defined for node $nodename, using local system: $arch");
+            (undef, undef, undef, undef, $arch) = POSIX::uname();
+        }
 
         if (! $db_id) {
             &eprint("No DB ID associated with this node object object: $hostname/$nodename:$n\n");
@@ -166,7 +174,22 @@ update()
 
         if ($bootstrapid) {
             my $bootstrapObj = $db->get_objects("bootstrap", "_id", $bootstrapid)->get_object(0);
+            my $bootstrapName = $bootstrapObj->get("name");
+            my $bootstrapArch;
+
             if ($bootstrapObj) {
+                $bootstrapArch = $bootstrapObj->get("arch");
+            }
+
+            if ($bootstrapObj && ! $bootstrapArch) {
+                &dprint("Bootstrap architecture not set for $bootstrapName, defaulting to local system...\n");
+                (undef, undef, undef, undef, $bootstrapArch) = POSIX::uname();
+            }
+
+            if ($bootstrapObj && $bootstrapArch && $bootstrapArch ne $arch) {
+                &wprint("Defined bootstrap architecture ($bootstrapArch) does not match architecture for $nodename ($arch), skipping...\n");
+                next;
+            } elsif ($bootstrapObj) {
                 $bootstrapname = $bootstrapObj->name();
             } else {
                 &wprint("Defined bootstrap is not valid for node $nodename, skipping...\n");
@@ -248,8 +271,8 @@ update()
                 }
                 print PXELINUX "LABEL bootstrap\n";
                 print PXELINUX "SAY Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
-                print PXELINUX "KERNEL bootstrap/$bootstrapid/kernel\n";
-                print PXELINUX "APPEND ro initrd=bootstrap/$bootstrapid/initfs.gz wwhostname=$hostname ";
+                print PXELINUX "KERNEL bootstrap/$arch/$bootstrapid/kernel\n";
+                print PXELINUX "APPEND ro initrd=bootstrap/$arch/$bootstrapid/initfs.gz wwhostname=$hostname ";
                 print PXELINUX join(" ", @kargs) . " ";
                 if ($console) {
                     print PXELINUX "console=tty0 console=$console ";

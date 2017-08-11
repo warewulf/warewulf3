@@ -21,6 +21,7 @@ use Warewulf::DSO::Bootstrap;
 use Getopt::Long;
 use File::Basename;
 use File::Path;
+use POSIX qw(uname);
 use Text::ParseWords;
 
 our @ISA = ('Warewulf::Module::Cli');
@@ -68,19 +69,22 @@ help()
     $h .= "         export          Export a bootstrap image to the local file system\n";
     $h .= "         delete          Delete a bootstrap image from Warewulf\n";
     $h .= "         list            Show all of the currently imported bootstrap images\n";
+    $h .= "         set             Set bootstrap attributes\n";
     $h .= "         (re)build       Build (or rebuild) the tftp bootable image(s) on this host\n";
     $h .= "         help            Show usage information\n";
     $h .= "\n";
     $h .= "OPTIONS:\n";
     $h .= "\n";
-    $h .= "     -n, --name      When importing a bootstrap use this name instead of the file name\n";
+    $h .= "     -n, --name      Name of bootstrap, defaults to the file name on import\n";
+    $h .= "     -a, --arch      Architecture of bootstrap, defaults to the current machine on import\n";
     $h .= "     -1              With list command, output bootstrap name only\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
     $h .= "\n";
-    $h .= "     Warewulf> bootstrap import /path/to/name.wwbs --name=bootstrap\n";
+    $h .= "     Warewulf> bootstrap import /path/to/name.wwbs --name=bootstrap --arch=x86_64\n";
     $h .= "     Warewulf> bootstrap export bootstrap1 bootstrap2 /tmp/exported_bootstrap/\n";
     $h .= "     Warewulf> bootstrap list\n";
+    $h .= "     Warewulf> bootstrap set --arch=x86_64 name\n";
     $h .= "\n";
 
     return $h;
@@ -158,6 +162,7 @@ exec()
     GetOptions(
         'n|name=s'      => \$opt_name,
         'l|lookup=s'    => \$opt_lookup,
+        'a|arch=s'      => \$opt_arch,
         '1'             => \$opt_single,
     );
 
@@ -222,6 +227,7 @@ exec()
                         $path = $1;
                         if (-f $path) {
                             my $name;
+                            my $arch;
                             my $objSet;
                             my $obj;
                             if ($opt_name) {
@@ -229,6 +235,12 @@ exec()
                             } else {
                                 $name = basename($path);
                                 $name =~ s/\.wwbs$//;
+                            }
+                            if ($opt_arch) {
+                                $arch = $opt_arch;
+                            } else {
+                                &dprint("Architecture not specified, defaulting the local system architecture\n");
+                                (undef, undef, undef, undef, $arch) = POSIX::uname();
                             }
                             $objSet = $db->get_objects("bootstrap", $opt_lookup, $name);
 
@@ -247,6 +259,7 @@ exec()
                                 &dprint("Creating a new Warewulf bootstrap object\n");
                                 $obj = Warewulf::Bootstrap->new();
                                 $obj->name($name);
+                                $obj->arch($arch);
                                 &dprint("Persisting the new Warewulf bootstrap object with name: $name\n");
                                 $db->persist($obj);
                             }
@@ -268,6 +281,56 @@ exec()
                 &eprint("USAGE: bootstrap import [bootstrap path]\n");
                 return undef;
             }
+        } elsif ($command eq "set") {
+            my $persist_count = 0;
+            my @changes;
+
+            if (! @ARGV) {
+                &eprint("To make changes, you must provide a list of bootstrap to operate on.\n");
+                return undef;
+            }
+            my $bootstrap = shift(@ARGV);
+
+            my $objSet = $db->get_objects("bootstrap", $opt_lookup, $bootstrap);
+
+            if ($opt_name) {
+                if ($objSet->count() == 1) {
+                    if (uc($opt_name) eq "UNDEF") {
+                        &eprint("You must define the name you wish to reference the bootstrap as!\n");
+                    } elsif ($opt_name =~ /^([a-zA-Z0-9_\.\-]+)$/) {
+                        $opt_name = $1;
+                        foreach my $obj ($objSet->get_list()) {
+                            my $bootstrapName = $obj->get("name") || "UNDEF";
+                            $obj->name($opt_name);
+                            &dprint("Setting new name for bootstrap $bootstrapName: $opt_name\n");
+                            $persist_count++;
+                        }
+                        push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "NAME", $opt_name));
+                    } else {
+                        &eprint("Option 'name' has invalid characters\n");
+                        return();
+                    }
+                } else {
+                    &eprint("Can not rename more then 1 bootstrap at a time!\n");
+                    return();
+                }
+            }
+
+            if ($opt_arch) {
+               foreach my $o ($objSet->get_list()) {
+                    $o->arch($opt_arch);
+                    $persist_count++;
+                }
+                push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "ARCH", $opt_arch));
+            }
+            if ($term->interactive()) {
+                if (! $self->confirm_changes($term, $objSet->count(), "Bootstrap(s)", @changes)) {
+                    return undef;
+                }
+            }
+
+            my $return_count = $db->persist($objSet);
+            &iprint("Updated $return_count object(s).\n");
 
         } else {
             $objSet = $db->get_objects($opt_type || $entity_type, $opt_lookup, &expand_bracket(@ARGV));
@@ -303,11 +366,12 @@ exec()
                         printf("%-32s\n", $obj->name() || "UNDEF");
                     }
                 } else {
-                    &nprint("BOOTSTRAP NAME            SIZE (M)\n");
+                    &nprint("BOOTSTRAP NAME            SIZE (M)      ARCH\n");
                     foreach my $obj ($objSet->get_list("name")) {
-                        printf("%-25s %-8.1f\n",
+                        printf("%-25s %-13.1f %s\n",
                             $obj->name() || "UNDEF",
-                            $obj->size() ? $obj->size()/(1024*1024) : "0"
+                            $obj->size() ? $obj->size()/(1024*1024) : "0",
+                            $obj->arch() || "UNDEF",
                         );
                         $return_count ++;
                     }

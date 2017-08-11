@@ -559,7 +559,7 @@ sub fs()
         if ($path eq "UNDEF") {
             @data = undef;
             $self->del("fs");
-        } elsif (open(FILE, $path) || open(FILE, $fs_cmds_dir . $path)) {
+        } elsif (open(FILE, $fs_cmds_dir . $path . ".cmds") || open(FILE, $fs_cmds_dir . $path) || open(FILE, $path)) {
             &dprint("   Opening file to import for FS: $path\n");
             while (my $line = <FILE>) {
                 if ($line =~ /^$/ || $line =~ /^#.+/) {

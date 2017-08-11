@@ -1,68 +1,63 @@
 SUBDIRS = GPL BSD
 
-SYSLINUXTARGETS = pcbios/lpxelinux.0 pcbios/pxelinux.0 pcbios/ldlinux.c32 x86_64-efi/syslinux.efi x86_64-efi/ldlinux.e64 i386-efi/syslinux.efi i386-efi/ldlinux.e32
+IPXETARGETS = bin-i386-pcbios/undionly.kpxe bin-x86_64-efi/ipxe.efi bin-i386-efi/ipxe.efi bin-arm64-efi/snp.efi
 
 MAINTAINERCLEANFILES = Makefile.in
 
-MACHINE:=$(shell uname -m)
+all: $(IPXETARGETS)
 
-all: $(SYSLINUXTARGETS)
-
-SYSLINUX_VERSION = 6.04-pre1
-SYSLINUX_SOURCE = $(top_srcdir)/3rd_party/GPL/syslinux-$(SYSLINUX_VERSION).tar.gz
-SYSLINUX_DIR = syslinux-$(SYSLINUX_VERSION)
+IPXE_VERSION = 041d362
+IPXE_SOURCE = $(top_srcdir)/3rd_party/GPL/ipxe-$(IPXE_VERSION).tar.xz
+IPXE_DIR = ipxe-$(IPXE_VERSION)
 
 
-syslinuxprepare:
-	@ if [ ! -d "_work/$(SYSLINUX_DIR)" ]; then \
-		echo "Extracting syslinux distribution" ;\
+prep:
+	@ if [ ! -d "_work/$(IPXE_DIR)" ]; then \
+		echo "Extracting IPXE" ;\
 		mkdir -p _work/ ;\
-		tar xzf $(SYSLINUX_SOURCE) -C _work/ ;\
+		tar -xJf $(IPXE_SOURCE) -C _work/ ;\
 	fi
-	touch prepare
 
-pcbios/lpxelinux.0: syslinuxprepare
-	mkdir -p pcbios
-	cp _work/$(SYSLINUX_DIR)/bios/core/lpxelinux.0 pcbios/lpxelinux.0
+bin-i386-pcbios/undionly.kpxe: prep
 
-pcbios/ldlinux.c32: syslinuxprepare
-	mkdir -p pcbios
-	cp _work/$(SYSLINUX_DIR)/bios/com32/elflink/ldlinux/ldlinux.c32 pcbios/ldlinux.c32
+if BUILD_X86_64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-pcbios/undionly.kpxe
+endif
 
-i386-efi/ldlinux.e32: syslinuxprepare
-	mkdir -p i386-efi
-	cp _work/$(SYSLINUX_DIR)/efi32/com32/elflink/ldlinux/ldlinux.e32 i386-efi/ldlinux.e32
+bin-x86_64-efi/ipxe.efi: prep
 
-x86_64-efi/ldlinux.e64: syslinuxprepare
-	mkdir -p x86_64-efi
-	cp _work/$(SYSLINUX_DIR)/efi64/com32/elflink/ldlinux/ldlinux.e64 x86_64-efi/ldlinux.e64
+if BUILD_X86_64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/ipxe.efi
+endif
 
-pcbios/pxelinux.0: syslinuxprepare
-	mkdir -p pcbios
-	cp _work/$(SYSLINUX_DIR)/bios/core/pxelinux.0 pcbios/pxelinux.0
+bin-i386-efi/ipxe.efi: prep
 
-x86_64-efi/syslinux.efi: syslinuxprepare
-	mkdir -p x86_64-efi
-	cp _work/$(SYSLINUX_DIR)/efi64/efi/syslinux.efi x86_64-efi/syslinux.efi
+if BUILD_X86_64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/ipxe.efi
+endif
 
-i386-efi/syslinux.efi: syslinuxprepare
-	mkdir -p i386-efi
-	cp _work/$(SYSLINUX_DIR)/efi32/efi/syslinux.efi i386-efi/syslinux.efi
+bin-arm64-efi/snp.efi: prep
 
-install-data-local: $(SYSLINUXTARGETS)
-	@ for i in $(SYSLINUXTARGETS) ; do \
-		installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/$$i) ; \
-		mkdir -p $$installdir ; \
-		install -m 644 $$i $$installdir/ ; \
+if BUILD_ARM64
+	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi
+endif
+
+install-data-local: $(IPXETARGETS)
+	mkdir -p $(DESTDIR)/$(datadir)/warewulf/
+	@ for i in $(IPXETARGETS); do \
+		if [ -f _work/$(IPXE_DIR)/src/$$i ]; then \
+			installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i) ; \
+			mkdir -p $$installdir ; \
+			install -m 644 _work/$(IPXE_DIR)/src/$$i $$installdir/ ; \
+		fi ; \
 	done
 
 uninstall-local:
-	@ for i in $(SYSLINUXTARGETS); do \
-		installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/$$i) ; \
-		rm -f $(DESTDIR)/$(datadir)/warewulf/$$i ; \
-    rmdir $$installdir 2>/dev/null || true ; \
+	@ for i in $(IPXETARGETS); do \
+		installdir=$$(dirname $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i) ; \
+		rm -f $(DESTDIR)/$(datadir)/warewulf/ipxe/$$i ; \
+		rmdir $$installdir 2>/dev/null || true ; \
 	done
-	rm -f prepare
 
 clean-local:
-	rm -rf _work prepare $(SYSLINUXTARGETS) i386-efi x86_64-efi pcbios
+	rm -rf _work 

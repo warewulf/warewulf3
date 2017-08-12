@@ -207,10 +207,6 @@ wwreqroot() {
     fi
 }
 
-wwishost() {
-    TARGET_HOSTNAME="$1"
-    if [[ $TARGET_HOSTNAME =~ ([0-9]+\.){3}[0-9]+
-
 wwpackage_check() {
     for PACKAGE in "$@"; do
         if [ -x /bin/rpm ]; then

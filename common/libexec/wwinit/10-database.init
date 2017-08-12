@@ -11,6 +11,108 @@
 #INIT: DATASTORE
 #INIT: DATABASE
 
+mysql_cli_args()
+{
+    local args tmppass
+
+    printf "[client]\n" > "${SCRIPT_TMPDIR}/my.cnf"
+    chmod 600 "${SCRIPT_TMPDIR}/my.cnf"
+    if [ -n "$DBPORT" ]; then
+        printf "port=%d\n" "$DBPORT" >> "${SCRIPT_TMPDIR}/my.cnf"
+    fi
+    if [ -n "$DBSERVER" ]; then
+        printf "host=%s\n" "$DBSERVER" >> "${SCRIPT_TMPDIR}/my.cnf"
+    fi
+    args="--defaults-extra-file=${SCRIPT_TMPDIR}/my.cnf"
+    while ! echo -n | mysql $args 2>/dev/null; do
+        local savedIFS="$IFS";
+
+        IFS=""
+        read -s -p "Enter database password for the root user:" tmppass
+        IFS="$savedIFS"
+        #
+        # Yes, it's not _technically_ safe to set the password in the
+        # environment, but this command should execute so quickly that
+        # the real risk is likely minimal.
+        #
+        echo -n | MYSQL_PWD="$tmppass" mysql $args 2>/dev/null
+        if [ $? -eq 0 ]; then
+            printf "password=%s\n" "$tmppass" >> "${SCRIPT_TMPDIR}/my.cnf"
+        fi
+    done
+    echo $args
+}
+
+PSQL_GOT_PASSWORD=0
+PSQL_USE_SUDO=1
+declare -a PSQL_ARGS
+
+psql_setup_cli_args()
+{
+    local args
+
+    if [ -n "$PGUSER" ]; then
+        PSQL_ARGS+=("--user=$PGUSER")
+        PSQL_USE_SUDO=0
+    else
+        PSQL_ARGS=("--user=postgres")
+        PGUSER=postgres
+    fi
+    if [ -n "$DBSERVER" ]; then
+        local add_host=1
+
+        if [ "$DBSERVER" = 'localhost' -a $PSQL_USE_SUDO -eq 1 ]; then
+            echo -n | sudo -u postgres psql --dbname=template1 2>/dev/null
+            if [ $? -eq 0 ]; then
+                add_host=0
+            fi
+        fi
+        if [ $add_host -eq 1 ]; then
+            PSQL_USE_SUDO=0
+            PSQL_ARGS+=("--host=$DBSERVER")
+            if [ -n "$DBPORT" ]; then
+                PSQL_ARGS+=("--port=$DBPORT")
+            fi
+        fi
+    fi
+    if [ $PSQL_USE_SUDO -eq 0 -a $PSQL_GOT_PASSWORD -eq 0 ]; then
+        while ! echo -n | psql --no-password "${PSQL_ARGS[@]}" --dbname=template1 2>/dev/null; do
+            local savedIFS="$IFS";
+
+            IFS=""
+            read -s -p "Enter database password for the $PGUSER user:" tmppass
+            IFS="$savedIFS"
+            #
+            # Yes, it's not _technically_ safe to set the password in the
+            # environment, but this command should execute so quickly that
+            # the real risk is likely minimal.
+            #
+            echo -n | PGPASSWORD="$tmppass" psql "${PSQL_ARGS[@]}" --dbname=template1 2>/dev/null
+            if [ $? -eq 0 ]; then
+                PGPASSWORD="$tmppass"
+                PSQL_GOT_PASSWORD=1
+                break
+            fi
+        done
+    fi
+}
+
+psql_do_cmd()
+{
+    local rc
+
+    if [ $PSQL_USE_SUDO -eq 1 ]; then
+        sudo -u postgres psql "${PSQL_ARGS[@]}" "$@"
+        rc=$?
+    elif [ $PSQL_GOT_PASSWORD -eq 1 ]; then
+        PGPASSWORD="$PGPASSWORD" psql "${PSQL_ARGS[@]}" "$@"
+        rc=$?
+    else
+        psql "${PSQL_ARGS[@]}" "$@"
+        rc=$?
+    fi
+    return $rc
+}
 
 if [ -f "$WWFUNCTIONS" ]; then
     . $WWFUNCTIONS
@@ -21,47 +123,21 @@ fi
 
 wwreqroot
 
-DATASTORE=`egrep "^database driver\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
-DBNAME=`egrep "^database name\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
-DBUSER=`egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
-DBPASS=`egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
-DBROOTUSER=`egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
-DBROOTPASS=`egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g'`
-APIVERSION="1"
+# Get our temp directory created and an exit hook to delete it:
+SCRIPT_TMPDIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename 0).XXXXXXXXXXXX")
+trap "if [ -d \"$SCRIPT_TMPDIR\" ]; then rm -rf \"$SCRIPT_TMPDIR\"; fi" EXIT
 
-SCHEMA="CREATE TABLE IF NOT EXISTS meta (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
-    name VARCHAR(64),
-    value VARCHAR(256),
-    PRIMARY KEY (id)
-);
-CREATE TABLE IF NOT EXISTS datastore (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
-    type VARCHAR(64),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    serialized BLOB,
-    data BLOB,
-    INDEX (id),
-    PRIMARY KEY (id)
-) ENGINE=INNODB;
-CREATE TABLE IF NOT EXISTS binstore (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
-    object_id INT UNSIGNED,
-    chunk LONGBLOB,
-    FOREIGN KEY (object_id) REFERENCES datastore (id),
-    INDEX (id),
-    PRIMARY KEY (id)
-) ENGINE=INNODB;
-CREATE TABLE IF NOT EXISTS lookup (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
-    object_id INT UNSIGNED,
-    field VARCHAR(64) BINARY,
-    value VARCHAR(64) BINARY,
-    FOREIGN KEY (object_id) REFERENCES datastore (id),
-    INDEX (id),
-    UNIQUE KEY (object_id, field, value),
-    PRIMARY KEY (id)
-) ENGINE=INNODB;"
+
+DATASTORE="$(egrep "^database driver\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g' | tr '[:upper:]' '[:lower:]')"
+DBSERVER="$(egrep "^database server\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+DBPORT="$(egrep "^database port\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+DBNAME="$(egrep "^database name\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+DBUSER="$(egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+DBPASS="$(egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+DBROOTUSER="$(egrep "^database user\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+DBROOTPASS="$(egrep "^database password\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+BINSTORE_KIND="$(egrep "^binstore kind\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
+BINSTORE_FS_PATH="$(egrep "^binstore fs path\s*=" $WAREWULF_SYSCONFDIR/warewulf/database-root.conf | awk -F = '{print $2}' | sed -e 's/\s*//g')"
 
 
 if [ "$DATASTORE" = "mysql" ]; then
@@ -73,61 +149,187 @@ if [ "$DATASTORE" = "mysql" ]; then
         wwprint "No database package seems to exist for mysql!\n" error
         exit 255
     fi
+
+    CLI_ARGS="$(mysql_cli_args)"
+
+    if ! echo "use $DBNAME;" | mysql $CLI_ARGS 2>/dev/null; then
+        wwrun mysqladmin $CLI_ARGS create "$DBNAME" || exit 255
+    fi
+
+    DBVERS="$(echo "select value from meta where name = 'dbvers' LIMIT 1;" | mysql $CLI_ARGS -s "$DBNAME" 2>/dev/null)"
+    if [ -n "$DBVERS" ]; then
+        wwprint "Database version: $DBVERS\n"
+    else
+        wwprint "Database version: UNDEF (need to create database)\n"
+        perl -e 'use Warewulf::DataStore::SQL::MySQL;print Warewulf::DataStore::SQL::MySQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
+        if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a $(wc -l "${SCRIPT_TMPDIR}/schema") ]; then
+            wwprint "Creating database schema"
+            wwrun mysql $CLI_ARGS "$DBNAME" < "${SCRIPT_TMPDIR}/schema" || exit 255
+        else
+            wwprint "Unable to generate database schema from class Warewulf::DataStore::SQL::MySQL\n" RED
+            exit 255
+        fi
+    fi
+
+    if [ -n "$DBUSER" -a "$DBUSER" != "root" ]; then
+        wwprint "Updating database permissions for base user"
+        wwrun mysql $CLI_ARGS $DBNAME <<END_OF_SQL
+GRANT SELECT ON $DBNAME.*
+    TO $DBUSER IDENTIFIED BY '$DBPASS'
+END_OF_SQL
+    fi
+
+    if [ -n "$DBROOTUSER" -a "$DBROOTUSER" != "root" ]; then
+        wwprint "Updating database permissions for root user"
+        wwrun mysql $CLI_ARGS $DBNAME <<END_OF_SQL
+GRANT SELECT ON $DBROOTUSER.*
+    TO $DBUSER IDENTIFIED BY '$DBROOTPASS'
+END_OF_SQL
+    fi
+elif [ "$DATASTORE" = "postgresql" ]; then
+    if wwpackage_check postgresql-server; then
+        wwservice_activate postgresql
+    else
+        wwprint "No database package seems to exist for postgresql!\n" error
+        exit 255
+    fi
+
+    psql_setup_cli_args
+
+    OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --command="SELECT value FROM meta WHERE name = 'dbvers'" 2>&1)"
+    if [ $? -ne 0 ]; then
+        if [[ $OUTPUT =~ database.*does\ not\ exist ]]; then
+            wwprint "Creating database $DBNAME"
+            OUTPUT="$(psql_do_cmd --command="CREATE DATABASE $DBNAME" 2>&1)"
+            if [ $? -ne 0 ]; then
+                reply_error
+                wwprintf "%s\n" RED "$OUTPUT"
+                exit 255
+            else
+                reply_success
+            fi
+        fi
+    fi
+
+    DBVERS="$(echo "select value from meta where name = 'dbvers' LIMIT 1;" | psql_do_cmd --dbname="$DBNAME" 2>/dev/null)"
+    if [ -n "$DBVERS" ]; then
+        wwprint "Database version: $DBVERS\n"
+    else
+        wwprint "Database version: UNDEF (need to create database)\n"
+        perl -e 'use Warewulf::DataStore::SQL::PostgreSQL;print Warewulf::DataStore::SQL::PostgreSQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
+        if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a $(wc -l "${SCRIPT_TMPDIR}/schema") ]; then
+            wwprint "Creating database schema"
+            if [ $PSQL_USE_SUDO -ne 0 ]; then
+                #
+                # The database server user will need access to the file:
+                #
+                chmod 755 "${SCHEMA_TMPDIR}"
+                chmod 644 "${SCHEMA_TMPDIR}/schema"
+            fi
+            OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --file="${SCHEMA_TMPDIR}/schema" 2>&1)"
+            rc=$?
+            if [ $PSQL_USE_SUDO -ne 0 ]; then
+                chmod 700 "${SCHEMA_TMPDIR}"
+            fi
+            if [ $rc -eq 0 ]; then
+                reply_success
+            else
+                reply_error
+                wwprintf "%s\n" RED "$OUTPUT"
+                exit 255
+            fi
+        else
+            wwprint "Unable to generate database schema from class Warewulf::DataStore::SQL::PostgreSQL\n" RED
+            exit 255
+        fi
+    fi
+
+    if [ -n "$DBUSER" ]; then
+        wwprint "Updating database permissions for $DBUSER user"
+        OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --command="GRANT SELECT ON binstore,binstore_id_seq,datastore,datastore_id_seq,lookup,lookup_id_seq,meta,meta_id_seq TO $DBUSER;" 2>&1)"
+        if [ $? -eq 0 ]; then
+            reply_success
+        else
+            reply_error
+            wwprintf "%s\n" RED "$OUTPUT"
+        fi
+    fi
+
+    if [ -n "$DBROOTUSER" ]; then
+        wwprint "Updating database permissions for $DBROOTUSER user"
+        OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --command="GRANT ALL ON binstore,binstore_id_seq,datastore,datastore_id_seq,lookup,lookup_id_seq,meta,meta_id_seq TO $DBROOTUSER;" 2>&1)"
+        if [ $? -eq 0 ]; then
+            reply_success
+        else
+            reply_error
+            wwprintf "%s\n" RED "$OUTPUT"
+        fi
+    fi
+elif [ "$DATASTORE" = "sqlite" ]; then
+    #
+    # For SQLite we just want to be sure the "sqlite" package exists:
+    #
+    if wwpackage_check sqlite; then
+        :
+    else
+        wwprint "No database package seems to exist for sqlite!\n" error
+        exit 255
+    fi
+
+    if [ ! -f "$DBNAME" ]; then
+        wwprint "Creating database $DBNAME"
+        #
+        # Get the database initialized by making an instance of the class:
+        #
+        OUTPUT="$(perl -e 'use Warewulf::DataStore::SQL;$d=Warewulf::DataStore::SQL->new();exit(0) if $d->{'DBH'}; exit(1);' 2>&1)"
+        if [ $? -eq 0 ]; then
+            reply_success
+        else
+            reply_error
+            wwprintf "%s\n" RED "$OUTPUT"
+        fi
+    fi
 else
     wwprint "Skipping configuration of datastore driver: $DATASTORE\n"
 fi
 
-if ! echo "use $DBNAME;" | mysql 2>/dev/null; then
-    wwrun mysqladmin create "$DBNAME" || exit 255
-fi
-
-DBVERS=`echo "select value from meta where name = 'dbvers' LIMIT 1;" | mysql -s "$DBNAME" 2>/dev/null`
-if [ -n "$DBVERS" ]; then
-    wwprint "Database version: $DBVERS\n"
+wwprint "Checking binstore kind"
+OUTPUT="$(perl -e 'use Warewulf::DataStore::SQL;$d=Warewulf::DataStore::SQL->new();print $d->{"BINSTORE_KIND"};')"
+if [ $? -eq 0 ]; then
+    reply_success
+    if [ "$OUTPUT" = "filesystem" ]; then
+        wwprint "Checking for binstore filesystem path"
+        OUTPUT="$(perl -e 'use Warewulf::DataStore::SQL;$d=Warewulf::DataStore::SQL->new();print $d->{"BINSTORE_FS_PATH"};')"
+        if [ $? -eq 0 ]; then
+            if [ ! -d "$OUTPUT" ]; then
+                if [ -e "$OUTPUT" ]; then
+                    echo "not a directory: $OUTPUT"
+                    reply_error
+                else
+                    reply_success
+                    wwprint "Creating binstore directory $OUTPUT"
+                    mkdir -p "$OUTPUT"
+                    if [ $? -eq 0 ]; then
+                        reply_success
+                        #
+                        # We'll 0755 the binstore directory because the web server user
+                        # will need access to it:
+                        #
+                        chmod 755 "$OUTPUT"
+                    else
+                        reply_error
+                    fi
+                fi
+            else
+                reply_success
+            fi
+        else
+            reply_error
+        fi
+    fi
 else
-    wwprint "Database version: UNDEF (need to create database)\n"
+    reply_error
 fi
-
-if [ -z "$DBVERS" ]; then
-    wwprint "Creating database schema"
-    if echo "$SCHEMA" | mysql "$DBNAME"; then
-        reply_success
-    else
-        reply_error
-        exit 255
-    fi
-    wwprint "Setting the DB SCHEMA version to $APIVERSION"
-    if echo "insert into meta (name, value) VALUES ('dbvers', '$APIVERSION');" | mysql "$DBNAME"; then
-        reply_success
-    else
-        reply_error
-        exit 255
-    fi
-elif [ $DBVERS -lt $APIVERSION ]; then
-    wwprint "Updating database schema"
-    echo "UPDATE meta SET value=$APIVERSION WHERE name = 'dbvers';" | mysql "$DBNAME"
-    replay_skipped
-fi
-
-if [ -n "$DBUSER" -a "$DBUSER" != "root" ]; then
-    wwprint "Updating database permissions for base users"
-    if echo "GRANT SELECT ON $DBNAME.* TO $DBUSER@localhost IDENTIFIED BY '$DBPASS';" | mysql $DBNAME; then
-        reply_success
-    else
-        reply_error
-    fi
-fi
-
-if [ -n "$DBROOTUSER" -a "$DBROOTUSER" != "root" ]; then
-    wwprint "Updating database permissions for root user"
-    if echo "GRANT ALL PRIVILEGES ON $DBNAME.* TO $DBROOTUSER@localhost IDENTIFIED BY '$DBROOTPASS';" | mysql $DBNAME; then
-        reply_success
-    else
-        reply_error
-    fi
-fi
-
-
 
 exit 0
 

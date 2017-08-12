@@ -102,9 +102,9 @@ reply_error() {
 }
 
 wwprint() {
-    MSG=$1
+    MSG="$1"
     COLOR=$GRAY
-    COMMAND=`basename $0 | sed -e 's/^[0-9]*-\?//' | sed -e 's/\.init$//'`
+    COMMAND=`basename -- $0 | sed -e 's/^[0-9]*-\?//' | sed -e 's/\.init$//'`
 
     case $2 in
         white|WHITE)            COLOR=$WHITE ;;
@@ -117,6 +117,26 @@ wwprint() {
     echo -ne "$WHITE$COMMAND$NORMAL:\\033[14G $COLOR$MSG$NORMAL"
 }
 
+wwprintf() {
+    FMT="$1"
+    shift
+    
+    COLOR=$GRAY
+    COMMAND=`basename -- $0 | sed -e 's/^[0-9]*-\?//' | sed -e 's/\.init$//'`
+
+    case $1 in
+        white|WHITE)            COLOR=$WHITE; shift ;;
+        gray|GRAY|grey|GREY)    COLOR=$GRAY; shift ;;
+        red|RED|error)          COLOR=$RED; shift ;;
+        yellow|YELLOW|warn)     COLOR=$YELLOW; shift ;;
+        blue|BLUE)              COLOR=$BLUE; shift ;;
+    esac
+
+    echo -ne "$WHITE$COMMAND$NORMAL:\\033[14G $COLOR"
+    printf "$FMT" "$@"
+    echo -ne "$NORMAL"
+}
+
 wwaction() {
     TMPFILE=`mktemp`
     "$@" >$TMPFILE 2>&1
@@ -127,7 +147,7 @@ wwaction() {
         reply_error
         wwprint "+ $*\n" RED
         cat $TMPFILE | while read i; do
-            wwprint "$i\n" YELLOW
+            wwprintf "%s\n" YELLOW "$i"
         done
     fi
     rm -f $TMPFILE
@@ -155,7 +175,7 @@ wwrun() {
     else
         reply_error
         cat $TMPFILE | while read i; do
-            wwprint "$i\n" YELLOW
+            wwprintf "%s\n" YELLOW "$i"
         done
     fi
     rm -f $TMPFILE
@@ -251,17 +271,17 @@ wwservice_activate() {
 
 
 service_findname() {
-    wwprint "service_findname() has been depricated" warn
+    wwprint "service_findname() has been deprecated" warn
     return 0
 }
 
 service_enable() {
-    wwprint "service_enable() has been depricated" warn
+    wwprint "service_enable() has been deprecated" warn
     return 0
 }
 
 service_restart() {
-    wwprint "service_restart() has been depricated" warn
+    wwprint "service_restart() has been deprecated" warn
     return 0
 }
 

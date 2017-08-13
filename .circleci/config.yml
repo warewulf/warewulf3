@@ -1,0 +1,51 @@
+jobs:
+  build_centos7:
+    docker:
+     - image: centos7:latest
+
+    working_directory: ~/warewulf3
+
+    steps:
+      - checkout
+      - run:
+          name: Install Build Dependencies
+          command: |
+            set -o xtrace
+            yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+            rpmkeys --import /etc/pki/rpm-gpg/RPM-GPG-KEY-*
+            yum --exclude=systemtap --exclude=subversion install @development openssl-devel libacl-devel libattr-devel device-mapper-devel libuuid-devel xz-devel gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu perl-Test-Simple
+      - run:
+          name: Build Common
+          command: |
+            set -o xtrace
+            set -o nounset
+            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make test && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
+            build common
+      - run:
+          name: Build Cluster
+          command: |
+            set -o xtrace
+            set -o nounset
+            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
+            build cluster
+      - run:
+          name: Build IPMI
+          command: |
+            set -o xtrace
+            set -o nounset
+            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
+            build ipmi
+      - run:
+          name: Build Provision 
+          command: |
+            set -o xtrace
+            set -o nounset
+            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "cross_compile 1" -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
+            build provision
+      - run:
+          name: Build VNFS
+          command: |
+            set -o xtrace
+            set -o nounset
+            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
+            build vnfs

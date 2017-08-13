@@ -23,7 +23,6 @@ jobs:
             ./autogen.sh
             make test
             make dist-gzip
-            make distcheck
             rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-common.spec
       - run:
           name: Install warewulf-common
@@ -41,7 +40,6 @@ jobs:
             cd cluster
             ./autogen.sh
             make dist-gzip
-            make distcheck
             rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-cluster.spec
       - run:
           name: Build IPMI
@@ -51,7 +49,6 @@ jobs:
             cd ipmi
             ./autogen.sh
             make dist-gzip
-            make distcheck
             rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-ipmi.spec
       - run:
           name: Build Provision 
@@ -61,8 +58,7 @@ jobs:
             cd provision
             ./autogen.sh
             make dist-gzip
-            make distcheck
-            rpmbuild -D "_sourcedir $PWD" -D "cross_compile 1" -ba ./warewulf-provision.spec
+            rpmbuild -D "_sourcedir $PWD" -D "cross_compile 1" -D "mflags -j$(/usr/bin/getconf _NPROCESSORS_ONLN)" -ba ./warewulf-provision.spec
       - run:
           name: Build VNFS
           command: |
@@ -71,7 +67,6 @@ jobs:
             cd vnfs
             ./autogen.sh
             make dist-gzip
-            make distcheck
             rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-vnfs.spec
 
 workflows:

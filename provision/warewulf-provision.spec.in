@@ -12,8 +12,7 @@ Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common
-BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel device-mapper-devel
-
+BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel libuuid-devel device-mapper-devel xz-devel
 
 %if 0%{?_cross_compile}
 

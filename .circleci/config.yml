@@ -13,7 +13,7 @@ jobs:
             set -o xtrace
             yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
             rpmkeys --import /etc/pki/rpm-gpg/RPM-GPG-KEY-*
-            yum --exclude=systemtap --exclude=subversion install @development openssl-devel libacl-devel libattr-devel device-mapper-devel libuuid-devel xz-devel gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu perl-Test-Simple
+            yum -y install --exclude=systemtap --exclude=subversion @development openssl-devel libacl-devel libattr-devel device-mapper-devel libuuid-devel xz-devel gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu perl-Test-Simple
       - run:
           name: Build Common
           command: |

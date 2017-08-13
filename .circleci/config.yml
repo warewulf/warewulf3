@@ -19,36 +19,59 @@ jobs:
           command: |
             set -o xtrace
             set -o nounset
-            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make test && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
-            build common
+            cd common
+            ./autogen.sh
+            make test
+            make dist-gzip
+            make distcheck
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-common.spec
+      - run:
+          name: Install warewulf-common
+          command: |
+            set -o xtrace
+            set -o nounset
+            GITVERSION=$(git show -s --pretty=format:%h)
+            yum -y install ~/rpmbuild/RPMS/noarch/warewulf-common-3.7-0.${GITVERSION}.el7.noarch.rpm
       - run:
           name: Build Cluster
           command: |
             set -o xtrace
             set -o nounset
-            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
-            build cluster
+            cd cluster
+            ./autogen.sh
+            make dist-gzip
+            make distcheck
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-cluster.spec
       - run:
           name: Build IPMI
           command: |
             set -o xtrace
             set -o nounset
-            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
-            build ipmi
+            cd ipmi
+            ./autogen.sh
+            make dist-gzip
+            make distcheck
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-ipmi.spec
       - run:
           name: Build Provision 
           command: |
             set -o xtrace
             set -o nounset
-            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "cross_compile 1" -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
-            build provision
+            cd provision
+            ./autogen.sh
+            make dist-gzip
+            make distcheck
+            rpmbuild -D "_sourcedir $PWD" -D "cross_compile 1" -ba ./warewulf-provision.spec
       - run:
           name: Build VNFS
           command: |
             set -o xtrace
             set -o nounset
-            function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
-            build vnfs
+            cd vnfs
+            ./autogen.sh
+            make dist-gzip
+            make distcheck
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-vnfs.spec
 
 workflows:
   version: 2

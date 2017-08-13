@@ -49,3 +49,9 @@ jobs:
             set -o nounset
             function build { cd $1 && NO_CONFIGURE=1 ./autogen.sh && ./configure && make dist-gzip && rpmbuild -D "_sourcedir $PWD" -ba ./*.spec; cd $OLDPWD; }
             build vnfs
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build_centos7

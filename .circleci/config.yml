@@ -1,7 +1,7 @@
 jobs:
   build_centos7:
     docker:
-     - image: centos7:latest
+     - image: centos:7
 
     working_directory: ~/warewulf3
 

@@ -69,6 +69,13 @@ jobs:
             make dist-gzip
             rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-vnfs.spec
 
+      - store_artifacts:
+          path: ~/rpmbuild/RPMS
+          destination: RPMS
+      - store_artifacts:
+          path: ~/rpmbuild/SRPMS
+          destination: SRPMS
+
 workflows:
   version: 2
   build:

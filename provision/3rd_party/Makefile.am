@@ -21,25 +21,25 @@ prep:
 bin-i386-pcbios/undionly.kpxe: prep
 
 if BUILD_X86_64
-	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-pcbios/undionly.kpxe
+	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-pcbios/undionly.kpxe
 endif
 
 bin-x86_64-efi/ipxe.efi: prep
 
 if BUILD_X86_64
-	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/ipxe.efi
+	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/ipxe.efi
 endif
 
 bin-i386-efi/ipxe.efi: prep
 
 if BUILD_X86_64
-	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/ipxe.efi
+	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/ipxe.efi
 endif
 
 bin-arm64-efi/snp.efi: prep
 
 if BUILD_ARM64
-	make -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi
+	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi
 endif
 
 install-data-local: $(IPXETARGETS)

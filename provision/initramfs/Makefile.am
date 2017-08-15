@@ -41,7 +41,7 @@ e2fsprogs:
 			cp /usr/lib/rpm/config.sub _work/$(E2FSPROGS_DIR)/config;\
 		fi; \
 		(cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
-		make -C _work/$(E2FSPROGS_DIR);\
+		$(MAKE) -C _work/$(E2FSPROGS_DIR);\
 	fi
 
 
@@ -57,11 +57,11 @@ busybox:
 	fi
 	@ if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
 		echo "Building initramfs core" ;\
-		make -C _work/$(BUSYBOX_DIR) busybox ;\
+		$(MAKE) -C _work/$(BUSYBOX_DIR) busybox ;\
 	fi
 	@ if [ ! -d "_work/$(BUSYBOX_DIR)/_install" ]; then \
 		echo "Installing initramfs core" ;\
-		make -C _work/$(BUSYBOX_DIR) install ;\
+		$(MAKE) -C _work/$(BUSYBOX_DIR) install ;\
 	fi
 
 libarchive:
@@ -74,7 +74,7 @@ libarchive:
 	@ if [ ! -f "_work/$(LIBARCHIVE_DIR)/" ]; then \
 		echo "Building libarchive" ;\
 		(cd _work/$(LIBARCHIVE_DIR)/; ./configure $(LIBARCHIVE_CONFIGARGS)) ;\
-		make -C _work/$(LIBARCHIVE_DIR);\
+		$(MAKE) -C _work/$(LIBARCHIVE_DIR);\
 	fi
 
 parted:
@@ -87,7 +87,7 @@ parted:
 	@ if [ ! -f "_work/$(PARTED_DIR)/" ]; then \
 		echo "Building parted" ;\
 		(cd _work/$(PARTED_DIR)/; ./configure $(PARTED_CONFIGARGS)) ;\
-		make -C _work/$(PARTED_DIR);\
+		$(MAKE) -C _work/$(PARTED_DIR);\
 	fi
 
 rootfs: busybox e2fsprogs libarchive parted
@@ -107,7 +107,7 @@ rootfs: busybox e2fsprogs libarchive parted
 	cp _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	cp -a _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar
-	make -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install
+	$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install
 	cp -L --parents /lib*/ld-linux* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la

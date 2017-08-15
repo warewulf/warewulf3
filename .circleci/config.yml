@@ -1,0 +1,83 @@
+jobs:
+  build_centos7:
+    docker:
+     - image: centos:7
+
+    working_directory: ~/warewulf3
+
+    steps:
+      - checkout
+      - run:
+          name: Install Build Dependencies
+          command: |
+            set -o xtrace
+            yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+            rpmkeys --import /etc/pki/rpm-gpg/RPM-GPG-KEY-*
+            yum -y --exclude=systemtap --exclude=subversion install @development binutils-aarch64-linux-gnu device-mapper-devel gcc-aarch64-linux-gnu libacl-devel libattr-devel libuuid-devel openssl-devel perl-CGI perl-Compress-Raw-Bzip2 perl-Compress-Raw-Zlib perl-DBD-MySQL perl-DBI perl-Digest perl-Digest-MD5 perl-IO-Compress perl-Net-Daemon perl-PlRPC perl-Sys-Syslog perl-Test-Simple xz-devel
+      - run:
+          name: Build Common
+          command: |
+            set -o xtrace
+            set -o nounset
+            cd common
+            ./autogen.sh
+            make test
+            make dist-gzip
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-common.spec
+      - run:
+          name: Install warewulf-common
+          command: |
+            set -o xtrace
+            set -o nounset
+            GITVERSION=$(git show -s --pretty=format:%h)
+            DIST=$(rpm --eval '%{dist}')
+            yum -y install ~/rpmbuild/RPMS/noarch/warewulf-common-3.7-0.${GITVERSION}${DIST}.noarch.rpm
+      - run:
+          name: Build Cluster
+          command: |
+            set -o xtrace
+            set -o nounset
+            cd cluster
+            ./autogen.sh
+            make dist-gzip
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-cluster.spec
+      - run:
+          name: Build IPMI
+          command: |
+            set -o xtrace
+            set -o nounset
+            cd ipmi
+            ./autogen.sh
+            make dist-gzip
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-ipmi.spec
+      - run:
+          name: Build Provision 
+          command: |
+            set -o xtrace
+            set -o nounset
+            cd provision
+            ./autogen.sh
+            make dist-gzip
+            rpmbuild -D "_sourcedir $PWD" -D "cross_compile 1" -D "mflags -j$(/usr/bin/getconf _NPROCESSORS_ONLN)" -ba ./warewulf-provision.spec
+      - run:
+          name: Build VNFS
+          command: |
+            set -o xtrace
+            set -o nounset
+            cd vnfs
+            ./autogen.sh
+            make dist-gzip
+            rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-vnfs.spec
+
+      - store_artifacts:
+          path: ~/rpmbuild/RPMS
+          destination: RPMS
+      - store_artifacts:
+          path: ~/rpmbuild/SRPMS
+          destination: SRPMS
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build_centos7

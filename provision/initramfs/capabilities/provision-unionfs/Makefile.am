@@ -17,7 +17,7 @@ unionfs:
 	fi
 	@ if [ ! -f "_work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION)/src/unionfs" ]; then \
 	    echo "Building unionfs-fuse" ;\
-	    make -C _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION) ;\
+	    $(MAKE) -C _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION) ;\
 	fi
 	@ if [ ! -f "unionfs" ]; then \
 	    cp -a _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION)/src/unionfs unionfs ;\

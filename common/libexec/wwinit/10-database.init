@@ -162,7 +162,7 @@ if [ "$DATASTORE" = "mysql" ]; then
     else
         wwprint "Database version: UNDEF (need to create database)\n"
         perl -e 'use Warewulf::DataStore::SQL::MySQL;print Warewulf::DataStore::SQL::MySQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
-        if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a $(wc -l "${SCRIPT_TMPDIR}/schema") ]; then
+        if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a -s "${SCRIPT_TMPDIR}/schema" ]; then
             wwprint "Creating database schema"
             wwrun mysql $CLI_ARGS "$DBNAME" < "${SCRIPT_TMPDIR}/schema" || exit 255
         else

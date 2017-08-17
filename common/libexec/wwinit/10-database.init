@@ -162,7 +162,7 @@ if [ "$DATASTORE" = "mysql" ]; then
     else
         wwprint "Database version: UNDEF (need to create database)\n"
         perl -e 'use Warewulf::DataStore::SQL::MySQL;print Warewulf::DataStore::SQL::MySQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
-        if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a -s "${SCRIPT_TMPDIR}/schema" ]; then
+        if [ $? -eq 0 ] && [ -s "${SCRIPT_TMPDIR}/schema" ]; then
             wwprint "Creating database schema"
             wwrun mysql $CLI_ARGS "$DBNAME" < "${SCRIPT_TMPDIR}/schema" || exit 255
         else
@@ -171,20 +171,29 @@ if [ "$DATASTORE" = "mysql" ]; then
         fi
     fi
 
-    if [ -n "$DBUSER" -a "$DBUSER" != "root" ]; then
+    if [ -n "$DBSERVER" ] && ([ "$DBSERVER" == "localhost" ] || [ "$DBSERVER" == "127.0.0.1" ]); then
+        DBCLIENT="localhost" 
+    elif [ -n "$DBSERVER" ]; then
+        DBCLIENT=$(hostname -f)
+    else
+        wwprint "Database server undefined! Can't determine what database permissions should be for this client\n" RED
+        exit 255
+    fi 
+
+    if [ -n "$DBUSER" ] && [ "$DBUSER" != "root" ]; then
         wwprint "Updating database permissions for base user"
-        wwrun mysql $CLI_ARGS $DBNAME <<END_OF_SQL
-GRANT SELECT ON $DBNAME.*
-    TO $DBUSER IDENTIFIED BY '$DBPASS'
-END_OF_SQL
+        wwrun mysql $CLI_ARGS $DBNAME <<- END_OF_SQL
+            GRANT SELECT on $DBNAME.* 
+                TO '$DBUSER'@'$DBCLIENT' IDENTIFIED BY '$DBPASS'
+	END_OF_SQL
     fi
 
-    if [ -n "$DBROOTUSER" -a "$DBROOTUSER" != "root" ]; then
+    if [ -n "$DBROOTUSER" ] && [ "$DBROOTUSER" != "root" ]; then
         wwprint "Updating database permissions for root user"
-        wwrun mysql $CLI_ARGS $DBNAME <<END_OF_SQL
-GRANT SELECT ON $DBROOTUSER.*
-    TO $DBUSER IDENTIFIED BY '$DBROOTPASS'
-END_OF_SQL
+        wwrun mysql $CLI_ARGS $DBNAME <<- END_OF_SQL
+            GRANT SELECT, INSERT, UPDATE, DELETE on $DBNAME.* 
+                TO '$DBROOTUSER'@'$DBCLIENT' IDENTIFIED BY '$DBROOTPASS'
+	END_OF_SQL
     fi
 elif [ "$DATASTORE" = "postgresql" ]; then
     if wwpackage_check postgresql-server; then

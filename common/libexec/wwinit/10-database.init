@@ -176,7 +176,8 @@ if [ "$DATASTORE" = "mysql" ]; then
     elif [ -n "$DBSERVER" ]; then
         DBCLIENT=$(hostname -f)
     else
-        wwprint "Database server undefined, so can't determine what database permissions should be for this client"
+        wwprint "Database server undefined! Can't determine what database permissions should be for this client\n" RED
+        exit 255
     fi 
 
     if [ -n "$DBUSER" ] && [ "$DBUSER" != "root" ]; then

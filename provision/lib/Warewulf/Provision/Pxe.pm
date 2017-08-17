@@ -5,10 +5,10 @@
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
 #
-# $Id: Pxelinux.pm 50 2010-11-02 01:15:57Z gmk $
+# $Id: Pxe.pm 50 2010-11-02 01:15:57Z gmk $
 #
 
-package Warewulf::Provision::Pxelinux;
+package Warewulf::Provision::Pxe;
 
 use Warewulf::ACVars;
 use Warewulf::Config;
@@ -25,16 +25,16 @@ our @ISA = ('Warewulf::Object');
 
 =head1 NAME
 
-Warewulf::Pxelinux - Pxelinux integration
+Warewulf::Provision::Pxe - Pxe integration
 
 =head1 ABOUT
 
 
 =head1 SYNOPSIS
 
-    use Warewulf::Pxelinux;
+    use Warewulf::Provision::Pxe;
 
-    my $obj = Warewulf::Pxelinux->new();
+    my $obj = Warewulf::Provision::Pxe->new();
     $obj->update($NodeObj);
 
 =head1 METHODS
@@ -74,7 +74,7 @@ init()
 
 =item setup()
 
-Setup the basic pxelinux environment (e.g. pxelinux.0).
+Setup the basic pxe environment.
 
 =cut
 
@@ -122,7 +122,7 @@ setup()
 
 =item update(@nodeobjects)
 
-Update or create (if not already present) a pxelinux config for the passed
+Update or create (if not already present) a pxe config for the passed
 node object
 
 =cut
@@ -131,7 +131,7 @@ sub
 update()
 {
     my ($self, @nodeobjs) = @_;
-    my $tftproot = Warewulf::Provision::Tftp->new()->tftpdir();
+    my $statedir = &Warewulf::ACVars::get("statedir");
     my $netobj = Warewulf::Network->new();
     my $db = Warewulf::DataStore->new();
     my $config = Warewulf::Config->new("provision.conf");
@@ -147,14 +147,14 @@ update()
 
     &dprint("Updating PXE configuration files now\n");
 
-    if (! $tftproot) {
-        &dprint("Not updating Pxelinux because no TFTP root directory was found!\n");
+    if (! "$statedir/warewulf") {
+        &dprint("Not updating Pxe because state directory $statedir/warewulf was found!\n");
         return();
     }
 
-    if (! -d "$tftproot/warewulf/ipxe/cfg") {
-        &iprint("Creating ipxe configuration directory: $tftproot/warewulf/ipxe/cfg");
-        mkpath("$tftproot/warewulf/ipxe/cfg");
+    if (! -d "$statedir/warewulf/ipxe/cfg") {
+        &iprint("Creating ipxe configuration directory: $statedir/warewulf/ipxe/cfg");
+        mkpath("$statedir/warewulf/ipxe/cfg");
     }
 
     foreach my $nodeobj (@nodeobjs) {
@@ -221,7 +221,6 @@ update()
             my $node_gateway = $nodeobj->gateway($devname);
             my $mtu = $nodeobj->mtu($devname);
             my $node_testnetwork = $netobj->calc_network($node_ipaddr, $node_netmask);
-            my $hwprefix = "01";
 
             if (! $devname) {
                 &iprint("Skipping PXE config for unknown device name: $nodename\n");
@@ -238,29 +237,25 @@ update()
                 next;
             }
 
-            if ($hwaddr =~ /(([0-9a-f]{2}:){7}[0-9a-f]{2})$/) {
-                $hwprefix = "20";
-            }
+            &dprint("Creating a pxe config for node '$nodename-$devname/$hwaddr'\n");
 
-            &dprint("Creating a pxelinux config for node '$nodename-$devname/$hwaddr'\n");
-
-            if ($hwaddr =~ /^([0-9a-zA-Z:]+)$/) {
+            if ($hwaddr =~ /^([:[:xdigit:]]+)$/) {
                 $hwaddr = $1;
                 &iprint("Building iPXE configuration for: $nodename/$hwaddr\n");
                 my $config = $hwaddr;
 
                 if (! $bootstrapid) {
                     &iprint("Skipping $nodename-$devname-$hwaddr: No bootstrap defined\n");
-                    if (-f "$tftproot/warewulf/ipxe/cfg/$config") {
+                    if (-f "$statedir/warewulf/ipxe/cfg/$config") {
                         # If we know gotten this far, but not going to write a config, we
                         # can remove it.
-                        unlink("$tftproot/warewulf/ipxe/cfg/$config");
+                        unlink("$statedir/warewulf/ipxe/cfg/$config");
                     }
                     next;
                 }
 
-                &dprint("Creating iPXE config at: $tftproot/warewulf/ipxe/cfg/$config\n");
-                if (!open(IPXE, "> $tftproot/warewulf/ipxe/cfg/$config")) {
+                &dprint("Creating iPXE config at: $statedir/warewulf/ipxe/cfg/$config\n");
+                if (!open(IPXE, "> $statedir/warewulf/ipxe/cfg/$config")) {
                     &eprint("Could not open iPXE config: $!\n");
                     next;
                 }
@@ -276,9 +271,9 @@ update()
                 } else {
 
                     print IPXE "echo Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
-                    print IPXE "set base http://$master_ipaddr/WW/boot/warewulf\n";
-                    print IPXE "initrd \${base}/bootstrap/$arch/$bootstrapid/initfs.gz\n";
-                    print IPXE "kernel \${base}/bootstrap/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname ";
+                    print IPXE "set base http://$master_ipaddr/WW/bootstrap\n";
+                    print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
+                    print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname ";
                     print IPXE join(" ", @kargs) . " ";
                     if ($console) {
                         print IPXE "console=tty0 console=$console ";
@@ -319,7 +314,7 @@ update()
 
 =item delete(@nodeobjects)
 
-Delete a pxelinux configuration for the passed node object.
+Delete a PXE configuration for the passed node object.
 
 =cut
 
@@ -327,10 +322,10 @@ sub
 delete()
 {
     my ($self, @nodeobjs) = @_;
-    my $tftproot = Warewulf::Provision::Tftp->new()->tftpdir();
+    my $statedir = &Warewulf::ACVars::get("statedir");
 
-    if (! $tftproot) {
-        &dprint("Not updating PXELinux because no TFTP root directory was found!\n");
+    if (! "$statedir/warewulf") {
+        &dprint("Not updating Pxe because state directory $statedir/warewulf was found!\n");
         return();
     }
 
@@ -338,7 +333,7 @@ delete()
         my $nodename = $nodeobj->get("name") || "undefined";
         my @hwaddrs = $nodeobj->get("_hwaddr");
 
-        &dprint("Deleting PXELinux entries for node: $nodename\n");
+        &dprint("Deleting PXE entries for node: $nodename\n");
 
         foreach my $netdev ($nodeobj->get("netdevs")) {
             if (defined($netdev->get("hwaddr"))) {
@@ -351,14 +346,11 @@ delete()
         }
         foreach my $hwaddr (@hwaddrs) {
             if ($hwaddr =~ /^([:[:xdigit:]]+)$/) {
-                my $config;
+                my $config = $1;
 
-                $hwaddr = $1;
-                &iprint("Deleting PXELinux configuration for $nodename/$hwaddr\n");
-                $hwaddr =~ s/:/-/g;
-                $config = "01-$hwaddr";
-                if (-f "$tftproot/warewulf/pxelinux.cfg/$config") {
-                    unlink("$tftproot/warewulf/pxelinux.cfg/$config");
+                &iprint("Deleting PXE configuration for $nodename/$config\n");
+                if (-f "$statedir/warewulf/ipxe/cfg/$config") {
+                    unlink("$statedir/warewulf/ipxe/cfg/$config");
                 }
             } else {
                 &eprint("Bad characters in hwaddr: $hwaddr\n");

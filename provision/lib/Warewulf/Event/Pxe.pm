@@ -8,17 +8,17 @@
 # $Id: Pxelinux.pm 50 2010-11-02 01:15:57Z gmk $
 #
 
-package Warewulf::Event::Pxelinux;
+package Warewulf::Event::Pxe;
 
 use Warewulf::Event;
 use Warewulf::EventHandler;
 use Warewulf::Logger;
-use Warewulf::Provision::Pxelinux;
+use Warewulf::Provision::Pxe;
 use Warewulf::RetVal;
 
 
 my $event = Warewulf::EventHandler->new();
-my $pxe = Warewulf::Provision::Pxelinux->new();
+my $pxe = Warewulf::Provision::Pxe->new();
 
 
 sub

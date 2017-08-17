@@ -14,7 +14,6 @@ use Warewulf::Object;
 use Warewulf::Logger;
 use Warewulf::DataStore;
 use Warewulf::Util;
-use Warewulf::Provision::Tftp;
 use File::Basename;
 use File::Path;
 use Digest::MD5 qw(md5_hex);
@@ -247,9 +246,9 @@ delete_local_bootstrap()
         &dprint("Going to delete bootstrap: $bootstrap_name\n");
 
         if ($bootstrap_id =~ /^([0-9]+)$/ && $arch) {
-            my $id = $1;
-            my $tftpboot = Warewulf::Provision::Tftp->new()->tftpdir();
-            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$arch/$bootstrap_id/";
+            my $bootstrap_id = $1;
+            my $statedir = &Warewulf::ACVars::get("statedir");
+            my $bootstrapdir = "$statedir/warewulf/bootstrap/$arch/$bootstrap_id/";
 
             &nprint("Deleting local bootable bootstrap files: $bootstrap_name\n");
 
@@ -291,7 +290,7 @@ delete_local_bootstrap()
 
 =item build_local_bootstrap()
 
-Write the bootstrap image to the TFTP directory. This does more then just pull
+Write the bootstrap image to the $statedir/warewulf directory. This does more then just pull
 it out of the data store and dump it to a file. It also merges it with the
 appropriate Warewulf initrd userspace components for the provision master in
 question.
@@ -322,18 +321,15 @@ build_local_bootstrap()
             return();
         }
 
-# TODO: Integration of capabilities should be done when a bootstrap image is
-# first imported.
-
         if ($bootstrap_id =~ /^([0-9]+)$/) {
-            my $id = $1;
+            my $bootstrap_id = $1;
             my $ds = Warewulf::DataStore->new();
-            my $tftpboot = Warewulf::Provision::Tftp->new()->tftpdir();
-            my $initramfsdir = &Warewulf::ACVars::get("statedir") . "/warewulf/initramfs/$arch";
+            my $statedir = &Warewulf::ACVars::get("statedir");
+            my $initramfsdir = $statedir . "/warewulf/initramfs/$arch";
             my $randstring = &rand_string("12");
             my $tmpdir = "/var/tmp/wwinitrd.$randstring";
             my $binstore = $ds->binstore($bootstrap_id);
-            my $bootstrapdir = "$tftpboot/warewulf/bootstrap/$arch/$bootstrap_id/";
+            my $bootstrapdir = "$statedir/warewulf/bootstrap/$arch/$bootstrap_id/";
             my $initramfs = "$initramfsdir/initfs";
 
             &nprint("Integrating the Warewulf bootstrap: $bootstrap_name\n");

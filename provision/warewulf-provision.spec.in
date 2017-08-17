@@ -46,8 +46,6 @@ Summary: Warewulf - Provisioning Module - Server
 Group: System Environment/Clustering
 Requires: %{name} = %{version}-%{release}
 Requires: mod_perl httpd tftp-server dhcp
-Requires(post): policycoreutils-python
-Requires(postun): policycoreutils-python
 
 %description server
 Warewulf >= 3 is a set of utilities designed to better enable
@@ -85,6 +83,8 @@ Summary: This package sets up the selinux policy to allow HTTPD access to Warewu
 
 Group: Development/System
 Requires: %{name} = %{version}-%{release}
+Requires(post): policycoreutils-python
+Requires(postun): policycoreutils-python
 
 %description server-selinux
 Warewulf >= 3 is a set of utilities designed to better enable

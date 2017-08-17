@@ -46,6 +46,8 @@ Summary: Warewulf - Provisioning Module - Server
 Group: System Environment/Clustering
 Requires: %{name} = %{version}-%{release}
 Requires: mod_perl httpd tftp-server dhcp
+Requires(post): policycoreutils-python
+Requires(postun): policycoreutils-python
 
 %description server
 Warewulf >= 3 is a set of utilities designed to better enable
@@ -116,7 +118,19 @@ chkconfig tftp on >/dev/null 2>&1 || :
 chkconfig xinetd on >/dev/null 2>&1 || :
 service xinetd reload >/dev/null 2>&1 || service xinetd restart >/dev/null 2>&1 || :
 %endif
+mkdir -p %{_localstatedir}/warewulf/ipxe %{_localstatedir}/warewulf/bootstrap 2>/dev/null || :
+semanage fcontext -a -t httpd_sys_content_t '%{_localstatedir}/warewulf/ipxe(/.*)?' 2>/dev/null || :
+semanage fcontext -a -t httpd_sys_content_t '%{_localstatedir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
+restorecon -R %{_localstatedir}/warewulf/bootstrap || :
+restorecon -R %{_localstatedir}/warewulf/ipxe || :
 
+
+
+%postun server
+if [ $1 -eq 0 ] ; then
+semanage fcontext -d -t httpd_sys_content_t '%{_localstatedir}/warewulf/ipxe(/.*)?' 2>/dev/null || :
+semanage fcontext -d -t httpd_sys_content_t '%{_localstatedir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
+fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT

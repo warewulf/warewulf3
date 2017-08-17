@@ -13,6 +13,7 @@ PerlSwitches -I/var/www/stage/cgi-bin
 
 Alias /WW/static @fulldatadir@/warewulf/www
 Alias /WW/vnfs_cache /var/tmp/warewulf_cache
+Alias /WW/boot /var/lib/tftpboot
 
 ScriptAlias /WW/file @fulllibexecdir@/warewulf/cgi-bin/file.pl
 ScriptAlias /WW/script @fulllibexecdir@/warewulf/cgi-bin/script.pl
@@ -42,6 +43,20 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 </Directory>
 
 <Directory /var/tmp/warewulf_cache>
+    AllowOverride None
+    <IfVersion < 2.4>
+        Order allow,deny
+        Allow from all
+    </IfVersion>
+    <IfVersion >= 2.4>
+        Require all granted
+    </IfVersion>
+</Directory>
+
+# If selinux is enforcing run the following to allow httpd access:
+# semanage fcontext -a -t public_content_t '/var/lib/tftpboot(/.*)?'
+# restorecon -Rv /var/lib/tftpboot
+<Directory /var/lib/tftpboot>
     AllowOverride None
     <IfVersion < 2.4>
         Order allow,deny

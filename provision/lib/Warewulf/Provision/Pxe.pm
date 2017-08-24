@@ -187,6 +187,10 @@ update()
 
         if ($bootstrapid) {
             my $bootstrapObj = $db->get_objects("bootstrap", "_id", $bootstrapid)->get_object(0);
+            if (! $bootstrapObj) {
+                &dprint("Bootstrap defined for $nodename, but bootstrap doesn't exit, skipping...\n");
+                next;
+            }
             my $bootstrapName = $bootstrapObj->get("name");
             my $bootstrapArch;
 

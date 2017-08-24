@@ -13,7 +13,7 @@ package Warewulf::Module::Cli::Pxe;
 use Warewulf::Logger;
 use Warewulf::DataStore;
 use Warewulf::Util;
-use Warewulf::Provision::Pxelinux;
+use Warewulf::Provision::Pxe;
 use Getopt::Long;
 
 
@@ -87,7 +87,7 @@ sub
 exec()
 {
     my $self = shift;
-    my $pxe = Warewulf::Provision::Pxelinux->new();
+    my $pxe = Warewulf::Provision::Pxe->new();
     my $db = Warewulf::DataStore->new();
     my $opt_lookup = "name";
 

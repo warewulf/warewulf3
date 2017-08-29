@@ -169,8 +169,8 @@ update()
         my $bootstrapname;
         my $arch = $nodeobj->arch();
         if (! $arch) {
-            &dprint("No arch defined for node $nodename, using local system: $arch");
             (undef, undef, undef, undef, $arch) = POSIX::uname();
+            &dprint("No arch defined for node $nodename, using local system: $arch");
         }
 
         if (! $db_id) {

@@ -21,7 +21,9 @@ if [ ! -d /sys/bus/pci/devices ]; then
 fi
 
 modcheck() {
-    grep -q "/$1.ko:" /lib/modules/$KVERSION/modules.dep
+    awk "BEGIN { e=1 }
+         /\/$1.ko(:|.xz:|.bz:|.gz:)/ { e=0 }
+         END { exit e }" /lib/modules/$KVERSION/modules.dep
 }
 
 

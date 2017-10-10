@@ -46,7 +46,6 @@ wwprint "Checking root's ssh config"
 if ! wwtest test -f "$HOME/.ssh/config"; then
     wwprint "Creating ssh configuration for root"
     echo "Host *" >> $HOME/.ssh/config
-    echo "   IdentityFile ~/.ssh/identity" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/id_rsa" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/id_dsa" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/cluster" >> $HOME/.ssh/config
@@ -56,19 +55,6 @@ if ! wwtest test -f "$HOME/.ssh/config"; then
     reply_done
 fi
 
-
-wwprint "Checking for default RSA1 host key for nodes"
-if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key"; then
-    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
-    wwprint "Creating default node ssh_host_key:\n"
-    if ! ssh-keygen -q -t rsa1 -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key -C '' -N '' 2>/dev/null; then
-        wwprint "RSA1 key is not supported on your system" yellow
-        reply_warn
-    else
-	reply_ok
-    fi
-    RETVAL=0
-fi
 
 wwprint "Checking for default RSA host key for nodes"
 if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key"; then

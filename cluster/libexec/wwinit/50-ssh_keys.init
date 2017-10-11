@@ -32,7 +32,7 @@ fi
 wwprint "Checking ssh keys for root"
 if ! wwtest test -f "$HOME/.ssh/cluster"; then
     wwprint "Generating ssh keypairs for local cluster access:\n"
-    if ! wwrun ssh-keygen -t dsa -f $HOME/.ssh/cluster -N ''; then
+    if ! wwrun ssh-keygen -t rsa -f $HOME/.ssh/cluster -N ''; then
         exit 255
     fi
     wwprint "Updating authorized keys"

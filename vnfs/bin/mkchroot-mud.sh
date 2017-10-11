@@ -1240,6 +1240,7 @@ EOF
 	/usr/bin/ssh-keygen -q -t rsa1 -f ${VNFSROOT}/${NAME}/etc/ssh/ssh_host_key -C '' -N ''
 	/usr/bin/ssh-keygen -q -t rsa -f ${VNFSROOT}/${NAME}/etc/ssh/ssh_host_rsa_key -C '' -N ''
 	/usr/bin/ssh-keygen -q -t dsa -f ${VNFSROOT}/${NAME}/etc/ssh/ssh_host_dsa_key -C '' -N ''
+        /usr/bin/ssh-keygen -q -t ed25519 -f ${VNFSROOT}/${NAME}/etc/ssh/ssh_host_ed25519_key -C '' -N ''
 
 	if [ ! -f "${VNFSROOT}/${NAME}/etc/shadow" ]; then
 		echo "Creating shadow file"

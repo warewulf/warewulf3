@@ -53,6 +53,7 @@ echo "Creating SSH host keys"
 /usr/bin/ssh-keygen -q -t rsa1 -f $VNFSDIR/etc/ssh/ssh_host_key -C '' -N ''
 /usr/bin/ssh-keygen -q -t rsa -f $VNFSDIR/etc/ssh/ssh_host_rsa_key -C '' -N ''
 /usr/bin/ssh-keygen -q -t dsa -f $VNFSDIR/etc/ssh/ssh_host_dsa_key -C '' -N ''
+/usr/bin/ssh-keygen -q -t ed25519 -f $VNFSDIR/etc/ssh/ssh_host_ed25519_key -C '' -N ''
 
 if [ ! -f "$VNFSDIR/etc/shadow" ]; then
     echo "Creating shadow file"

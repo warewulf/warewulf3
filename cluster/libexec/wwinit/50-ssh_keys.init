@@ -48,6 +48,7 @@ if ! wwtest test -f "$HOME/.ssh/config"; then
     echo "Host *" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/identity" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/id_rsa" >> $HOME/.ssh/config
+    echo "   IdentityFile ~/.ssh/id_ed25519" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/id_dsa" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/cluster" >> $HOME/.ssh/config
     echo "   StrictHostKeyChecking=no" >> $HOME/.ssh/config
@@ -103,5 +104,17 @@ if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key";
     RETVAL=0
 fi
 
+wwprint "Checking for default Ed25519 host key for nodes"
+if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ed25519_key"; then
+    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
+    wwprint "Creating default node ssh_host_ed25519_key:\n"
+    if ! ssh-keygen -q -t ed25519 -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ed25519_key -C '' -N '' 2>/dev/null; then
+        wwprint "Ed25519 key is not supported on your system" yellow
+        reply_warn
+    else
+	reply_ok
+    fi
+    RETVAL=0
+fi
 
 exit $RETVAL

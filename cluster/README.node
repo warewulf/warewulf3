@@ -138,7 +138,7 @@ CONFIGURATION VARIABLES (wwfirstboot.conf):
     FILESYSTEMS declaration for use during bootstrap:
 
       PART_1="2048:swap"
-      PART_2="fill:ext3:/tmp:1777"
+      PART_2="fill:ext4:/tmp:1777"
 
     The layout of the variable values is:
 
@@ -189,7 +189,7 @@ DISK=hdb
 #    seen. If you want to use up the rest of the disk, then
 #    define it as the last partiton
 PART_1="2048:swap"
-PART_2="114280:ext3:/scratch:1777"
+PART_2="114280:ext4:/scratch:1777"
 PART_3="fill:ext4:/storage:0755"
 #
 # 99-michost

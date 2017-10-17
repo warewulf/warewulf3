@@ -40,7 +40,7 @@ SWAPP=$DISK"2"
 
 echo
 echo "Configuring stateful provisioning for $NODE, using :"
-echo "    filesystems=\"mountpoint=/:type=ext2:dev=$ROOTP:size=$ROOTSIZE,dev=$SWAPP:type=swap:size=$SWAPSIZE\""
+echo "    filesystems=\"mountpoint=/:type=ext4:dev=$ROOTP:size=$ROOTSIZE,dev=$SWAPP:type=swap:size=$SWAPSIZE\""
 echo "    diskformat=$ROOTP,$SWAPP"
 echo "    diskpartition=$DISK"
 echo "    bootloader=$DISK"
@@ -48,7 +48,7 @@ echo
 
 wwsh << EOF
 quiet
-object $NODE -s filesystems="mountpoint=/:type=ext2:dev=$ROOTP:size=$ROOTSIZE,dev=$SWAPP:type=swap:size=$SWAPSIZE"
+object $NODE -s filesystems="mountpoint=/:type=ext4:dev=$ROOTP:size=$ROOTSIZE,dev=$SWAPP:type=swap:size=$SWAPSIZE"
 object $NODE -s diskformat=$ROOTP,$SWAPP
 object $NODE -s diskpartition=$DISK
 object $NODE -s bootloader=$DISK

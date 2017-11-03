@@ -225,7 +225,7 @@ msg_white "Bringing up local loopback network:"
 if ip link set dev lo up >/dev/null 2>&1; then
     # If this addr already exists for this interface ip will return
     # error, don't fail due to that, just ignore return value.
-    ip address add 127.0.0.1/8 dev lo >/dev/null 2>&1
+    ip address add 127.0.0.1/8 dev lo >/dev/null 2>&1 || true
     wwsuccess
 else
     wwfailure

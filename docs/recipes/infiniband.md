@@ -127,16 +127,11 @@ CA 'mthca0'
                 Capability mask: 0x02510a68
                 Port GUID: 0x0005ad000008c879
                 Link layer: IB
--bash-4.1# ifconfig ib0
-Ifconfig uses the ioctl access method to get the full address information, which limits hardware addresses to 8 bytes.
-Because Infiniband address has 20 bytes, only the first 8 bytes are displayed correctly.
-Ifconfig is obsolete! For replacement check ip.
-ib0       Link encap:InfiniBand  HWaddr 80:00:04:04:FE:80:00:00:00:00:00:00:00:00:00:00:00:00:00:00  
-          inet addr:10.120.1.24  Bcast:10.120.255.255  Mask:255.255.0.0
-          inet6 addr: fe80::205:ad00:8:c879/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:65520  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:256
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+-bash-4.1# ip address show dev ib0
+4: ib0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 2044 qdisc mq state UP qlen 1024
+    link/infiniband xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx brd yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy:yy
+    inet 10.120.1.24/16 brd 10.120.255.255 scope global ib0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::zzz:zzzz:z:zzzz/64 scope link
+       valid_lft forever preferred_lft forever
 ```

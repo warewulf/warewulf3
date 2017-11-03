@@ -78,11 +78,11 @@ ifup() {
 
     RETVAL=1
     msg_white "Checking for network device: $DEVICE ($OSDEVICE)"
-    if ifconfig $DEVICE up >/dev/null 2>&1; then
+    if ip link set dev $DEVICE up >/dev/null 2>&1; then
         wwsuccess
         if [ -n "$WWMTU" ]; then
             msg_white "Setting the MTU to: $WWMTU "
-            if ifconfig $DEVICE mtu $WWMTU >/dev/null 2>&1; then
+            if ip link set mtu $WWMTU dev $DEVICE >/dev/null 2>&1; then
                 wwsuccess
             else
                 wwfailure
@@ -91,12 +91,12 @@ ifup() {
         if [ -n "$WWIPADDR" -a -n "$WWNETMASK" -a -n "$WWMASTER" ]; then
             msg_white "Configuring $DEVICE ($OSDEVICE) statically: "
             msg_gray "($WWIPADDR/$WWNETMASK)"
-            if ifconfig $DEVICE $WWIPADDR netmask $WWNETMASK up; then
+            if ip address add $WWIPADDR/$WWNETMASK dev $DEVICE; then
                 wwsuccess
                 if [ -n "$WWGATEWAY" ]; then
                     msg_white "Configuring gateway: "
                     msg_gray "($WWGATEWAY)"
-                    if route add default gw $WWGATEWAY; then
+                    if ip route add default via $WWGATEWAY; then
                         wwsuccess
                     else
                         wwfailure
@@ -215,14 +215,17 @@ ifup() {
     fi
     # If we have gotten here, give up for this device, and bring device down
     # just in case its present.
-    ifconfig $DEVICE down >/dev/null 2>&1
+    ip link set dev $DEVICE down >/dev/null 2>&1
     return 255
 }
 
 
 # Bring up networks
 msg_white "Bringing up local loopback network:"
-if ifconfig lo 127.0.0.1 netmask 255.255.255.0 up >/dev/null 2>&1; then
+if ip link set dev lo up >/dev/null 2>&1; then
+    # If this addr already exists for this interface ip will return
+    # error, don't fail due to that, just ignore return value.
+    ip address add 127.0.0.1/8 dev lo >/dev/null 2>&1 || true
     wwsuccess
 else
     wwfailure
@@ -387,7 +390,7 @@ if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
 
             wwlogger "Shutting down network interface $NETDEV ($WWNETDEV)"
             msg_white "Shutting down network interface $NETDEV ($WWNETDEV): "
-            if ifconfig $NETDEV down; then
+            if ip link set dev $NETDEV down; then
                 wwsuccess
             else
                 wwfailure

@@ -84,7 +84,7 @@ setup()
     my $self = shift;
     my $datadir = &Warewulf::ACVars::get("datadir");
     my $tftpdir = Warewulf::Provision::Tftp->new()->tftpdir();
-    my @x86_tftpfiles = ("bin-i386-pcbios/undionly.kpxe", "bin-x86_64-efi/ipxe.efi", "bin-i386-efi/ipxe.efi");
+    my @x86_tftpfiles = ("bin-i386-pcbios/undionly.kpxe", "bin-x86_64-efi/snp.efi", "bin-i386-efi/snp.efi");
     my @aarch64_tftpfiles = ("bin-arm64-efi/snp.efi");
     my (undef, undef, undef, undef, $arch) = POSIX::uname();
 

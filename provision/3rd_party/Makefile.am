@@ -1,6 +1,6 @@
 SUBDIRS = GPL BSD
 
-IPXETARGETS = bin-i386-pcbios/undionly.kpxe bin-x86_64-efi/ipxe.efi bin-i386-efi/ipxe.efi bin-arm64-efi/snp.efi
+IPXETARGETS = bin-i386-pcbios/undionly.kpxe bin-x86_64-efi/snp.efi bin-i386-efi/snp.efi bin-arm64-efi/snp.efi
 
 MAINTAINERCLEANFILES = Makefile.in
 
@@ -24,16 +24,16 @@ if BUILD_X86_64
 	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-pcbios/undionly.kpxe
 endif
 
-bin-x86_64-efi/ipxe.efi: prep
+bin-x86_64-efi/snp.efi: prep
 
 if BUILD_X86_64
-	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/ipxe.efi
+	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/snp.efi
 endif
 
-bin-i386-efi/ipxe.efi: prep
+bin-i386-efi/snp.efi: prep
 
 if BUILD_X86_64
-	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/ipxe.efi
+	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/snp.efi
 endif
 
 bin-arm64-efi/snp.efi: prep

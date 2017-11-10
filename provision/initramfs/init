@@ -91,7 +91,7 @@ ifup() {
         if [ -n "$WWIPADDR" -a -n "$WWNETMASK" -a -n "$WWMASTER" ]; then
             msg_white "Configuring $DEVICE ($OSDEVICE) statically: "
             msg_gray "($WWIPADDR/$WWNETMASK)"
-            if ip address add $WWIPADDR/$WWNETMASK dev $DEVICE; then
+            if ip address add $WWIPADDR/$WWNETMASK broadcast + dev $DEVICE; then
                 wwsuccess
                 if [ -n "$WWGATEWAY" ]; then
                     msg_white "Configuring gateway: "

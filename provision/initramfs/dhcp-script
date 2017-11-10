@@ -11,7 +11,7 @@
 > /etc/network.conf
 
 if test -n "$ip"; then
-   ip address add $ip/$subnet dev $interface
+   ip address add $ip/$subnet broadcast + dev $interface
    echo "IPADDR=$ip" >> /etc/network.conf
    echo "NETMASK=$subnet" >> /etc/network.conf
 fi

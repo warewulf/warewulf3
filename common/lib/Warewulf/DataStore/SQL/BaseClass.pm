@@ -1099,10 +1099,10 @@ del_object_impl($$)
     #
     # Scrub the binstore:
     #
-    if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE && ! $self->del_object_binstore_db_impl($buffer) ) {
+    if ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_DATABASE && ! $self->del_object_binstore_db_impl($object_id) ) {
         goto EARLY_EXIT;
     }
-    elsif ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM && ! $self->del_object_binstore_fs_impl($buffer) ) {
+    elsif ( $self->{"BINSTORE_KIND"} eq $BINSTORE_KIND_FILESYSTEM && ! $self->del_object_binstore_fs_impl($object_id) ) {
         goto EARLY_EXIT;
     }
 

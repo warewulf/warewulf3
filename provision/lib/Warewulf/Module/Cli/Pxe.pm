@@ -118,11 +118,13 @@ exec()
     if (! $command) {
         &eprint("You must provide a command!\n\n");
         print $self->help();
+        return();
     } elsif ($command eq "update") {
-        $pxe->update($objSet->get_list());
+        return($pxe->update($objSet->get_list()));
     } else {
         &eprint("Unknown command: $command\n\n");
         print $self->help();
+        return();
     }
 
 }

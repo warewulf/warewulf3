@@ -17,6 +17,7 @@ use Warewulf::Node;
 use Warewulf::DSO::Node;
 use Warewulf::Network;
 use Getopt::Long;
+use POSIX qw(uname);
 use Text::ParseWords;
 
 our @ISA = ('Warewulf::Module::Cli');
@@ -52,6 +53,8 @@ help()
     my $h;
     my $config_defaults = Warewulf::Config->new("defaults/node.conf");
     my $netdev = $config_defaults->get("netdev") || "UNDEF";
+    my (undef, undef, undef, undef, $arch) = POSIX::uname();
+
 
     $h .= "USAGE:\n";
     $h .= "     node <command> [options] [targets]\n";
@@ -99,6 +102,7 @@ help()
     $h .= "     -c, --cluster       Specify cluster name for this node\n";
     $h .= "         --domain        Specify domain name for this node\n";
     $h .= "     -n, --name          Specify new name for this node\n";
+    $h .= "     -a, --arch          Specify architecture for this node (defaults: $arch)\n";
     $h .= "     -e, --enabled       Set whether the node is enabled (defaults: True)\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
@@ -111,6 +115,7 @@ help()
     $h .= "     Warewulf> node print --lookup=groups mygroup hello group123\n";
     $h .= "     Warewulf> node clone n0000 new0000\n";
     $h .= "     Warewulf> node set --enabled=false n0000\n";
+    $h .= "     Warewulf> node set --arch=x86_64 n0000\n";
     $h .= "\n";
 
     return ($h);
@@ -182,6 +187,7 @@ exec()
     my $opt_devremove;
     my $opt_cluster;
     my $opt_name;
+    my $opt_arch;
     my $opt_domain;
     my $opt_fqdn;
     my $opt_mtu;
@@ -221,6 +227,7 @@ exec()
         'M|netmask=s'   => \$opt_netmask,
         'c|cluster=s'   => \$opt_cluster,
         'n|name=s'      => \$opt_name,
+        'a|arch=s'      => \$opt_arch,
         'f|fqdn=s'      => \$opt_fqdn,
         'm|mtu=s'       => \$opt_mtu,
         'd|domain=s'    => \$opt_domain,
@@ -328,6 +335,7 @@ exec()
             printf("%15s: %-16s = %s\n", $nodename, "ID", ($o->id() || "ERROR"));
             printf("%15s: %-16s = %s\n", $nodename, "NAME", join(",", $o->name()));
             printf("%15s: %-16s = %s\n", $nodename, "NODENAME", ($o->nodename() || "UNDEF"));
+            printf("%15s: %-16s = %s\n", $nodename, "ARCH", ($o->arch() || "UNDEF"));
             printf("%15s: %-16s = %s\n", $nodename, "CLUSTER", ($o->cluster() || "UNDEF"));
             printf("%15s: %-16s = %s\n", $nodename, "DOMAIN", ($o->domain() || "UNDEF"));
             printf("%15s: %-16s = %s\n", $nodename, "GROUPS", join(",", $o->groups()) || "UNDEF");
@@ -618,6 +626,39 @@ exec()
                 }
             } else {
                 &eprint("Can not rename more then 1 node at a time!\n");
+            }
+        }
+
+        if ($opt_arch) {
+            if (uc($opt_arch) eq "UNDEF") {
+                $opt_arch = undef;
+                foreach my $obj ($objSet->get_list()) {
+                    my $nodename = $obj->get("name") || "UNDEF";
+                    $obj->arch($opt_arch);
+                    &dprint("Undefining architecture for node $nodename: $opt_arch\n");
+                    $persist_count++;
+                }
+                push(@changes, sprintf("%8s: %-20s\n", "UNDEF", "ARCH"));
+            } elsif ($opt_arch =~ /^([a-zA-Z0-9_]+)$/) {
+                foreach my $obj ($objSet->get_list()) {
+                    my $nodename = $obj->get("name") || "UNDEF";
+                    $obj->arch($opt_arch);
+                    &dprint("Setting architecture for node $nodename: $opt_arch\n");
+                    $persist_count++;
+                }
+                push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "ARCH", $opt_arch));
+            } else {
+                &eprint("Option 'arch' has invalid characters\n");
+            }
+        } else {
+            foreach my $obj ($objSet->get_list()) {
+                my $nodename = $obj->get("name") || "UNDEF";
+                if (! $obj->arch()) {
+                    my (undef, undef, undef, undef, $arch) = POSIX::uname();
+                    $obj->arch($arch);
+                    &dprint("Setting architecture for node $nodename to default: $arch\n");
+                    $persist_count++;
+                }
             }
         }
 

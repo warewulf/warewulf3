@@ -16,7 +16,7 @@ use Getopt::Long;
 use File::Path;
 use File::Basename;
 use File::Copy;
-
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 
 &set_log_level("NOTICE");
 
@@ -308,8 +308,9 @@ if ($config->get("modprobe")) {
     close MODCONFFILE;
 }
 
-
-copy("$opt_chroot/boot/vmlinuz-$opt_kversion", "$tmpdir/kernel");
+# Attempt to gunzip the kernel, aarch64 kernels are compressed and iPXE can't boot gzip compressed kernels.
+# Note, if the kernel isn't a gzip, IO::Uncompress::Gunzip makes a direct copy of the file.
+gunzip "$opt_chroot/boot/vmlinuz-$opt_kversion" => "$tmpdir/kernel" or die "gunzip of kernel failed: $GunzipError\n";
 
 &nprint("Building and compressing bootstrap\n");
 system("(cd $tmpdir; find . | cpio -o --quiet -H newc ) | gzip -c9 > $output");

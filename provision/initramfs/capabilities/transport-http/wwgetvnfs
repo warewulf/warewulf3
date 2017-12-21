@@ -11,40 +11,86 @@ if [ -n "$SET_X" ]; then
     set -x
 fi
 
-. /warewulf/transports/http/functions
+[ -f /etc/functions ] && . /etc/functions
+[ -f /warewulf/transports/http/functions ] && . /warewulf/transports/http/functions
 
-TMPFILE=`mktemp`
+VALIDATE_VNFS="${WWVALIDATE_VNFS:-0}"
 
-cd ${NEWROOT:-/}
+cd "${NEWROOT:-/}"
 
 while true; do
-    for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
+    for master in $(echo "${WWMASTER}" | sed -e 's/,/ /g'); do
 
-        rm -f /tmp/vnfs-download 2>/dev/null
-        if ! mkfifo /tmp/vnfs-download 2>/dev/null; then
+        rm -f /tmp/vnfs-download /tmp/vnfs-checksum /tmp/vnfs-extract 2>/dev/null
+        if ! mkfifo /tmp/vnfs-download /tmp/vnfs-checksum /tmp/vnfs-extract 2>/dev/null; then
             echo "ERROR: Could not create the fifo!"
             exit 1
         fi
 
-        gunzip < /tmp/vnfs-download | bsdtar -pxf - &
-        EXTRACT_PID=$!
+        if [ "${VALIDATE_VNFS}" -eq 1 ]; then
+            
+            tee /tmp/vnfs-extract < /tmp/vnfs-download > /tmp/vnfs-checksum &
+            TEE_PID=$!
+            
+            gunzip < /tmp/vnfs-extract | bsdtar -pxf - 2>/dev/null &
+            EXTRACT_PID=$!
+            
+            md5sum /tmp/vnfs-checksum > /tmp/wwgetvnfs_checksum &
+            MD5SUM_PID=$!
 
-        wget -q -O /tmp/vnfs-download http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR >/dev/null 2>&1
-        WGETEXIT=$?
+        else
 
-        if [ "${WGETEXIT}" -ne 0 ]; then
-          kill "${EXTRACT_PID}"
-          continue
-        else 
-          wait "${EXTRACT_PID}"
+            gunzip < /tmp/vnfs-download | bsdtar -pxf - &
+            EXTRACT_PID=$!
+
         fi
 
-        if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
+        wwlogger "vnfs ${WWVNFS_NAME}, ${WWVNFSID}, ${WWVNFS_CHECKSUM:-undef}"
+        msg_gray "   * fetching ${WWVNFS_NAME} (ID:${WWVNFSID})"
+
+        wget -q -O /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >/dev/null 2>&1
+        WGETEXIT=$?
+
+        if [ "${WGETEXIT}" -eq 0 ]; then
+            wwsuccess
+
+            if [ -n "${TEE_PID:-}" ]; then
+                wait "${TEE_PID}" || true
+            fi
+
+            if [ -n "${MD5SUM_PID:-}" ]; then
+                wait "${MD5SUM_PID}" || true
+            fi
+
+            msg_gray "   * extracting"
+            {
+                wait "${EXTRACT_PID}" && wwsuccess
+            } || wwfailure
+        else
+            wwretrying
+            kill "${EXTRACT_PID}" "${TEE_PID:-}" "${MD5SUM_PID:-}" 2>/dev/null || true
+            continue
+        fi
+
+        msg_gray "   * checksum ${WWVNFS_CHECKSUM:-}"
+         "   * checksum ${WWVNFS_CHECKSUM:-}"
+        if [ "${VALIDATE_VNFS}" -eq 1 ]; then
+            CHECKSUM=$(cut -f1 -d " " /tmp/wwgetvnfs_checksum)
+            if [ "${CHECKSUM}" != "${WWVNFS_CHECKSUM:-}" ]; then
+                wwfailure
+                exit 2
+            fi
+            wwlogger "vnfs checksum ${WWVNFS_CHECKSUM} matches"
+            wwsuccess
+        else
+            wwskipped
+        fi
+
+        if [ -x "$NEWROOT/sbin/init" ] || [ -h "$NEWROOT/sbin/init" ]; then
             exit 0
         fi
 
     done
-    echo -n "."
     throttled_sleep
 done
 

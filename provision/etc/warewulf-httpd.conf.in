@@ -13,6 +13,8 @@ PerlSwitches -I/var/www/stage/cgi-bin
 
 Alias /WW/static @fulldatadir@/warewulf/www
 Alias /WW/vnfs_cache /var/tmp/warewulf_cache
+Alias /WW/ipxe @WAREWULF_STATEDIR@/warewulf/ipxe
+Alias /WW/bootstrap @WAREWULF_STATEDIR@/warewulf/bootstrap
 
 ScriptAlias /WW/file @fulllibexecdir@/warewulf/cgi-bin/file.pl
 ScriptAlias /WW/script @fulllibexecdir@/warewulf/cgi-bin/script.pl
@@ -42,6 +44,28 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 </Directory>
 
 <Directory /var/tmp/warewulf_cache>
+    AllowOverride None
+    <IfVersion < 2.4>
+        Order allow,deny
+        Allow from all
+    </IfVersion>
+    <IfVersion >= 2.4>
+        Require all granted
+    </IfVersion>
+</Directory>
+
+<Directory @WAREWULF_STATEDIR@/warewulf/ipxe>
+    AllowOverride None
+    <IfVersion < 2.4>
+        Order allow,deny
+        Allow from all
+    </IfVersion>
+    <IfVersion >= 2.4>
+        Require all granted
+    </IfVersion>
+</Directory>
+
+<Directory @WAREWULF_STATEDIR@/warewulf/bootstrap>
     AllowOverride None
     <IfVersion < 2.4>
         Order allow,deny

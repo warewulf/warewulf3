@@ -11,7 +11,7 @@ ExclusiveOS: linux
 Conflicts: warewulf <= 2.9
 BuildArch: noarch
 BuildRoot: %{?_tmppath}/%{name}-%{version}-%{release}-root
-Requires: perl-DBD-MySQL
+Requires: perl-DBD-MySQL perl-DBD-Pg perl-DBD-SQLite
 %if %{?rhel}%{!?rhel:0} >= 7
 Requires: mariadb
 %else
@@ -62,7 +62,8 @@ groupadd -r warewulf >/dev/null 2>&1 || :
 
 %post
 if [ $1 -eq 2 ] ; then
-    %{_bindir}/wwsh object canonicalize >/dev/null 2>&1 || :
+    %{_bindir}/wwsh object canonicalize -t node >/dev/null 2>&1 || :
+    %{_bindir}/wwsh object canonicalize -t file >/dev/null 2>&1 || :
 fi
 
 %post localdb
@@ -90,6 +91,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644, root, warewulf) %config(noreplace) %{_sysconfdir}/warewulf/database.conf
 %attr(0640, root, warewulf) %config(noreplace) %{_sysconfdir}/warewulf/database-root.conf
 %attr(0644, root, warewulf) %config(noreplace) %{_sysconfdir}/warewulf/defaults/node.conf
+%{_mandir}/*
 %{_bindir}/*
 %{_datadir}/warewulf/
 %{_libexecdir}/warewulf/wwinit

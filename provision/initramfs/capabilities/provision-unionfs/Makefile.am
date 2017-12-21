@@ -1,5 +1,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 
+MACHINE:=$(shell uname -m)
+
 all: unionfs
 
 top_srcdir = @top_srcdir@
@@ -15,7 +17,7 @@ unionfs:
 	fi
 	@ if [ ! -f "_work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION)/src/unionfs" ]; then \
 	    echo "Building unionfs-fuse" ;\
-	    make -C _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION) ;\
+	    $(MAKE) -C _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION) ;\
 	fi
 	@ if [ ! -f "unionfs" ]; then \
 	    cp -a _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION)/src/unionfs unionfs ;\
@@ -37,11 +39,11 @@ capability.cpio: rootfs
 	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
 
 install-data-local: capability.cpio
-	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities
-	install -m 644 capability.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities/provision-unionfs
+	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities
+	install -m 644 capability.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities/provision-unionfs
 
 uninstall-local:
-	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities/provision-unionfs
+	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities/provision-unionfs
 
 clean-local:
 	rm -rf _work rootfs unionfs capability.cpio

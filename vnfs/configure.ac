@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT(warewulf-vnfs, 3.7, warewulf-devel@lbl.gov)
+AC_INIT(warewulf-vnfs, 3.8, warewulf-devel@lbl.gov)
 AC_CONFIG_SRCDIR([.])
 
 AC_PROG_INSTALL
@@ -39,5 +39,6 @@ AC_OUTPUT(Makefile
    lib/Warewulf/Makefile
    libexec/Makefile
    libexec/wwmkchroot/Makefile
+   share/Makefile
 )
 

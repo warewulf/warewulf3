@@ -15,6 +15,7 @@ use Warewulf::Util;
 use File::Basename;
 use File::Path;
 use Digest::MD5 qw(md5_hex);
+use POSIX qw(uname);
 
 
 
@@ -76,6 +77,19 @@ name()
     return $self->prop("name", qr/^([a-zA-Z0-9_\.\-]+)$/, @_);
 }
 
+=item arch($string)
+
+Set or return the architecture of the raw file stored within the data store.
+
+=cut
+
+sub
+arch()
+{
+    my $self = shift;
+
+    return $self->prop("arch", qr/^([a-zA-Z0-9_]+)$/, @_);
+}
 
 =item checksum($string)
 
@@ -139,12 +153,18 @@ sub
 vnfs_import()
 {
     my ($self, $path) = @_;
+    my (undef, undef, undef, undef, $machine) = POSIX::uname();
 
     my $id = $self->id();
 
     if (! $id) {
         &eprint("This object has no ID!\n");
         return();
+    }
+
+    if (! $self->arch()) {
+        &dprint("This object has no arch, defaulting to current system's arch");
+        $self->arch($machine);
     }
 
     if ($path) {
@@ -157,14 +177,19 @@ vnfs_import()
                 my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat($path);
 
                 if (open(FILE, $path)) {
+                    my $was_stored = 1;
+                    
                     while(my $length = sysread(FILE, $buffer, $db->chunk_size())) {
                         &dprint("Chunked $length bytes of $path\n");
-                        $binstore->put_chunk($buffer);
+                        if ( ! $binstore->put_chunk($buffer) ) {
+                            $was_stored = 0;
+                            last;
+                        }
                         $import_size += $length;
                     }
                     close FILE;
 
-                    if ($import_size) {
+                    if ($was_stored && $import_size) {
                         $self->size($import_size);
                         $self->checksum(digest_file_hex_md5($path));
                         $db->persist($self);
@@ -219,6 +244,25 @@ vnfs_export()
     }
 }
 
+
+=item canonicalize()
+Check and update the object if necessary. Returns the number of changes made.
+=cut
+
+sub
+canonicalize()
+{
+    my ($self) = @_;
+    my (undef, undef, undef, undef, $arch) = POSIX::uname();
+    my $changed = 0;
+
+    if (! $self->arch()) {
+        &iprint("This VNFS has no arch define, defaulting to current system's arch");
+        $self->arch($arch);
+        $changed++;
+    }
+    return($changed);
+}
 
 
 =back

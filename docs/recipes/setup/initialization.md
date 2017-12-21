@@ -35,9 +35,6 @@ ntpd:          + chkconfig ntpd on                                           OK
 ntpd:          + service ntpd restart                                        OK
 ssh_keys:     Checking ssh keys for root                                     OK
 ssh_keys:     Checking root's ssh config                                     OK
-ssh_keys:     Checking for default RSA1 host key for nodes                   NO
-ssh_keys:     Creating default node ssh_host_key:
-ssh_keys:      + ssh-keygen -q -t rsa1 -f /etc/warewulf/vnfs/ssh/ssh_host_ke OK
 ssh_keys:     Checking for default RSA host key for nodes                    NO
 ssh_keys:     Creating default node ssh_host_rsa_key:
 ssh_keys:      + ssh-keygen -q -t rsa -f /etc/warewulf/vnfs/ssh/ssh_host_rsa OK

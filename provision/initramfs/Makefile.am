@@ -4,6 +4,8 @@ all: initramfs.cpio
 
 top_srcdir = @top_srcdir@
 
+MACHINE:=$(shell uname -m)
+
 BUSYBOX_VERSION = 1.26.2
 BUSYBOX_SOURCE = $(top_srcdir)/3rd_party/GPL/busybox-$(BUSYBOX_VERSION).tar.bz2
 BUSYBOX_DIR = busybox-$(BUSYBOX_VERSION)
@@ -14,10 +16,15 @@ E2FSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/e2fsprogs-$(E2FSPROGS_VERSION).ta
 E2FSPROGS_DIR = e2fsprogs-$(E2FSPROGS_VERSION)
 E2FSPROGS_CONFIGARGS = --disable-testio-debug --disable-debugfs --disable-imager --disable-resizer  --disable-defrag --disable-fsck --disable-tls --disable-uuidd --disable-nls --disable-profile
 
-LIBARCHIVE_VERSION = 3.1.2
+LIBARCHIVE_VERSION = 3.3.1
 LIBARCHIVE_SOURCE = $(top_srcdir)/3rd_party/BSD/libarchive-$(LIBARCHIVE_VERSION).tar.gz
 LIBARCHIVE_DIR = libarchive-$(LIBARCHIVE_VERSION)
-LIBARCHIVE_CONFIGARGS = --enable-bsdtar=static --disable-bsdcpio --enable-xattr --enable-acl --enable-static --disable-shared  --without-zlib --without-bz2lib --without-lzmadec --without-iconv --without-lzma --without-lzo2 --without-nettle --without-openssl --without-xml2 --without-expat
+LIBARCHIVE_CONFIGARGS = --enable-bsdtar=static --disable-bsdcpio --enable-xattr --enable-acl --enable-static --disable-shared  --without-zlib --without-bz2lib --without-iconv --without-lzma --without-lzo2 --without-lz4 --without-nettle --without-openssl --without-xml2 --without-expat
+
+PARTED_VERSION = 3.2
+PARTED_SOURCE = $(top_srcdir)/3rd_party/GPL/parted-$(PARTED_VERSION).tar.xz
+PARTED_DIR = parted-$(PARTED_VERSION)
+PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
 
 e2fsprogs:
 	@ if [ ! -d "_work/$(E2FSPROGS_DIR)" ]; then \
@@ -34,7 +41,7 @@ e2fsprogs:
 			cp /usr/lib/rpm/config.sub _work/$(E2FSPROGS_DIR)/config;\
 		fi; \
 		(cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
-		make -C _work/$(E2FSPROGS_DIR);\
+		$(MAKE) -C _work/$(E2FSPROGS_DIR);\
 	fi
 
 
@@ -50,11 +57,11 @@ busybox:
 	fi
 	@ if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
 		echo "Building initramfs core" ;\
-		make -C _work/$(BUSYBOX_DIR) busybox ;\
+		$(MAKE) -C _work/$(BUSYBOX_DIR) busybox ;\
 	fi
 	@ if [ ! -d "_work/$(BUSYBOX_DIR)/_install" ]; then \
 		echo "Installing initramfs core" ;\
-		make -C _work/$(BUSYBOX_DIR) install ;\
+		$(MAKE) -C _work/$(BUSYBOX_DIR) install ;\
 	fi
 
 libarchive:
@@ -67,11 +74,23 @@ libarchive:
 	@ if [ ! -f "_work/$(LIBARCHIVE_DIR)/" ]; then \
 		echo "Building libarchive" ;\
 		(cd _work/$(LIBARCHIVE_DIR)/; ./configure $(LIBARCHIVE_CONFIGARGS)) ;\
-		make -C _work/$(LIBARCHIVE_DIR);\
+		$(MAKE) -C _work/$(LIBARCHIVE_DIR);\
 	fi
 
+parted:
+	@ if [ ! -d "_work/$(PARTED_DIR)" ]; then \
+		echo "Preparing to build parted" ;\
+		mkdir -p _work/ ;\
+        echo In directory `pwd` ;\
+		tar Jxf $(PARTED_SOURCE) -C _work/ ;\
+	fi
+	@ if [ ! -f "_work/$(PARTED_DIR)/" ]; then \
+		echo "Building parted" ;\
+		(cd _work/$(PARTED_DIR)/; ./configure $(PARTED_CONFIGARGS)) ;\
+		$(MAKE) -C _work/$(PARTED_DIR);\
+	fi
 
-rootfs: busybox e2fsprogs libarchive
+rootfs: busybox e2fsprogs libarchive parted
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -88,11 +107,14 @@ rootfs: busybox e2fsprogs libarchive
 	cp _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	cp -a _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar
+	$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install
 	cp -L --parents /lib*/ld-linux* rootfs/
+	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
+	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la
+	rm -rf rootfs/usr/share rootfs/usr/include rootfs/usr/lib/pkgconfig
 	find -type d \! -perm -u=w -exec chmod u+w {} \;
-	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/; done
 	find rootfs -type f -perm -o+x -print | xargs strip -g
-	rm -f rootfs/linuxrc
+
 	install -m 755 $(srcdir)/init rootfs/init
 	install -m 755 $(srcdir)/functions rootfs/etc/functions
 	install -m 755 $(srcdir)/dhcp-script rootfs/sbin/
@@ -111,10 +133,11 @@ initramfs.cpio: rootfs
 
 install-data-local: initramfs.cpio
 	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/
-	install -m 644 initramfs.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/base
+	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)
+	install -m 644 initramfs.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/base
 
 uninstall-local:
-	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/base
+	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/base
 
 clean-local:
 	rm -rf _work rootfs initramfs.cpio

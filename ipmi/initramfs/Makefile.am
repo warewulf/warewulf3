@@ -21,7 +21,7 @@ ipmitool:
 		fi; \
 	    cd _work/ipmitool/ipmitool-$(IPMITOOL_VERSION) ;\
 	    ./configure --enable-static --disable-ipmishell ;\
-	    make LDFLAGS=-static ;\
+	    $(MAKE) LDFLAGS=-static ;\
 	fi
 	@ if [ ! -f "unionfs" ]; then \
 	    cp -a _work/ipmitool/ipmitool-$(IPMITOOL_VERSION)/src/ipmitool ipmitool ;\

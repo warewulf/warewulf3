@@ -8,7 +8,7 @@
 #
 
 
-if [ "x$WWPOSTREBOOT" == "xyes" -a -f "/tmp/stateful-root" ]; then
+if [ "${WWPOSTREBOOT:-}" -eq 1 ]; then
     echo
     echo
     echo "Rebooting in 5 seconds..."

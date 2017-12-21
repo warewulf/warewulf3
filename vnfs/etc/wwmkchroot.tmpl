@@ -79,9 +79,12 @@ configure_fstab() {
 
 configure_sshkeys() {
     echo "Creating SSH host keys"
-    /usr/bin/ssh-keygen -q -t rsa1 -f $VNFSDIR/etc/ssh/ssh_host_key -C '' -N ''
+    # SSHv1 is old and busted, but if you need it, uncomment this to
+    # generate a SSHv1 RSA host key
+    #/usr/bin/ssh-keygen -q -t rsa1 -f $VNFSDIR/etc/ssh/ssh_host_key -C '' -N ''
     /usr/bin/ssh-keygen -q -t rsa -f $VNFSDIR/etc/ssh/ssh_host_rsa_key -C '' -N ''
     /usr/bin/ssh-keygen -q -t dsa -f $VNFSDIR/etc/ssh/ssh_host_dsa_key -C '' -N ''
+    /usr/bin/ssh-keygen -q -t ed25519 -f $VNFSDIR/etc/ssh/ssh_host_ed25519_key -C '' -N ''
     return 0
 }
 

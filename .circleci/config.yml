@@ -31,7 +31,7 @@ jobs:
             set -o nounset
             GITVERSION=$(git show -s --pretty=format:%h)
             DIST=$(rpm --eval '%{dist}')
-            yum -y install ~/rpmbuild/RPMS/noarch/warewulf-common-3.7-0.${GITVERSION}${DIST}.noarch.rpm
+            yum -y install ~/rpmbuild/RPMS/noarch/warewulf-common-3.8-0.${GITVERSION}${DIST}.noarch.rpm
       - run:
           name: Build Cluster
           command: |

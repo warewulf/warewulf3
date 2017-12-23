@@ -1,5 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
+%define _cross_compile 0%{?cross_compile}
 
 Name: warewulf-provision
 Summary: Warewulf - Provisioning Module
@@ -11,7 +12,21 @@ Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common
-BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel
+BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel libuuid-devel device-mapper-devel xz-devel
+
+%if 0%{?_cross_compile}
+
+%if "%{_arch}" == "x86_64"
+BuildRequires: gcc-aarch64-linux-gnu
+%endif
+
+%if "%{_arch}" == "aarch64"
+BuildRequires: gcc-x86_64-linux-gnu
+%endif
+
+%endif
+
+
 Conflicts: warewulf < 3
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
@@ -30,7 +45,7 @@ administrative tools.  To actually provision systems, the
 Summary: Warewulf - Provisioning Module - Server
 Group: System Environment/Clustering
 Requires: %{name} = %{version}-%{release}
-Requires: mod_perl httpd tftp-server dhcp
+Requires: mod_perl httpd tftp-server dhcp policycoreutils-python
 
 %description server
 Warewulf >= 3 is a set of utilities designed to better enable
@@ -63,19 +78,28 @@ Public License (GPL).
 In order to be 100% compatible with the GPL this package makes
 available the included GPL software.
 
-
 %prep
 %setup -q
 
 
 %build
-%configure
+
+%if 0%{?_cross_compile}
+  %configure --enable-cross-compile
+%else
+  %configure
+%endif
+
 %{__make} %{?mflags}
 
 
 %install
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
 
+%post
+if [ $1 -eq 2 ] ; then
+  echo "To update software within existing bootstraps run: wwsh bootstrap rebuild"
+fi
 
 %post server
 usermod -a -G warewulf apache >/dev/null 2>&1 || :
@@ -92,6 +116,17 @@ chkconfig xinetd on >/dev/null 2>&1 || :
 service xinetd reload >/dev/null 2>&1 || service xinetd restart >/dev/null 2>&1 || :
 %endif
 
+mkdir -p %{_localstatedir}/warewulf/ipxe %{_localstatedir}/warewulf/bootstrap 2>/dev/null || :
+semanage fcontext -a -t httpd_sys_content_t '%{_localstatedir}/warewulf/ipxe(/.*)?' 2>/dev/null || :
+semanage fcontext -a -t httpd_sys_content_t '%{_localstatedir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
+restorecon -R %{_localstatedir}/warewulf/bootstrap || :
+restorecon -R %{_localstatedir}/warewulf/ipxe || :
+
+%postun server
+if [ $1 -eq 0 ] ; then
+semanage fcontext -d -t httpd_sys_content_t '%{_localstatedir}/warewulf/ipxe(/.*)?' 2>/dev/null || :
+semanage fcontext -d -t httpd_sys_content_t '%{_localstatedir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
+fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -103,7 +138,9 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/warewulf/provision.conf
 %config(noreplace) %{_sysconfdir}/warewulf/livesync.conf
 %config(noreplace) %{_sysconfdir}/warewulf/defaults/provision.conf
+%{_sysconfdir}/warewulf/filesystem/examples/*.cmds
 %{_localstatedir}/warewulf/*
+%{_mandir}/*
 %{perl_vendorlib}/Warewulf/Bootstrap.pm
 %{perl_vendorlib}/Warewulf/Provision.pm
 %{perl_vendorlib}/Warewulf/Vnfs.pm
@@ -122,22 +159,15 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/warewulf-httpd.conf
 %{_bindir}/*
 %attr(0750, root, apache) %{_libexecdir}/warewulf/cgi-bin/
-%{_datadir}/warewulf/ldlinux.c32
-%{_datadir}/warewulf/ldlinux.e32
-%{_datadir}/warewulf/ldlinux.e64
-%{_datadir}/warewulf/lpxelinux.0
-%{_datadir}/warewulf/pxelinux.0
-%{_datadir}/warewulf/syslinux32.efi
-%{_datadir}/warewulf/syslinux64.efi
+%{_datadir}/warewulf/ipxe/*
 %{perl_vendorlib}/Warewulf/Event/Bootstrap.pm
 %{perl_vendorlib}/Warewulf/Event/Dhcp.pm
-%{perl_vendorlib}/Warewulf/Event/Pxelinux.pm
+%{perl_vendorlib}/Warewulf/Event/Pxe.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Pxe.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Dhcp.pm
 
 %files gpl_sources
 %defattr(-, root, root)
 %{_prefix}/src/warewulf/3rd_party/GPL/
-
 
 %changelog

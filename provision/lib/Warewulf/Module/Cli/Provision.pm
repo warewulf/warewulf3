@@ -84,6 +84,7 @@ help()
     $h .= "     -l, --lookup        How should we reference this node? (default is name)\n";
     $h .= "     -b, --bootstrap     Define the bootstrap image that this node should use\n";
     $h .= "     -V, --vnfs          Define the VNFS that this node should use\n";
+    $h .= "         --validate      Enable checksum validation of VNFS on boot\n";
     $h .= "         --master        Specifically set the Warewulf master(s) for this node\n";
 # TODO: Bootserver is not being used yet...
 #    $h .= "         --bootserver    If you have multiple DHCP/TFTP servers, which should be\n";
@@ -93,6 +94,7 @@ help()
     $h .= "         --filedel       Remove a file to be provisioned to this node\n";
     $h .= "         --preshell      Start a shell on the node before provisioning (boolean)\n";
     $h .= "         --postshell     Start a shell on the node after provisioning (boolean)\n";
+    $h .= "         --postreboot    Reboot after provisioning instead of switch_root into VNFS (boolean)\n";
     $h .= "         --postnetdown   Shutdown the network after provisioning (boolean)\n";
     $h .= "         --bootlocal     Boot the node from the local disk (\"exit\" or \"normal\")\n";
     $h .= "         --console       Set a specific console for the kernel command line\n";
@@ -100,9 +102,7 @@ help()
     $h .= "         --pxelinux      Define a custom PXELINUX/boot image to use\n";
     $h .= "         --selinux       Boot node with SELinux support? (valid options are: UNDEF,\n";
     $h .= "                         ENABLED, and ENFORCED)\n";
-    $h .= "         --dformat       Partitions to format during bootstrap phase\n";
-    $h .= "         --dpartition    Disk to partition during bootstrap phase\n";
-    $h .= "     -f, --filesys       Value of FILESYSTEMS variable\n";
+    $h .= "     -f, --filesystem    Specify a filesystem command file\n";
     $h .= "         --bootloader    Disk to install bootloader to (STATEFUL)\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
@@ -177,8 +177,10 @@ exec()
     my $opt_lookup = "name";
     my $opt_bootstrap;
     my $opt_vnfs;
+    my $opt_validate;
     my $opt_preshell;
     my $opt_postshell;
+    my $opt_postreboot;
     my $opt_postnetdown;
     my $opt_bootlocal;
     my @opt_master;
@@ -193,7 +195,7 @@ exec()
     my $opt_bootloader;
     my $opt_diskformat;
     my $opt_diskpartition;
-    my $opt_filesystems;
+    my $opt_filesystem;
     my $return_count;
     my $objSet;
     my @changes;
@@ -217,8 +219,10 @@ exec()
         'bootserver=s'  => \@opt_bootserver,
         'b|bootstrap=s' => \$opt_bootstrap,
         'V|vnfs=s'      => \$opt_vnfs,
+        'validate=s'    => \$opt_validate,
         'preshell=s'    => \$opt_preshell,
         'postshell=s'   => \$opt_postshell,
+        'postreboot=s'  => \$opt_postreboot,
         'postnetdown=s' => \$opt_postnetdown,
         'bootlocal=s'   => \$opt_bootlocal,
         'l|lookup=s'    => \$opt_lookup,
@@ -226,7 +230,7 @@ exec()
         'bootloader=s'  => \$opt_bootloader,
         'dformat=s'     => \$opt_diskformat,
         'dpartition=s'  => \$opt_diskpartition,
-        'f|filesys=s'   => \$opt_filesystems,
+        'f|filesystem=s' => \$opt_filesystem,
     );
 
     $command = shift(@ARGV);
@@ -265,9 +269,18 @@ exec()
                 push(@changes, sprintf("   UNDEF: %-20s\n", "BOOTSTRAP"));
             } else {
                 my $bootstrapObj = $db->get_objects("bootstrap", "name", $opt_bootstrap)->get_object(0);
+                
                 if ($bootstrapObj and my $bootstrapid = $bootstrapObj->get("_id")) {
+                    
+                    my $bootstrapArch = $bootstrapObj->arch();
+
                     foreach my $obj ($objSet->get_list()) {
                         my $name = $obj->name() || "UNDEF";
+                        my $arch = $obj->arch();
+                        if ($arch && $bootstrapArch && $arch ne $bootstrapArch) {
+                          &eprint("Bootstrap ARCH ($bootstrapArch) does not match node ARCH ($arch), skipping!\n");
+                          next;
+                        }
                         $obj->bootstrapid($bootstrapid);
                         &dprint("Setting bootstrapid for node name: $name\n");
                         $persist_bool = 1;
@@ -291,8 +304,14 @@ exec()
             } else {
                 my $vnfsObj = $db->get_objects("vnfs", "name", $opt_vnfs)->get_object(0);
                 if ($vnfsObj and my $vnfsid = $vnfsObj->get("_id")) {
+                    my $vnfsArch = $vnfsObj->arch();
                     foreach my $obj ($objSet->get_list()) {
                         my $name = $obj->name() || "UNDEF";
+                        my $arch = $obj->arch();
+                        if ($arch && $vnfsArch && $arch ne $vnfsArch) {
+                          &eprint("Vnfs ARCH ($vnfsArch) does not match node ARCH ($arch), skipping!\n");
+                          next;
+                        }
                         $obj->vnfsid($vnfsid);
                         &dprint("Setting vnfsid for node name: $name\n");
                         $persist_bool = 1;
@@ -301,6 +320,31 @@ exec()
                 } else {
                     &eprint("No VNFS named: $opt_vnfs\n");
                 }
+            }
+        }
+
+        if (defined($opt_validate)) {
+            if (uc($opt_validate) eq "UNDEF" or
+                uc($opt_validate) eq "FALSE" or
+                uc($opt_validate) eq "NO" or
+                uc($opt_validate) eq "N" or
+                $opt_validate == 0
+            ) {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->validate_vnfs(0);
+                    &dprint("Disabling checksum validation for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("   UNDEF: %-20s\n", "VALIDATE_VNFS"));
+            } else {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->validate_vnfs(1);
+                    &dprint("Enabling checksum validation for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("     SET: %-20s = %s\n", "VALIDATE_VNFS", 1));
             }
         }
 
@@ -351,6 +395,31 @@ exec()
                     $persist_bool = 1;
                 }
                 push(@changes, sprintf("     SET: %-20s = %s\n", "POSTSHELL", 1));
+            }
+        }
+
+        if (defined($opt_postreboot)) {
+            if (uc($opt_postreboot) eq "UNDEF" or
+                uc($opt_postreboot) eq "FALSE" or
+                uc($opt_postreboot) eq "NO" or
+                uc($opt_postreboot) eq "N" or
+                $opt_postreboot == 0
+            ) {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->postreboot(0);
+                    &dprint("Disabling postreboot for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("   UNDEF: %-20s\n", "POSTREBOOT"));
+            } else {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->postreboot(1);
+                    &dprint("Enabling postreboot for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("     SET: %-20s = %s\n", "POSTREBOOT", 1));
             }
         }
 
@@ -616,60 +685,19 @@ exec()
             }
         }
 
-        if ($opt_diskformat) {
-            if ($opt_diskformat =~ /^([a-zA-Z0-9_,]+)$/) {
-                $opt_diskformat = $1;
-
-                foreach my $obj ($objSet->get_list()) {
-                    my $name = $obj->name() || "UNDEF";
-                    &dprint("$name : Setting DISKFORMAT to: $opt_diskformat\n");
-                    $obj->diskformat($opt_diskformat);
-                    $persist_bool = 1;
-                }
-                if (uc($opt_diskformat) eq "UNDEF") {
-                    push(@changes, sprintf("       DEL: %-20s\n", "DISKFORMAT"));
-                } else {
-                    push(@changes, sprintf("       SET: %-20s = %s\n", "DISKFORMAT", $opt_diskformat));
-                }
-            } else {
-                &eprint("Invalid option for DISKFORMAT.\n");
-            }
-        }
-
-        if ($opt_diskpartition) {
-            if ($opt_diskpartition =~ /^([a-zA-Z0-9_]+)$/) {
-                $opt_diskpartition = $1;
-
-                foreach my $obj ($objSet->get_list()) {
-                    my $name = $obj->name() || "UNDEF";
-                    &dprint("$name : Setting DISKPARTITION to: $opt_diskpartition\n");
-                    $obj->diskpartition($opt_diskpartition);
-                    $persist_bool = 1;
-                }
-                if (uc($opt_diskpartition) eq "UNDEF") {
-                    push(@changes, sprintf("       DEL: %-20s\n", "DISKPARTITION"));
-                } else {
-                    push(@changes, sprintf("       SET: %-20s = %s\n", "DISKPARTITION", $opt_diskpartition));
-                }
-            } else {
-                &eprint("Invalid option for DISKPARTITION.\n");
-            }
-        }
-
-        if ($opt_filesystems) {
-            #TODO : FILESYSTEMS can be... messy. Anyone think of a good check on it?
-            #  Or just pass and hope it's "right"?
+        if ($opt_filesystem) {
+            my @fsData;
             foreach my $obj ($objSet->get_list()) {
                 my $name = $obj->name() || "UNDEF";
-                &dprint("$name : Setting FILESYSTEMS to:\n  $opt_filesystems\n");
-                $obj->filesystems($opt_filesystems);
+                &dprint("$name : Import FS commands file from:\n  $opt_filesystem\n");
+                @fsData = $obj->fs($opt_filesystem);
                 $persist_bool = 1;
             }
 
-            if (uc($opt_filesystems) eq "UNDEF") {
-                push(@changes, sprintf("       DEL: %-20s\n", "FILESYSTEMS"));
+            if (uc($opt_filesystem) eq "UNDEF") {
+                push(@changes, sprintf("       DEL: %-20s\n", "FS"));
             } else {
-                push(@changes, sprintf("       SET: %-20s = %s\n", "FILESYSTEMS", $opt_filesystems));
+                push(@changes, sprintf("       SET: %-20s = %s\n", "FS", join(",", @fsData)));
             }
         }
 
@@ -744,14 +772,8 @@ exec()
             printf("%15s: %-16s = %s\n", $name, "PXELINUX", $o->pxelinux() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "SELINUX", $o->selinux() || "UNDEF");
             printf("%15s: %-16s = \"%s\"\n", $name, "KARGS", $kargs);
-            if ($o->get("filesystems")) {
-                printf("%15s: %-16s = %s\n", $name, "FILESYSTEMS", join(",", $o->get("filesystems")));
-            }
-            if ($o->get("diskformat")) {
-                printf("%15s: %-16s = %s\n", $name, "DISKFORMAT", join(",", $o->get("diskformat")));
-            }
-            if ($o->get("diskpartition")) {
-                printf("%15s: %-16s = %s\n", $name, "DISKPARTITION", join(",", $o->get("diskpartition")));
+            if ($o->get("fs")) {
+                printf("%15s: %-16s = \"%s\"\n", $name, "FS", join(",", $o->get("fs")));
             }
             if ($o->get("bootloader")) {
                 printf("%15s: %-16s = %s\n", $name, "BOOTLOADER", join(",", $o->get("bootloader")));

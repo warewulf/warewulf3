@@ -1,0 +1,23 @@
+# Tmpfs root (equivalent to 20-filesystems' default settings)
+select tmpfs
+fstab "" / tmpfs rw:relatime:mode=555 0 0
+
+# Parted specific commands
+select /dev/sda
+mklabel gpt
+mkpart primary linux-swap 0% 20%
+mkpart primary ext4 20% 50%
+mkpart primary ext4 50% 100%
+name 1 swap
+name 2 tmp
+name 3 var
+
+# mkfs NUMBER FS-TYPE [ARGS...]
+mkfs 1 swap
+mkfs 2 ext4 -L tmp
+mkfs 3 ext4 -L var
+
+# fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
+fstab 1 swap swap defaults 0 0
+fstab 2 /tmp ext4 rw:relatime:seclabel:nosuid:noexec 0 0
+fstab 3 /var ext4 defaults 0 0

@@ -11,7 +11,7 @@
 > /etc/network.conf
 
 if test -n "$ip"; then
-   ifconfig $interface $ip netmask $subnet
+   ip address add $ip/$subnet broadcast + dev $interface
    echo "IPADDR=$ip" >> /etc/network.conf
    echo "NETMASK=$subnet" >> /etc/network.conf
 fi
@@ -22,7 +22,7 @@ if test -n "$dns"; then
    done
 fi
 if test -n "$router"; then
-   route add default gw $router
+   ip route add default via $router
    echo "GATEWAY=$router" >> /etc/network.conf
 fi
 if test -n "$hostname"; then

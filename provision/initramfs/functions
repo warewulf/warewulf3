@@ -110,6 +110,11 @@ wwsuccess() {
     msg_green "OK\n"
 }
 
+wwrunning() {
+    echo -en "\\033[73G"
+    msg_gray "RUNNING\n"
+}
+
 wwdone() {
     echo -en "\\033[76G"
     msg_red "DONE\n"
@@ -125,6 +130,11 @@ wwfailure() {
     msg_red "ERROR\n"
 }
 
+wwretrying() {
+    echo -en "\\033[72G"
+    msg_gray "RETRYING\n"
+}
+
 _doreboot() {
     local SLEEP=$1
     touch /reboot
@@ -136,6 +146,7 @@ _doreboot() {
         echo "Rebooting system... Please stand by"
         echo
         sleep 2
+        sync
         wwlogger "Node rebooting"
         /sbin/reboot -n -f
     fi
@@ -160,7 +171,8 @@ wwreboot() {
     echo "System will reboot automatically when you close the shell."
     echo
     rm /reboot
-    setsid cttyhack sh
+    setsid /bin/cttyhack /bin/sh
+    sync
     wwlogger "Node rebooting"
     /sbin/reboot -n -f
 }

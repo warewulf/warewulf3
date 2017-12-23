@@ -1,0 +1,22 @@
+# EFI / GPT Example
+
+# Parted specific commands
+select /dev/sda
+mklabel gpt
+mkpart ESP fat32 1MiB 513MiB
+mkpart primary linux-swap 513MiB 20%
+mkpart primary ext4 20% 100%
+name 1 ESP
+name 2 swap
+name 3 root
+set 1 boot on
+
+# mkfs NUMBER FS-TYPE [ARGS...]
+mkfs 1 vfat -n ESP
+mkfs 2 swap
+mkfs 3 ext4 -L root
+
+# fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
+fstab 3 / ext4 defaults 0 0
+fstab 1 /boot/efi vfat defaults 0 0
+fstab 2 swap swap defaults 0

@@ -51,6 +51,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/warewulf/bootstrap.conf
 %{_libexecdir}/warewulf/*
 %{_bindir}/*
+%{_mandir}/*
 
 
 %changelog

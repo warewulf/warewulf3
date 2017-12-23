@@ -5,6 +5,8 @@ config.log
 config.status
 config.h
 config.h.in
+config.guess
+config.sub
 autom4te.cache
 aclocal.m4
 install-sh
@@ -14,3 +16,6 @@ ACVars.pm
 *~
 
 etc/warewulf-httpd.conf
+3rd_party/pcbios
+3rd_party/i386-efi
+3rd_party/x86_64-efi

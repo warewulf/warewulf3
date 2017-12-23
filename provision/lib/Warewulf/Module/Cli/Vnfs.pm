@@ -22,6 +22,7 @@ use Warewulf::ObjectSet;
 use Getopt::Long;
 use File::Basename;
 use File::Path;
+use POSIX qw(uname);
 use Text::ParseWords;
 
 our @ISA = ('Warewulf::Module::Cli');
@@ -79,12 +80,13 @@ help()
     $h .= "OPTIONS:\n";
     $h .= "\n";
     $h .= "     -n, --name          When importing a VNFS use this name instead of the file name\n";
+    $h .= "     -a, --arch          Architecture of VNFS to use instead of the current machine\n";
     $h .= "     -c, --chroot        Define the location of the template chroot\n";
     $h .= "     -1                  With list command, output VNFS name only\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
     $h .= "\n";
-    $h .= "     Warewulf> vnfs import /path/to/name.vnfs --name=vnfs1\n";
+    $h .= "     Warewulf> vnfs import /path/to/name.vnfs --name=vnfs1 --arch=x86_64\n";
     $h .= "     Warewulf> vnfs export vnfs1 vnfs2 /tmp/exported_vnfs/\n";
     $h .= "     Warewulf> vnfs list\n";
     $h .= "\n";
@@ -151,6 +153,7 @@ exec()
     my $term = Warewulf::Term->new();
     my $opt_lookup = "name";
     my $opt_name;
+    my $opt_arch;
     my $opt_chroot;
     my $opt_single;
     my $command;
@@ -164,6 +167,7 @@ exec()
 
     GetOptions(
         'n|name=s'      => \$opt_name,
+        'a|arch=s'      => \$opt_arch,
         'l|lookup=s'    => \$opt_lookup,
         'c|chroot=s'    => \$opt_chroot,
         '1'             => \$opt_single,
@@ -234,12 +238,19 @@ exec()
                         $path = $1;
                         if (-f $path) {
                             my $name;
+                            my $arch;
                             my $obj;
                             if ($opt_name) {
                                 $name = $opt_name;
                             } else {
                                 $name = basename($path);
                                 $name =~ s/\.vnfs$//;
+                            }
+                            if ($opt_arch) {
+                                $arch = $opt_arch;
+                            } else {
+                                (undef, undef, undef, undef, $arch) = POSIX::uname();
+                                &dprint("Architecture not specified, defaulting the local system architecture\n");
                             }
                             $objSet = $db->get_objects("vnfs", $opt_lookup, $name);
 
@@ -258,6 +269,7 @@ exec()
                                 &dprint("Creating a new Warewulf VNFS object\n");
                                 $obj = Warewulf::Vnfs->new();
                                 $obj->name($name);
+                                $obj->arch($arch);
 
                                 &dprint("Persisting the new Warewulf VNFS object with name: $name\n");
                                 $db->persist($obj);
@@ -303,7 +315,7 @@ exec()
             my @changes;
 
             if (! @ARGV) {
-                &eprint("To make changes, you must provide a list of nodes to operate on.\n");
+                &eprint("To make changes, you must provide a list of VNFS to operate on.\n");
                 return undef;
             }
 
@@ -321,6 +333,14 @@ exec()
                 } else {
                     &eprint("Option 'chroot' has illegal characters\n");
                 }
+            }
+            if ($opt_arch) {
+               foreach my $o ($objSet->get_list()) {
+                    $o->arch($opt_arch);
+                    $persist_count++;
+                }
+                push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "ARCH", $opt_arch));
+
             }
 
             if ($persist_count > 0) {
@@ -361,11 +381,12 @@ exec()
                     printf("%-32s\n", $obj->name() || "UNDEF");
                 }
             } else {
-                &nprint("VNFS NAME            SIZE (M) CHROOT LOCATION\n");
+                &nprint("VNFS NAME            SIZE (M)   ARCH       CHROOT LOCATION\n");
                 foreach my $obj ($objSet->get_list("name")) {
-                    printf("%-20s %-8.1f %s\n",
+                    printf("%-20s %-10.1f %-10s %s\n",
                         $obj->name() || "UNDEF",
                         ($obj->size() ? ($obj->size()/(1024*1024)) : ("0")),
+                        $obj->arch() || "UNDEF",
                         $obj->chroot() || "UNDEF"
                     );
                     $return_count ++;

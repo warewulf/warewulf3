@@ -23,15 +23,16 @@ my @var_names = (
     "DATAROOTDIR",
     "DATADIR",
     "LIBEXECDIR",
-    "PERLMODDIR"
+    "PERLMODDIR",
+    "GITVERSION"
 );
 my $acvars;
 my (@a, @b);
 
 plan("tests" => (
-         + 2                                           # Object tests
-         + 2                                           # Variable count tests
-         + (scalar(@var_names) * (1 + (2 * (6 * 2))))  # Invocation/value tests
+         + 2                                             # Object tests
+         + 2                                             # Variable count tests
+         + scalar(@var_names) * (1 + (2 * (6 * 2))) - 1  # Invocation/value tests
      ));
 
 # Can we create a Warewulf::ACVars object?
@@ -72,7 +73,7 @@ foreach my $orig_var (@var_names) {
             my $val;
 
             $val = eval "$scheme";
-            ok(defined($val) && $val, "$var is returned ($test)");
+            ok($orig_var eq "GITVERSION" || (defined($val) && $val), "$var is returned ($test)");
             cmp_ok($val, 'eq', $actual, "$var values match ($test)");
         }
     }
@@ -84,7 +85,7 @@ foreach my $orig_var (@var_names) {
         cmp_ok(substr($0, -$len, $len), 'eq', $actual, "PROGNAME matches \$0");
     } elsif ($orig_var eq "VERSION") {
         like($actual, qr/^[\d\.]+$/, "VERSION is a valid version number");
-    } else {
+    } elsif ($orig_var ne "GITVERSION") {
         like($actual, qr/^\//, "$orig_var starts with '/'");
     }
 }

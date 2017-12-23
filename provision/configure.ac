@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT([warewulf-provision], [3.7], [warewulf-devel@lbl.gov])
+AC_INIT([warewulf-provision], [3.8], [warewulf-devel@lbl.gov])
 AC_CONFIG_SRCDIR([.])
 
 AC_PROG_INSTALL
@@ -78,6 +78,37 @@ dnl# Get git version
 GITVERSION=`cat .gitversion | tr -d '\n'`
 AC_SUBST(GITVERSION)
 
+AC_ARG_ENABLE([cross_compile],
+  AS_HELP_STRING([--enable-cross-compile], [Enable cross-compile of iPXE and Initramfs]))
+
+AC_CANONICAL_HOST
+
+AS_CASE([$host_cpu],
+    [x86_64],
+    [
+        build_x86_64=yes
+        AS_IF([test "x$enable_cross_compile" = "xyes"], [
+            AC_MSG_NOTICE([cross-compile for aarch64 configured])
+            CROSS_COMPILE_ARM64="aarch64-linux-gnu-"
+            build_arm64=yes
+        ])
+    ],
+    [aarch64],
+    [
+        build_arm64=yes
+        AS_IF([test "x$enable_cross_compile" = "xyes"], [
+            AC_MSG_NOTICE([cross-compile for x86_64 configured])
+            CROSS_COMPILE_X86_64="x86_64-linux-gnu-"
+            build_x86_64=yes
+        ])
+    ]
+)
+
+AC_SUBST(CROSS_COMPILE_X86_64)
+AC_SUBST(CROSS_COMPILE_ARM64)
+AM_CONDITIONAL(BUILD_X86_64, [test "x$build_x86_64" = "xyes"])
+AM_CONDITIONAL(BUILD_ARM64, [test "x$build_arm64" = "xyes"])
+
 AC_OUTPUT(
    Makefile
    warewulf-provision.spec
@@ -88,6 +119,8 @@ AC_OUTPUT(
    cgi-bin/Makefile
    etc/Makefile
    etc/defaults/Makefile
+   etc/filesystem/Makefile
+   etc/filesystem/examples/Makefile
    etc/warewulf-httpd.conf
    initramfs/Makefile
    initramfs/capabilities/Makefile

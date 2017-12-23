@@ -3,17 +3,18 @@
 #
 # Copyright (c) 2001-2003 Gregory M. Kurtzer
 #
-# Copyright (c) 2003-2013, The Regents of the University of California,
+# Copyright (c) 2003-2017, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory (subject to receipt of any
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
 
 
-mkdir /proc 2>/dev/null
-mkdir /sys  2>/dev/null
-mkdir /tmp  2>/dev/null
-mkdir /var  2>/dev/null
-mkdir /usr  2>/dev/null
+mkdir -p /proc 
+mkdir -p /sys
+mkdir -p /dev
+mkdir -p /tmp
+mkdir -p /var
+mkdir -p /usr
 
 mount -t proc none /proc >/dev/null 2>&1
 mount -t sysfs none /sys >/dev/null 2>&1
@@ -41,9 +42,12 @@ if [ -n "$WWHOSTNAME" ]; then
     wwsuccess
 fi
 
-if [ -x "/sbin/mdev" ]; then
-   echo /sbin/mdev > /proc/sys/kernel/hotplug
-   /sbin/mdev -s
+# Try to mount devtmpfs first, if it fails use mdev to populate /dev
+if ! mount -t devtmpfs devtmpfs /dev >/dev/null 2>&1; then
+    if [ -x "/sbin/mdev" ]; then
+        echo /sbin/mdev > /proc/sys/kernel/hotplug
+        /sbin/mdev -s
+    fi
 fi
 
 if [ -f "/etc/wwmodprobe" ]; then
@@ -74,11 +78,11 @@ ifup() {
 
     RETVAL=1
     msg_white "Checking for network device: $DEVICE ($OSDEVICE)"
-    if ifconfig $DEVICE up >/dev/null 2>&1; then
+    if ip link set dev $DEVICE up >/dev/null 2>&1; then
         wwsuccess
         if [ -n "$WWMTU" ]; then
             msg_white "Setting the MTU to: $WWMTU "
-            if ifconfig $DEVICE mtu $WWMTU >/dev/null 2>&1; then
+            if ip link set mtu $WWMTU dev $DEVICE >/dev/null 2>&1; then
                 wwsuccess
             else
                 wwfailure
@@ -87,12 +91,12 @@ ifup() {
         if [ -n "$WWIPADDR" -a -n "$WWNETMASK" -a -n "$WWMASTER" ]; then
             msg_white "Configuring $DEVICE ($OSDEVICE) statically: "
             msg_gray "($WWIPADDR/$WWNETMASK)"
-            if ifconfig $DEVICE $WWIPADDR netmask $WWNETMASK up; then
+            if ip address add $WWIPADDR/$WWNETMASK broadcast + dev $DEVICE; then
                 wwsuccess
                 if [ -n "$WWGATEWAY" ]; then
                     msg_white "Configuring gateway: "
                     msg_gray "($WWGATEWAY)"
-                    if route add default gw $WWGATEWAY; then
+                    if ip route add default via $WWGATEWAY; then
                         wwsuccess
                     else
                         wwfailure
@@ -211,14 +215,17 @@ ifup() {
     fi
     # If we have gotten here, give up for this device, and bring device down
     # just in case its present.
-    ifconfig $DEVICE down >/dev/null 2>&1
+    ip link set dev $DEVICE down >/dev/null 2>&1
     return 255
 }
 
 
 # Bring up networks
 msg_white "Bringing up local loopback network:"
-if ifconfig lo 127.0.0.1 netmask 255.255.255.0 up >/dev/null 2>&1; then
+if ip link set dev lo up >/dev/null 2>&1; then
+    # If this addr already exists for this interface ip will return
+    # error, don't fail due to that, just ignore return value.
+    ip address add 127.0.0.1/8 dev lo >/dev/null 2>&1 || true
     wwsuccess
 else
     wwfailure
@@ -383,7 +390,7 @@ if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
 
             wwlogger "Shutting down network interface $NETDEV ($WWNETDEV)"
             msg_white "Shutting down network interface $NETDEV ($WWNETDEV): "
-            if ifconfig $NETDEV down; then
+            if ip link set dev $NETDEV down; then
                 wwsuccess
             else
                 wwfailure

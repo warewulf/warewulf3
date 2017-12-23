@@ -32,7 +32,7 @@ fi
 wwprint "Checking ssh keys for root"
 if ! wwtest test -f "$HOME/.ssh/cluster"; then
     wwprint "Generating ssh keypairs for local cluster access:\n"
-    if ! wwrun ssh-keygen -t dsa -f $HOME/.ssh/cluster -N ''; then
+    if ! wwrun ssh-keygen -t rsa -f $HOME/.ssh/cluster -N ''; then
         exit 255
     fi
     wwprint "Updating authorized keys"
@@ -46,8 +46,8 @@ wwprint "Checking root's ssh config"
 if ! wwtest test -f "$HOME/.ssh/config"; then
     wwprint "Creating ssh configuration for root"
     echo "Host *" >> $HOME/.ssh/config
-    echo "   IdentityFile ~/.ssh/identity" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/id_rsa" >> $HOME/.ssh/config
+    echo "   IdentityFile ~/.ssh/id_ed25519" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/id_dsa" >> $HOME/.ssh/config
     echo "   IdentityFile ~/.ssh/cluster" >> $HOME/.ssh/config
     echo "   StrictHostKeyChecking=no" >> $HOME/.ssh/config
@@ -56,19 +56,6 @@ if ! wwtest test -f "$HOME/.ssh/config"; then
     reply_done
 fi
 
-
-wwprint "Checking for default RSA1 host key for nodes"
-if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key"; then
-    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
-    wwprint "Creating default node ssh_host_key:\n"
-    if ! ssh-keygen -q -t rsa1 -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key -C '' -N '' 2>/dev/null; then
-        wwprint "RSA1 key is not supported on your system" yellow
-        reply_warn
-    else
-	reply_ok
-    fi
-    RETVAL=0
-fi
 
 wwprint "Checking for default RSA host key for nodes"
 if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key"; then
@@ -103,5 +90,17 @@ if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key";
     RETVAL=0
 fi
 
+wwprint "Checking for default Ed25519 host key for nodes"
+if ! wwtest test -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ed25519_key"; then
+    install -d -m 700 $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh
+    wwprint "Creating default node ssh_host_ed25519_key:\n"
+    if ! ssh-keygen -q -t ed25519 -f $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ed25519_key -C '' -N '' 2>/dev/null; then
+        wwprint "Ed25519 key is not supported on your system" yellow
+        reply_warn
+    else
+	reply_ok
+    fi
+    RETVAL=0
+fi
 
 exit $RETVAL

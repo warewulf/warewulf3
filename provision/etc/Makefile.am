@@ -1,4 +1,4 @@
-SUBDIRS = defaults
+SUBDIRS = defaults filesystem
 
 confdir = $(sysconfdir)/warewulf/
 bash_completiondir = $(sysconfdir)/bash_completion.d/

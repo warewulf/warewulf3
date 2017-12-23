@@ -161,12 +161,6 @@ configure_fstab() {
 }
 
 configure_sshkeys() {
-    # This should fail silently as RSA1 isn't supported on new platforms.
-    if [ -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key" ]; then
-        /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_key* $CHROOTDIR/etc/ssh/
-    elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_key" ]; then
-        /usr/bin/ssh-keygen -q -t rsa1 -f $CHROOTDIR/etc/ssh/ssh_host_key -C '' -N '' 2> /dev/null
-    fi
     if [ -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key" ]; then
         /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_rsa_key* $CHROOTDIR/etc/ssh/
     elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_rsa_key" ]; then
@@ -183,6 +177,13 @@ configure_sshkeys() {
         /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ecdsa_key* $CHROOTDIR/etc/ssh/
     elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_ecdsa_key" ]; then
         /usr/bin/ssh-keygen -q -t ecdsa -f $CHROOTDIR/etc/ssh/ssh_host_ecdsa_key -C '' -N '' 2> /dev/null
+    fi
+
+    # This should fail silently as Ed25519 isn't supported on older platforms.
+    if [ -f "$WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ed25519_key" ]; then
+        /bin/cp -a $WAREWULF_SYSCONFDIR/warewulf/vnfs/ssh/ssh_host_ed25519_key* $CHROOTDIR/etc/ssh/
+    elif [ ! -f "$CHROOTDIR/etc/ssh/ssh_host_ed25519_key" ]; then
+        /usr/bin/ssh-keygen -q -t ed25519 -f $CHROOTDIR/etc/ssh/ssh_host_ed25519_key -C '' -N '' 2> /dev/null
     fi
 
     mkdir -m 0700 -p $CHROOTDIR/root/.ssh 2>/dev/null

@@ -1,0 +1,25 @@
+# BIOS / GPT Example
+
+# Parted specific commands
+select /dev/sda
+mklabel gpt
+mkpart primary 1MiB 3MiB
+mkpart primary ext4 3MiB 513MiB
+mkpart primary linux-swap 513MiB 50%
+mkpart primary ext4 50% 100%
+name 1 grub
+name 2 boot
+name 3 swap
+name 4 root
+set 1 bios_grub on
+set 2 boot on
+
+# mkfs NUMBER FS-TYPE [ARGS...]
+mkfs 2 ext4 -L boot
+mkfs 3 swap
+mkfs 4 ext4 -L root
+
+# fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
+fstab 4 / ext4 defaults 0 0
+fstab 2 /boot ext4 defaults 0 0
+fstab 3 swap swap defaults 0 0

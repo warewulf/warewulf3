@@ -22,7 +22,7 @@ plan("tests" => (
          + 2              # String representation method tests
          + 1              # get_hash() method tests
          + 29             # get()/set() method tests
-         + 5+5+3+3+7+7+3  # add()/del() method tests
+         + 5+5+3+3+7+3+3  # add()/del() method tests
          + 3+2+2+2        # prop() wrapper method tests
          + 4+4+3          # clone() method tests
 ));
@@ -186,13 +186,8 @@ $obj1->init("stuff" => 1);
 is(scalar($obj1->add("stuff", 2, 3, 4)), 4, "obj->add(\"oldkey\", <list>) properly converts a single-value member to a list");
 @tmp = $obj1->get("stuff");
 is_deeply(\@tmp, [ 1, 2, 3, 4 ], "obj->add(\"oldkey\", <list>) appends new values correctly");
-is(scalar($obj1->add("stuff", 3, 4, 1, 2)), 4, "obj->add(\"oldkey\", <dupes>) properly ignores duplicate values");
-@tmp = $obj1->get("stuff");
-is_deeply(\@tmp, [ 1, 2, 3, 4 ], "obj->add(\"oldkey\", <dupes>) does not change the member variable");
-is(scalar($obj1->add("stuff", @test_list)), scalar(@test_list), "obj->add(\"oldkey\", <some dupes>) filters duplicates");
-@tmp = $obj1->get("stuff");
-is_deeply(scalar(@tmp), scalar(@test_list), "obj->add(\"oldkey\", <some dupes>) merges correctly");
-is(scalar($obj1->del("stuff", $test_list[$#test_list])), $#test_list,
+
+is(scalar($obj1->del("stuff", $test_list[$#test_list])), $#test_list-1,
    "obj->del(\"key\", <item>) removes an item and leaves the rest");
 
 $obj1->init("stuff" => 5);

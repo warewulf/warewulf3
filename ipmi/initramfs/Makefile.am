@@ -2,6 +2,8 @@ all: ipmitool
 
 top_srcdir = @top_srcdir@
 
+MACHINE:=$(shell uname -m)
+
 IPMITOOL_VERSION = 1.8.18
 IPMITOOL_SOURCE = $(top_srcdir)/3rd_party/BSD/ipmitool-$(IPMITOOL_VERSION).tar.bz2
 
@@ -46,13 +48,14 @@ capability.cpio: rootfs
 	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
 
 install-data-local: capability.cpio
-	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities
+	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)
+	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities
+	install -m 644 capability.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities/setup-ipmi
 	install -d -m 755 $(DESTDIR)/$(WAREWULF_LIBEXECDIR)/warewulf
-	install -m 644 capability.cpio $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities/setup-ipmi
 	install -m 755 ipmitool $(DESTDIR)/$(WAREWULF_LIBEXECDIR)/warewulf
 
 uninstall-local:
-	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/capabilities/setup-ipmi
+	rm -rf $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities/setup-ipmi
 	rm -rf $(DESTDIR)/$(WAREWULF_LIBEXECDIR)/warewulf/ipmitool
 
 clean-local:

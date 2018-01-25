@@ -604,7 +604,7 @@ exec()
         }
 
         if ($opt_console) {
-            if ($opt_console =~ /^(tty[S0-9]+\,[0-9]+)/) {
+            if ($opt_console =~ /^(tty[S0-9]+\,[0-9]+)/ || $opt_console =~ /^(UNDEF)$/) {
                 $opt_console = $1;
 
                 foreach my $obj ($objSet->get_list()) {

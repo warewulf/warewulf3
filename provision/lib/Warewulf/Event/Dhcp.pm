@@ -23,6 +23,11 @@ my $event = Warewulf::EventHandler->new();
 sub
 update_dhcp()
 {
+    if ($opt_nodhcp) {
+        &wprint("Skipping DHCP update. Manually run: wwsh dhcp update\n");
+        return 1;
+    }
+
     my $dhcp = Warewulf::Provision::DhcpFactory->new();
     $dhcp->persist();
 

@@ -24,7 +24,7 @@ sub
 update_dhcp()
 {
     if ($opt_nodhcp) {
-        &wprint("Skipping DHCP update. Manually run: wwsh dhcp update");
+        &wprint("Skipping DHCP update. Manually run: wwsh dhcp update\n");
         return 1;
     }
 

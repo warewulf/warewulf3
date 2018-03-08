@@ -268,7 +268,7 @@ update()
                 print IPXE "# Warewulf data store ID: $db_id\n";
                 if (defined($bootlocal) && $bootlocal eq -1) {
                     print IPXE "echo Set to bootlocal (exit), exiting iPXE to continue boot order\n";
-                    print IPXE "exit\n";
+                    print IPXE "exit 1\n";
                 } elsif (defined($bootlocal) && $bootlocal eq 0)  {
                     print IPXE "echo Set to bootlocal (normal), booting local disk\n";
                     print IPXE "sanboot --no-describe --drive 0x80\n";

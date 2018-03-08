@@ -7,37 +7,37 @@
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
 
-if [ -d "$NEWROOT/etc/sysconfig" ]; then
-    cp /tmp/ifcfg-* $NEWROOT/etc/sysconfig/network-scripts/ 2>/dev/null
-
-    if [ -n "$HOSTNAME" ]; then
-        grep -v "^HOSTNAME=" $NEWROOT/etc/sysconfig/network > /tmp/network_withouthostname
-        cat /tmp/network_withouthostname > $NEWROOT/etc/sysconfig/network
-        rm -f /tmp/network_withouthostname
-        echo "HOSTNAME=$HOSTNAME" >> $NEWROOT/etc/sysconfig/network
-    fi
-else
-    if [ -n "$HOSTNAME" ]; then
-        echo "$HOSTNAME" > $NEWROOT/etc/hostname
-    fi
-    cp /tmp/interfaces $NEWROOT/etc/network/ 2>/dev/null
+if [ -d "${NEWROOT}/etc/sysconfig/network-scripts" ]; then
+    cp -f /tmp/ifcfg-* "${NEWROOT}/etc/sysconfig/network-scripts/"
+elif [ -d "${NEWROOT}/etc/network" ]; then
+    cp -f /tmp/interfaces "${NEWROOT}/etc/network/"
 fi
 
-if [ -z "$WWNOFSTABUPDATE" ]; then
-    if [ -f "$NEWROOT/etc/fstab" ]; then
-        > $NEWROOT/etc/fstab_
-        cat $NEWROOT/etc/fstab | while read i; do
-            if [ "x$i" == "x#GENERATED_ENTRIES#" ]; then
-                cat /tmp/fstab >> $NEWROOT/etc/fstab_
+if [ -n "$HOSTNAME" ]; then
+    if [ -f "${NEWROOT}/usr/bin/hostnamectl" ] || [ -f "${NEWROOT}/etc/debian_version" ]; then
+        echo "$HOSTNAME" > "${NEWROOT}/etc/hostname"
+    elif [ -f "${NEWROOT}/etc/sysconfig/network" ]; then
+        sed -i '/^HOSTNAME.*$/d' "${NEWROOT}/etc/sysconfig/network"
+        echo "HOSTNAME=${HOSTNAME}" >> "${NEWROOT}/etc/sysconfig/network"
+    fi
+fi
+
+if [ -z "${WWNOFSTABUPDATE}" ]; then
+    if [ -f "${NEWROOT}/etc/fstab" ]; then
+        > "${NEWROOT}/etc/fstab_"
+        while read i; do
+            if [ "${i}" = "#GENERATED_ENTRIES#" ]; then
+                cat /tmp/fstab >> "${NEWROOT}/etc/fstab_"
             else
-                echo "$i" >> $NEWROOT/etc/fstab_
+                echo "${i}" >> "${NEWROOT}/etc/fstab_"
             fi
 
-        done
-        cat $NEWROOT/etc/fstab_ > $NEWROOT/etc/fstab
-        rm -f $NEWROOT/etc/fstab_
+        done < "${NEWROOT}/etc/fstab"
+
+        cp -f "${NEWROOT}/etc/fstab_" "${NEWROOT}/etc/fstab"
+        rm -f "${NEWROOT}/etc/fstab_"
     else
-        cp /tmp/fstab $NEWROOT/etc/fstab
+        cp -f /tmp/fstab "${NEWROOT}/etc/fstab"
     fi
 fi
 

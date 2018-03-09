@@ -778,7 +778,15 @@ exec()
             if ($o->get("bootloader")) {
                 printf("%15s: %-16s = %s\n", $name, "BOOTLOADER", join(",", $o->get("bootloader")));
             }
-            printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", $o->bootlocal() ? "TRUE" : "FALSE");
+            if (defined $o->bootlocal()) {
+                if ($o->bootlocal() == -1) {
+                    printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", "EXIT");
+                } elsif ($o->bootlocal() == 0) {
+                    printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", "NORMAL");
+                }
+            } else {
+                printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", "FALSE");
+            }
         }
 
     } elsif ($command eq "list") {

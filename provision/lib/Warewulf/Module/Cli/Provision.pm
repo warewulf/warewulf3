@@ -604,7 +604,7 @@ exec()
         }
 
         if ($opt_console) {
-            if ($opt_console =~ /^(tty[S0-9]+\,[0-9]+)/) {
+            if ($opt_console =~ /^(tty[S0-9]+\,[0-9]+)/ || $opt_console =~ /^(UNDEF)$/) {
                 $opt_console = $1;
 
                 foreach my $obj ($objSet->get_list()) {
@@ -778,7 +778,15 @@ exec()
             if ($o->get("bootloader")) {
                 printf("%15s: %-16s = %s\n", $name, "BOOTLOADER", join(",", $o->get("bootloader")));
             }
-            printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", $o->bootlocal() ? "TRUE" : "FALSE");
+            if (defined $o->bootlocal()) {
+                if ($o->bootlocal() == -1) {
+                    printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", "EXIT");
+                } elsif ($o->bootlocal() == 0) {
+                    printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", "NORMAL");
+                }
+            } else {
+                printf("%15s: %-16s = %s\n", $name, "BOOTLOCAL", "FALSE");
+            }
         }
 
     } elsif ($command eq "list") {

@@ -66,6 +66,7 @@ print_help()
     print "wwsh [wwsh options] [command] [object] [command options]\n";
     print "-"x78, "\n";
     print "WWSH OPTIONS:\n";
+    print "     --nodhcp       -- Do not update dhcpd.conf file.\n";
     print "  -d|--debug        -- Enable Debug Output\n";
     print "     --help         -- Print this help\n";
     print "  -v|--verbose      -- Enable Verbose Output\n";
@@ -85,6 +86,7 @@ my $opt_verbose;
 my $opt_quiet;
 my $opt_noask;
 my $opt_help;
+my $opt_nodhcp;
 
 Getopt::Long::Configure ("bundling", "passthrough");
 
@@ -95,6 +97,7 @@ GetOptions(
     'q|quiet'       => \$opt_quiet,
     'noask'         => \$opt_noask,
     'y|yes'         => \$opt_noask,
+    'nodhcp'        => \$opt_nodhcp,
 );
 
 

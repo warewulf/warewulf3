@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT(warewulf-cluster, 3.8, warewulf-devel@lbl.gov)
+AC_INIT(warewulf-cluster, 3.8.1, warewulf-devel@lbl.gov)
 AC_CONFIG_SRCDIR([.])
 
 AC_PROG_INSTALL

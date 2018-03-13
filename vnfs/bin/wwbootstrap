@@ -227,7 +227,18 @@ if ($config->get("drivers")) {
         if (! -d "$tmpdir/initramfs/lib/modules/$opt_kversion/$path") {
             mkpath("$tmpdir/initramfs/lib/modules/$opt_kversion/$path");
         }
-        if (copy("$opt_chroot/lib/modules/$opt_kversion/$file", "$tmpdir/initramfs/lib/modules/$opt_kversion/$file")) {
+
+        my $ko_path = "$opt_chroot/lib/modules/$opt_kversion/$file";
+
+        if ( -l $ko_path ) {
+            $ko_path = readlink("$opt_chroot/lib/modules/$opt_kversion/$file");
+            if($ko_path =~ /^(\/lib\/modules.*)$/) {
+                $ko_path = "$opt_chroot/$1";
+            }
+            &dprint("ko_path: $ko_path \n");
+        }
+
+        if (copy("$ko_path", "$tmpdir/initramfs/lib/modules/$opt_kversion/$file")) {
             &dprint("Integrated driver: $tmpdir/initramfs/lib/modules/$opt_kversion/$file\n");
             $module_count++;
             if (exists($mod_deps{"$file"})) {

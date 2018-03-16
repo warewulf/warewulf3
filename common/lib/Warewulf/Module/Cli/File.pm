@@ -21,6 +21,7 @@ use File::Path;
 use Text::ParseWords;
 use Digest::MD5 qw(md5_hex);
 use POSIX;
+use Fcntl ':mode';
 
 our @ISA = ('Warewulf::Module::Cli');
 
@@ -84,7 +85,10 @@ help()
     $h .= "     -n, --name         Set the reference name for this file (not path!)\n";
     $h .= "         --interpreter  Set the interpreter name to parse this file\n";
     $h .= "\n";
-    $h .= "NOTE:  Use \"UNDEF\" to erase the current contents of a given field.\n";
+    $h .= "NOTES: Use \"UNDEF\" to erase the current contents of a given field.  Passing an\n";
+    $h .= "       empty argument to the --mode, --uid, and --gid flags implies that the\n";
+    $h .= "       corresponding attribute should be taken from the file's origin path (if\n";
+    $h .= "       that path exists).\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
     $h .= "     Warewulf> file import /path/to/file/to/import --name=hosts-file\n";
@@ -194,9 +198,9 @@ exec()
         'source=s'      => \@opt_origin,
         'path=s'        => \$opt_path,
         'D|dest=s'      => \$opt_path,
-        'm|mode=s'      => \$opt_mode,
-        'u|uid=s'       => \$opt_uid,
-        'g|gid=s'       => \$opt_gid,
+        'm|mode:s'      => \$opt_mode,
+        'u|uid:s'       => \$opt_uid,
+        'g|gid:s'       => \$opt_gid,
         'interpreter=s' => \$opt_interpreter,
     );
     if (! $opt_program) {
@@ -227,6 +231,35 @@ exec()
     } elsif ($command eq "help") {
         print $self->help();
         return 1;
+    }
+    
+    # Vet any explicit mode/uid/gid values presented:
+    if ( $opt_mode ) { 
+        if ( $opt_mode =~ /\d+/ ) {
+            $opt_mode = sprintf("%04o", S_IMODE(oct($opt_mode)));
+        }
+        elsif ( $opt_mode ne "UNDEF" ) {
+            &eprint("Mode must be in octal format (e.g., 0644).\n");
+            return undef;
+        }
+    }
+    if ( $opt_uid ) { 
+        if ( $opt_uid =~ /\d+/ ) {
+            $opt_uid = sprintf("%d", int($opt_uid));
+        }
+        elsif ( $opt_uid ne "UNDEF" ) {
+            &eprint("UID must be in numeric format.\n");
+            return undef;
+        }
+    }
+    if ( $opt_gid ) { 
+        if ( $opt_gid =~ /\d+/ ) {
+            $opt_gid = sprintf("%d", int($opt_gid));
+        }
+        elsif ( $opt_gid ne "UNDEF" ) {
+            &eprint("GID must be in numeric format.\n");
+            return undef;
+        }
     }
 
     # Import and export commands are done separately because they take a
@@ -311,9 +344,9 @@ exec()
                     $db->persist($obj);
                 }
                 $obj->file_import($path);
-                $obj->mode((defined($opt_mode)) ? (oct($opt_mode)) : ($mode));
-                $obj->uid((defined($opt_uid)) ? ($opt_uid) : ($uid));
-                $obj->gid((defined($opt_gid)) ? ($opt_gid) : ($gid));
+                $obj->mode((defined($opt_mode) && $opt_mode) ? ($opt_mode) : ($mode));
+                $obj->uid((defined($opt_uid) && $opt_uid) ? ($opt_uid) : ($uid));
+                $obj->gid((defined($opt_gid) && $opt_gid) ? ($opt_gid) : ($gid));
                 $obj->path((defined($opt_path)) ? ($opt_path) : ($path));
                 $obj->origin((scalar(@opt_origin) ? (split(",", join(",", @opt_origin))) : ($path)));
                 $db->persist($obj);
@@ -432,16 +465,11 @@ exec()
             # Path
             $self->set_file_member("path", qr/^([a-zA-Z0-9\-_\/\.]+|UNDEF)$/, $opt_path,
                                    \$persist_count, \@changes, \@objlist);
-            # Mode
-            $self->set_file_member("mode", qr/^(\d+|UNDEF)$/, $opt_mode,
-                                   \$persist_count, \@changes, \@objlist,
-                                   "must be in octal format (e.g., 0644)");
-            # UID
-            $self->set_file_member("uid", qr/^(\d+|UNDEF)$/, $opt_uid, \$persist_count,
-                                   \@changes, \@objlist, "must be in numeric format");
-            # GID
-            $self->set_file_member("gid", qr/^(\d+|UNDEF)$/, $opt_gid, \$persist_count,
-                                   \@changes, \@objlist, "must be in numeric format");
+            
+            # Set mode/uid/gid:
+            $self->set_mode_and_ownership_multi(\@objlist, $opt_mode, $opt_uid, $opt_gid,
+                                   \$persist_count, \@changes);
+            
             # Origin(s)
             $self->set_file_member("origin", qr/^([a-zA-Z0-9\-_\.\/,\s\|\;]+|UNDEF)$/,
                                    ((scalar(@opt_origin)) ? (join(',', @opt_origin)) : (undef)),
@@ -482,6 +510,18 @@ exec()
                     &nprintf("%-16s :: No ORIGIN defined\n", $obj->name());
                 }
                 $obj->sync();
+                if ( defined($opt_mode) || defined($opt_uid) || defined($opt_gid) ) {
+                    my $persist_count = 0;
+                    my @changes;
+                    
+                    $self->set_mode_and_ownership($obj, $opt_mode, $opt_uid, $opt_gid, \$persist_count, \@changes);
+                    if ( $persist_count > 0 ) {
+                        if ($self->confirm_changes($term, 1, "file", @changes)) {
+                            $return_count = $db->persist($obj);
+                            &iprint("Updated $return_count object(s).\n");
+                        }
+                    }
+                }
             }
         } elsif ($command eq "list" or $command eq "ls") {
             #&nprint("NAME               FORMAT       SIZE(K)  FILE PATH\n");
@@ -524,6 +564,72 @@ exec()
     }
 
     return 1;
+}
+
+
+# Internal method
+sub
+set_mode_and_ownership()
+{
+    my ($self, $obj, $mode, $uid, $gid, $chgcnt, $chglist) = @_;
+    
+    if ( defined($mode) || defined($uid) || defined($gid) ) {
+        #
+        # At lease one of the fields is desired.  For the metadata
+        # to be pulled, the origin() must be a single extrant path
+        # in the filesystem:
+        #
+        my $origin = $obj->origin();
+        
+        if ( ref($origin) ne "ARRAY" && $origin ne "UNDEF" ) {
+            my @statinfo = lstat($origin);
+            if (-e _) {
+                if ( defined($mode) && ! $mode ) {
+                    # Take the mode value from the origin entity:
+                    $mode = S_IMODE($statinfo[2]);
+                }
+                if ( defined($uid) && ! $uid ) {
+                    # Take the owner uid from the origin entity:
+                    $uid = $statinfo[4];
+                }
+                if ( defined($gid) && ! $gid ) {
+                    # Take the owner gid from the origin entity:
+                    $gid = $statinfo[5];
+                }
+            } else {
+                &eprintf("%-16s :: ORIGIN no longer exists in filesystem (%s)\n", $obj->name(), $origin);
+            }
+        }
+    }
+    if ( defined($mode) ) {
+        $obj->mode($mode);
+        ${$chgcnt}++;
+        push @{$chglist}, sprintf("%8s: %s SET MODE = %04o\n", "SET", $obj->name(), $mode);
+    }
+    if ( defined($uid) ) {
+        $obj->uid($uid);
+        ${$chgcnt}++;
+        push @{$chglist}, sprintf("%8s: %s SET UID = %d\n", "SET", $obj->name(), $uid);
+    }
+    if ( defined($gid) ) {
+        $obj->gid($gid);
+        ${$chgcnt}++;
+        push @{$chglist}, sprintf("%8s: %s SET GID = %d\n", "SET", $obj->name(), $gid);
+    }
+}
+
+
+# Internal method
+sub
+set_mode_and_ownership_multi()
+{
+    my ($self, $objlist, $mode, $uid, $gid, $chgcnt, $chglist) = @_;
+    
+    if ( defined($mode) || defined($uid) || defined($gid) ) {
+        foreach my $obj (@{$objlist}) {
+            $self->set_mode_and_ownership($obj, $mode, $uid, $gid, $chgcnt, $chglist);
+        }
+    }
 }
 
 

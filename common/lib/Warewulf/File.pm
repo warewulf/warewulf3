@@ -339,7 +339,7 @@ origin()
 }
 
 
-=item sync()
+=item sync($metadata)
 
 Resync any file objects to their origin on the local file system. This will
 persist immediately to the DataStore.
@@ -351,7 +351,7 @@ Note: This will also update some metadata for this file.
 sub
 sync()
 {
-    my ($self) = @_;
+    my ($self, $metadata) = @_;
     my $name = $self->name();
     my ($event, $event_name);
 
@@ -360,6 +360,7 @@ sync()
         my $binstore = $db->binstore($self->id());
         my ($total_len, $cur_len, $start, $data) = (0, 0, 0, "");
         my $digest;
+        my @statinfo;
 
         &dprint("Syncing file object: $name\n");
         foreach my $origin ($self->origin()) {
@@ -427,6 +428,15 @@ sync()
             $self->checksum($digest->hexdigest());
             $self->size($total_len);
             $db->persist($self);
+            if ( $metadata ) {
+                if( @statinfo && ( scalar($self->origin())  == 1 ) ) {
+                    $self->gid( $statinfo[5] );
+                    $self->uid( $statinfo[4] );
+                    $self->mode( S_IMODE($statinfo[2]) );
+                } else {
+                    &dprint("Skipping auto-syncing of file object $name. The path doesn't exist or there are multiple origins.\n" );
+                }
+            } 
         } else {
             &eprint("Failure:  only wrote $cur_len of $total_len bytes to binstore\n");
         }

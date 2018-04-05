@@ -83,6 +83,7 @@ help()
     $h .= "     -g, --gid          Set the GID for this file\n";
     $h .= "     -n, --name         Set the reference name for this file (not path!)\n";
     $h .= "         --interpreter  Set the interpreter name to parse this file\n";
+    $h .= "         --overwrite    Overwrite the metadata in the file object on sync() to match the file at the origin path\n";
     $h .= "\n";
     $h .= "NOTE:  Use \"UNDEF\" to erase the current contents of a given field.\n";
     $h .= "\n";
@@ -180,6 +181,7 @@ exec()
     my $opt_gid;
     my $opt_interpreter;
     my @opt_origin;
+    my $opt_overwrite;
 
     @ARGV = ();
     push(@ARGV, @_);
@@ -198,6 +200,7 @@ exec()
         'u|uid=s'       => \$opt_uid,
         'g|gid=s'       => \$opt_gid,
         'interpreter=s' => \$opt_interpreter,
+        'overwrite'     => \$opt_overwrite,
     );
     if (! $opt_program) {
         if (exists($ENV{"EDITOR"})) {
@@ -481,7 +484,7 @@ exec()
                 if (scalar(@ARGV) && ($orig eq "UNDEF") && ($obj->name() ne "dynamic_hosts")) {
                     &nprintf("%-16s :: No ORIGIN defined\n", $obj->name());
                 }
-                $obj->sync();
+                $obj->sync($opt_overwrite);
             }
         } elsif ($command eq "list" or $command eq "ls") {
             #&nprint("NAME               FORMAT       SIZE(K)  FILE PATH\n");

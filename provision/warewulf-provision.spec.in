@@ -11,7 +11,7 @@ License: US Dept. of Energy (BSD-like)
 Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
-Requires: warewulf-common
+Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
 BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel libuuid-devel device-mapper-devel xz-devel
 
 %if 0%{?_cross_compile}
@@ -41,10 +41,18 @@ administrative tools.  To actually provision systems, the
 %{name}-server package is also required.
 
 
+%package initramfs-%{_arch}
+Summary: Warewulf - Provisioning Module - Initramfs Base and Capabilities for %{_arch}
+Group: Development/System
+BuildArch: noarch
+
+%description initramfs-%{_arch}
+Warewulf Provisioning initramfs Base and Capabilities for %{_arch}.
+
 %package server
 Summary: Warewulf - Provisioning Module - Server
 Group: System Environment/Clustering
-Requires: %{name} = %{version}-%{release}
+Requires: %{name} = %{version}-%{release} %{name}-server-ipxe-%{_arch} = %{version}-%{release}
 Requires: mod_perl httpd tftp-server dhcp policycoreutils-python
 
 %description server
@@ -58,10 +66,31 @@ provision systems.  Systems used solely for administration of Warewulf
 do not require this package.
 
 
+%if "%{_arch}" == "x86_64" || 0%{?_cross_compile}
+%package server-ipxe-x86_64
+Summary: Warewulf - Provisioning Module - iPXE Bootloader x86_64
+Group: Development/System
+BuildArch: noarch
+
+%description server-ipxe-x86_64
+Warewulf bundled iPXE binaries for x86_64.
+%endif
+
+%if "%{_arch}" == "aarch64" || 0%{?_cross_compile}
+%package server-ipxe-aarch64
+Summary: Warewulf - Provisioning Module - iPXE Bootloader aarch64
+Group: Development/System
+BuildArch: noarch
+
+%description server-ipxe-aarch64
+Warewulf bundled iPXE binaries for aarch64.
+%endif
+
 %package gpl_sources
 Summary: This package contains the GPL sources used in Warewulf
 Group: Development/System
 Requires: %{name} = %{version}-%{release}
+BuildArch: noarch
 
 %description gpl_sources
 Warewulf >= 3 is a set of utilities designed to better enable
@@ -139,7 +168,6 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/warewulf/livesync.conf
 %config(noreplace) %{_sysconfdir}/warewulf/defaults/provision.conf
 %{_sysconfdir}/warewulf/filesystem/examples/*.cmds
-%{_localstatedir}/warewulf/*
 %{_mandir}/*
 %{perl_vendorlib}/Warewulf/Bootstrap.pm
 %{perl_vendorlib}/Warewulf/Provision.pm
@@ -153,18 +181,32 @@ rm -rf $RPM_BUILD_ROOT
 %{perl_vendorlib}/Warewulf/Module/Cli/Provision.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Vnfs.pm
 
+%files initramfs-%{_arch}
+%{_localstatedir}/warewulf/initramfs/%{_arch}
+
 %files server
 %defattr(-, root, root)
 %config(noreplace) %{_sysconfdir}/warewulf/dhcpd-template.conf
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/warewulf-httpd.conf
 %{_bindir}/*
 %attr(0750, root, apache) %{_libexecdir}/warewulf/cgi-bin/
-%{_datadir}/warewulf/ipxe/*
 %{perl_vendorlib}/Warewulf/Event/Bootstrap.pm
 %{perl_vendorlib}/Warewulf/Event/Dhcp.pm
 %{perl_vendorlib}/Warewulf/Event/Pxe.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Pxe.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Dhcp.pm
+
+%if "%{_arch}" == "x86_64" || 0%{?_cross_compile}
+%files server-ipxe-x86_64
+%{_datadir}/warewulf/ipxe/bin-i386-efi
+%{_datadir}/warewulf/ipxe/bin-i386-pcbios
+%{_datadir}/warewulf/ipxe/bin-x86_64-efi
+%endif
+
+%if "%{_arch}" == "aarch64" || 0%{?_cross_compile}
+%files server-ipxe-aarch64
+%{_datadir}/warewulf/ipxe/bin-arm64-efi
+%endif
 
 %files gpl_sources
 %defattr(-, root, root)

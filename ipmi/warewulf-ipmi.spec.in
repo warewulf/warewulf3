@@ -12,7 +12,7 @@ Group: System Environment/Clustering
 URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
-Requires: warewulf-common
+Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
 BuildRequires: warewulf-common openssl-devel
 Conflicts: warewulf < 3
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
@@ -23,6 +23,13 @@ utilization and maintenance of clusters or groups of computers.
 
 This is the IPMI module package.  It contains Warewulf modules for
 adding IPMI functionality.
+
+%package initramfs-%{_arch}
+Summary: Warewulf - IPMI Module - Initramfs IPMI Capabilities for %{_arch}
+Group: System Environment/Clustering
+BuildArch: noarch
+%description initramfs-%{_arch}
+Warewulf Provisioning initramfs IPMI capabilities for %{_arch}.
 
 
 %prep
@@ -45,10 +52,11 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO
-%{_localstatedir}/warewulf/initramfs/%{_arch}/capabilities/setup-ipmi
 %{_libexecdir}/warewulf/ipmitool
 %{perl_vendorlib}/Warewulf/Ipmi.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/*
 
+%files initramfs-%{_arch}
+%{_localstatedir}/warewulf/initramfs/%{_arch}/capabilities/setup-ipmi
 
 %changelog

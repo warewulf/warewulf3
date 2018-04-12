@@ -15,10 +15,22 @@ if [ -f "/warewulf/config" ]; then
     . /warewulf/config
 fi
 
+if [ -f "/etc/functions" ]; then
+    . /etc/functions
+fi
+
 START=0
 BACKOFF=2
 INTERVALS=30
 COUNT=1
+
+# If we want to debug, change some values
+if [! -z "$WWDEBUG" ]; then
+    START=0
+    BACKOFF=0
+    INTERVALS=10
+fi
+
 export START BACKOFF INTERVALS COUNT
 
 if [ -z "$WWMASTER" ]; then

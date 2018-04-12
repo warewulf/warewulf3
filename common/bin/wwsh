@@ -86,7 +86,7 @@ my $opt_verbose;
 my $opt_quiet;
 my $opt_noask;
 my $opt_help;
-my $opt_nodhcp;
+our $opt_nodhcp;
 
 Getopt::Long::Configure ("bundling", "passthrough");
 

@@ -25,7 +25,7 @@ INTERVALS=30
 COUNT=1
 
 # If we want to debug, change some values
-if [! -z "$WWDEBUG" ]; then
+if [ -n "$WWDEBUG" ]; then
     START=0
     BACKOFF=0
     INTERVALS=10

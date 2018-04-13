@@ -427,7 +427,6 @@ sync()
         if ( $was_stored ) {
             $self->checksum($digest->hexdigest());
             $self->size($total_len);
-            $db->persist($self);
             if ( $metadata ) {
                 if( @statinfo && ( scalar($self->origin())  == 1 ) ) {
                     $self->gid( $statinfo[5] );
@@ -437,6 +436,7 @@ sync()
                     &dprint("Skipping auto-syncing of file object $name. The path doesn't exist or there are multiple origins.\n" );
                 }
             } 
+            $db->persist($self);
         } else {
             &eprint("Failure:  only wrote $cur_len of $total_len bytes to binstore\n");
         }

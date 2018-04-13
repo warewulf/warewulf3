@@ -88,6 +88,9 @@ while true; do
 
         if [ -x "$NEWROOT/sbin/init" ] || [ -h "$NEWROOT/sbin/init" ]; then
             exit 0
+        else
+            msg_gray "      * $NEWROOT/sbin/init could not be verified. Retrying."
+            wwlogger "$NEWROOT/sbin/init could not be verified. Retrying VNFS download."
         fi
 
     done

@@ -11,22 +11,22 @@
 IPMI_UID=${WWIPMI_UID:-3}
 
 
-if [ -z "$WWIPMI_AUTOCONFIG" -o "$WWIPMI_AUTOCONFIG" == "0" ]; then
+if [ -z "$WWIPMI_AUTOCONFIG" ] || [ "$WWIPMI_AUTOCONFIG" = "0" ]; then
     echo -ne "Auto configuration not activated"
     exit 1
 fi
 
-if [ -n "$WWIPMI_IPADDR" -a -n "$WWIPMI_NETMASK" ]; then
+if [ -n "$WWIPMI_IPADDR" ] && [ -n "$WWIPMI_NETMASK" ]; then
 
     modprobe ipmi_devintf >/dev/null 2>&1
-    if ! modprobe ipmi_si >/dev/null 2>&1; then
+    if ! (modprobe ipmi_si >/dev/null 2>&1 || modprobe ipmi_ssif >/dev/null 2>&1); then
         echo -ne "Hardware not supported"
         exit 1
     fi
 
     sleep 1
 
-    if [ ! -c /dev/ipmi0 -a ! -c /dev/ipmi/0 ]; then
+    if [ ! -c /dev/ipmi0 ] && [ ! -c /dev/ipmi/0 ]; then
         echo -ne "Device files not found"
         exit 1
     fi
@@ -68,8 +68,8 @@ if [ -n "$WWIPMI_IPADDR" -a -n "$WWIPMI_NETMASK" ]; then
             ipmitool sol set non-volatile-bit-rate 115.2 $channel               >/dev/null
             ipmitool sol payload enable $channel $IPMI_UID                      >/dev/null || RETVAL=2
             ipmitool sol set privilege-level user $channel                      >/dev/null || RETVAL=2
-            if [ -n "$WWIPMI_RESET" -a $WWIPMI_RESET != "0" ]; then
-                ipmitool mc reset cold                                              >/dev/null || RETVAL=2
+            if [ -n "${WWIPMI_RESET}" ] && [ "${WWIPMI_RESET}" != "0" ]; then
+                ipmitool mc reset cold                                          >/dev/null || RETVAL=2
             fi
             exit $RETVAL
         fi

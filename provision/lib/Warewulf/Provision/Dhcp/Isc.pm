@@ -236,7 +236,8 @@ persist()
         if (! @bootservers or scalar(grep { $_ eq $ipaddr} @bootservers)) {
             my $clustername = $n->cluster();
             my $domainname = $n->domain();
-            my $pxelinux_file = $n->pxelinux();
+            my $pxeloader = $n->pxeloader();
+            my $ipxeurl = $n->ipxeurl();
             my $master_ipv4_addr;
             my $domain;
 
@@ -312,8 +313,19 @@ persist()
                     $dhcpd_contents .= "   # Adding host entry for $nodename-$devname\n";
                     $dhcpd_contents .= "   host $nodename-$devname {\n";
                     $dhcpd_contents .= "      option host-name $hostname;\n";
-                    if ($pxelinux_file) {
-                        $dhcpd_contents .= "      filename \"/warewulf/$pxelinux_file\";\n";
+                    if ($ipxeurl) {
+                        &dprint("Overriding node's iPXE URL with $ipxeurl\n");
+                        $ipxeurl =~ s/\%{IPADDR}/$ipaddr/g;
+                        $dhcpd_contents .= "      if exists user-class and option user-class = \"iPXE\" {\n";
+                        $dhcpd_contents .= "         filename \"$ipxeurl\";\n";
+                        $dhcpd_contents .= "      }\n";
+
+                    }
+                    if ($pxeloader) {
+                        &dprint("Overriding node's PXE loader with $pxeloader\n");
+                        $dhcpd_contents .= "      if not exists user-class or option user-class != \"iPXE\" {\n";
+                        $dhcpd_contents .= "         filename \"/warewulf/$pxeloader\";\n";
+                        $dhcpd_contents .= "      }\n";
                     }
                     if ($node_gateway) {
                         $dhcpd_contents .= "      option routers $node_gateway;\n";

@@ -99,7 +99,8 @@ help()
     $h .= "         --bootlocal     Boot the node from the local disk (\"exit\" or \"normal\")\n";
     $h .= "         --console       Set a specific console for the kernel command line\n";
     $h .= "         --kargs         Define the kernel arguments (assumes \"net.ifnames=0 biosdevname=0 quiet\" if UNDEF)\n";
-    $h .= "         --pxelinux      Define a custom PXELINUX/boot image to use\n";
+    $h .= "         --pxeloader     Define a custom PXE loader image to use\n";
+    $h .= "         --ipxeurl       Define a custom iPXE configuration URL to use\n";
     $h .= "         --selinux       Boot node with SELinux support? (valid options are: UNDEF,\n";
     $h .= "                         ENABLED, and ENFORCED)\n";
     $h .= "     -f, --filesystem    Specify a filesystem command file\n";
@@ -190,7 +191,8 @@ exec()
     my @opt_filedel;
     my $opt_kargs;
     my $opt_console;
-    my $opt_pxelinux;
+    my $opt_pxeloader;
+    my $opt_ipxeurl;
     my $opt_selinux;
     my $opt_bootloader;
     my $opt_diskformat;
@@ -214,7 +216,8 @@ exec()
         'filedel=s'     => \@opt_filedel,
         'kargs=s'       => \$opt_kargs,
         'console=s'     => \$opt_console,
-        'pxelinux=s'    => \$opt_pxelinux,
+        'pxeloader=s'   => \$opt_pxeloader,
+        'ipxeurl=s'     => \$opt_ipxeurl,
         'master=s'      => \@opt_master,
         'bootserver=s'  => \@opt_bootserver,
         'b|bootstrap=s' => \$opt_bootstrap,
@@ -623,24 +626,45 @@ exec()
             }
         }
 
-        if ($opt_pxelinux) {
-            if ($opt_pxelinux =~ /^([a-zA-Z0-9\.]+)/) {
-                $opt_pxelinux = $1;
+        if ($opt_pxeloader) {
+            if ($opt_pxeloader =~ /^([a-zA-Z0-9\.\/\-_]+)/) {
+                $opt_pxeloader = $1;
 
                 foreach my $obj ($objSet->get_list()) {
                     my $name = $obj->name() || "UNDEF";
-                    $obj->pxelinux($opt_pxelinux);
-                    &dprint("Setting pxelinux file to: $opt_pxelinux\n");
+                    $obj->pxeloader($opt_pxeloader);
+                    &dprint("Setting pxeloader file to: $opt_pxeloader\n");
                     $persist_bool = 1;
                 }
-                if (uc($opt_pxelinux) eq "UNDEF") {
-                    push(@changes, sprintf("     DEL: %-20s\n", "PXELINUX"));
+                if (uc($opt_pxeloader) eq "UNDEF") {
+                    push(@changes, sprintf("     DEL: %-20s\n", "PXELOADER"));
                 } else {
-                    push(@changes, sprintf("     SET: %-20s = %s\n", "PXELINUX", $opt_pxelinux));
+                    push(@changes, sprintf("     SET: %-20s = %s\n", "PXELOADER", $opt_pxeloader));
                 }
 
             } else {
-                &eprint("Invalid command for pxelinux file!\n");
+                &eprint("Invalid command for PXE loader file!\n");
+            }
+        }
+
+        if ($opt_ipxeurl) {
+            if ($opt_ipxeurl =~ /^([a-zA-Z0-9\.\/\-_\:%{}\$]+)/) {
+                $opt_ipxeurl = $1;
+
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->ipxeurl($opt_ipxeurl);
+                    &dprint("Setting iPXE URL to: $opt_ipxeurl\n");
+                    $persist_bool = 1;
+                }
+                if (uc($opt_ipxeurl) eq "UNDEF") {
+                    push(@changes, sprintf("     DEL: %-20s\n", "IPXEURL"));
+                } else {
+                    push(@changes, sprintf("     SET: %-20s = %s\n", "IPXEURL", $opt_ipxeurl));
+                }
+
+            } else {
+                &eprint("Invalid command for iPXE URL!\n");
             }
         }
 
@@ -769,7 +793,8 @@ exec()
             printf("%15s: %-16s = %s\n", $name, "PRESHELL", $o->preshell() ? "TRUE" : "FALSE");
             printf("%15s: %-16s = %s\n", $name, "POSTSHELL", $o->postshell() ? "TRUE" : "FALSE");
             printf("%15s: %-16s = %s\n", $name, "CONSOLE", $o->console() || "UNDEF");
-            printf("%15s: %-16s = %s\n", $name, "PXELINUX", $o->pxelinux() || "UNDEF");
+            printf("%15s: %-16s = %s\n", $name, "PXELOADER", $o->pxeloader() || "UNDEF");
+            printf("%15s: %-16s = %s\n", $name, "IPXEURL", $o->ipxeurl() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "SELINUX", $o->selinux() || "UNDEF");
             printf("%15s: %-16s = \"%s\"\n", $name, "KARGS", $kargs);
             if ($o->get("fs")) {

@@ -208,25 +208,42 @@ kargs()
 }
 
 
-=item pxelinux()
+=item pxeloader()
 
-Set or return the PXELinux file to use for this node.
+Set or return the override PXE network loader file to use for this node.
 
 =cut
 
 sub 
-pxelinux()
+pxeloader()
 {
     my $self = shift;
-    my $val = shift;
-    my $name = $self->get("name");
+    my @val = @_;
 
-    if (!defined($val) || us($val) eq "UNDEF") {
-        &dprint("Object $name del PXELINUX\n");
-        $self->del("pxelinux");
-    } else {
-        return $self->prop("pxelinux", qr/^([a-zA-Z0-9\.\/\-]+)$/, $val);
+    if (defined($_[0]) && $_[0] eq "UNDEF") {
+        @val = undef;
     }
+
+    return $self->prop("pxeloader", qr/^([a-zA-Z0-9\.\/\-_]+)$/, @val);
+}
+
+=item ipxeurl()
+
+Set or return the override iPXE URL to use for this node.
+
+=cut
+
+sub 
+ipxeurl()
+{
+    my $self = shift;
+    my @val = @_;
+
+    if (defined($_[0]) && $_[0] eq "UNDEF") {
+        @val = undef;
+    }
+
+    return $self->prop("ipxeurl", qr/^([a-zA-Z0-9\.\/\-_\:%{}\$]+)$/, @val);
 }
 
 =item fileidadd(@fileids)

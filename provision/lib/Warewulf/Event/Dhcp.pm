@@ -25,7 +25,7 @@ update_dhcp()
 {
     if ($main::opt_nodhcp) {
         &wprint("Skipping DHCP update. Manually run: wwsh dhcp update\n");
-        return &ret_sucess();
+        return &ret_success();
     }
 
     my $dhcp = Warewulf::Provision::DhcpFactory->new();

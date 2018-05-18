@@ -75,6 +75,12 @@ AC_SUBST(fulldatadir)
 initramfsdir="$localstatedir/warewulf/initramfs/";
 AC_SUBST(initramfsdir)
 
+dnl# RHEL/CentOS 6 BusyBox 1.26.2 fixes.
+bb_patches=""
+AC_CHECK_DECL(MTD_FILE_MODE_RAW,[],AC_SUBST(bb_patches, ["nandwrite-el6.patch $bb_patches"]),[[#include <mtd/mtd-user.h>]])
+AC_CHECK_DECL(BLKSECDISCARD,[],AC_SUBST(bb_patches, ["blkdiscard-el6.patch $bb_patches"]),[[#include <linux/fs.h>]])
+AC_CHECK_FUNC(setns,[],AC_SUBST(bb_patches, ["nsenter-el6.patch $bb_patches"]))
+AC_CHECK_FUNC(syncfs,[],AC_SUBST(bb_patches, ["sync-el6.patch $bb_patches"]))
 
 AC_SUBST(PERLBIN)
 

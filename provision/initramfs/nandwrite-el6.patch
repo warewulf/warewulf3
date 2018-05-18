@@ -1,0 +1,23 @@
+--- busybox-1.26.2/miscutils/nandwrite.c	2016-09-27 11:53:50.000000000 -0500
++++ busybox-1.26.2/miscutils/nandwrite.c	2018-05-02 17:04:44.911000911 -0500
+@@ -54,6 +54,20 @@
+ #include "libbb.h"
+ #include <mtd/mtd-user.h>
+ 
++// Newer kernel headers renamed 
++#ifndef MTD_FILE_MODE_NORMAL
++#define MTD_FILE_MODE_NORMAL MTD_MODE_NORMAL
++#endif
++#ifndef MTD_FILE_MODE_OTP_FACTORY
++#define MTD_FILE_MODE_OTP_FACTORY MTD_MODE_OTP_FACTORY
++#endif
++#ifndef MTD_FILE_MODE_OTP_USER
++#define MTD_FILE_MODE_OTP_USER MTD_MODE_OTP_USER
++#endif
++#ifndef MTD_FILE_MODE_RAW
++#define MTD_FILE_MODE_RAW MTD_MODE_RAW
++#endif
++
+ #define IS_NANDDUMP  (ENABLE_NANDDUMP && (!ENABLE_NANDWRITE || (applet_name[4] == 'd')))
+ #define IS_NANDWRITE (ENABLE_NANDWRITE && (!ENABLE_NANDDUMP || (applet_name[4] != 'd')))
+ 

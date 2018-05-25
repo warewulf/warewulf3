@@ -36,6 +36,10 @@ AC_SUBST(WAREWULF_STATEDIR)
 
 AC_MSG_CHECKING([for Debian based system])
 AM_CONDITIONAL(ISDEB, [test -f /etc/debian_version])
+AM_COND_IF([ISDEB],
+    AC_MSG_RESULT([yes]),
+    AC_MSG_RESULT([no])
+)
 
 AC_PATH_PROG(PERLBIN, perl)
 if test -z "$PERLBIN"; then
@@ -70,7 +74,6 @@ AC_SUBST(fulldatadir)
 
 initramfsdir="$localstatedir/warewulf/initramfs/";
 AC_SUBST(initramfsdir)
-
 
 AC_SUBST(PERLBIN)
 

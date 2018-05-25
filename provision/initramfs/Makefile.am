@@ -9,7 +9,7 @@ MACHINE:=$(shell uname -m)
 BUSYBOX_VERSION = 1.26.2
 BUSYBOX_SOURCE = $(top_srcdir)/3rd_party/GPL/busybox-$(BUSYBOX_VERSION).tar.bz2
 BUSYBOX_DIR = busybox-$(BUSYBOX_VERSION)
-BUSYBOX_PATCHES = @bb_patches@
+BUSYBOX_PATCHES = 
 
 E2FSPROGS_VERSION = 1.42.12
 E2FSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/e2fsprogs-$(E2FSPROGS_VERSION).tar.gz
@@ -50,10 +50,10 @@ busybox:
 		echo "Preparing to build initramfs core" ;\
 		mkdir -p _work/ ;\
 		tar xjf $(BUSYBOX_SOURCE) -C _work/ ;\
-		cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
 		for i in $(BUSYBOX_PATCHES); do \
 			(cd _work/$(BUSYBOX_DIR); patch -p1 < ../../$${i} || exit 1) \
 		done ;\
+		cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
 	fi
 	@ if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
 		echo "Building initramfs core" ;\
@@ -144,6 +144,6 @@ clean-local:
 
 
 
-EXTRA_DIST = busybox.config init devs.cpio functions dhcp-script detect transporthandler provisionhandler wwlogger nandwrite-el6.patch blkdiscard-el6.patch nsenter-el6.patch sync-el6.patch
+EXTRA_DIST = busybox.config init devs.cpio functions dhcp-script detect transporthandler provisionhandler wwlogger
 
 MAINTAINERCLEANFILES = Makefile.in

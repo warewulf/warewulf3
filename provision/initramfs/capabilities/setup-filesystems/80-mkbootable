@@ -28,6 +28,7 @@ GRUBDEFAULTCONF="${WWGRUBDEFAULTCONF:-/etc/default/grub}"
 
 CONSOLE="${WWCONSOLE:-}"
 KARGS="${WWKARGS:-quiet}"
+KARGS=${KARGS//,/ }
 
 # Parse the kernel console option for a serial TTY into values useful for /etc/default/grub
 parse_console() {
@@ -62,6 +63,8 @@ update_default_conf() {
       echo "GRUB_TERMINAL='console serial'" >> "${CONF}"
       echo "GRUB_SERIAL_COMMAND='serial --speed=${SERIALSPEED} --unit=${SERIALUNIT} --word=${SERIALWORD} --parity=${SERIALPARITY}'" >> "${CONF}"
     fi
+  elif [ -n "${KARGS}" ]; then
+    echo "GRUB_CMDLINE_LINUX='console=tty0 ${KARGS}'" >> "${CONF}"
   fi
 
 }

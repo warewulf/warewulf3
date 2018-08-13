@@ -75,6 +75,17 @@ AC_SUBST(fulldatadir)
 initramfsdir="$localstatedir/warewulf/initramfs/";
 AC_SUBST(initramfsdir)
 
+BUSYBOX_CONFIG_EXTRA_LDLIBS=
+PKG_CHECK_MODULES([TIRPC], [libtirpc], [
+    AS_IF([test -n "$TIRPC_LIBS"], [
+        m4_foreach_w([libopt], [$TIRPC_LIBS], [
+            opt="libopt"
+            BUSYBOX_CONFIG_EXTRA_LDLIBS="$BUSYBOX_CONFIG_EXTRA_LDLIBS ${opt#-l}"
+        ])
+    ])
+])
+AC_SUBST(BUSYBOX_CONFIG_EXTRA_LDLIBS)
+
 AC_SUBST(PERLBIN)
 
 dnl# Get git version
@@ -126,6 +137,7 @@ AC_OUTPUT(
    etc/filesystem/examples/Makefile
    etc/warewulf-httpd.conf
    initramfs/Makefile
+   initramfs/busybox.config
    initramfs/capabilities/Makefile
    initramfs/capabilities/provision-adhoc/Makefile
    initramfs/capabilities/provision-files/Makefile

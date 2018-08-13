@@ -42,9 +42,11 @@ if ! grep -q "^# This file was created by Warewulf" /etc/ntp.conf; then
 fi
 
 if [ -f "/etc/ntp.keys" ]; then
-    KEY_FILE="/etc/ntp.keys"
+    KEY_FILE="keys /etc/ntp.keys"
 elif [ -f "/etc/ntp/keys" ]; then
-    KEY_FILE="/etc/ntp/keys"
+    KEY_FILE="keys /etc/ntp/keys"
+else
+    KEY_FILE="#keys /etc/ntp.keys"
 fi
 
 cat <<EOF > /etc/ntp.conf
@@ -78,7 +80,7 @@ includefile /etc/ntp/crypto/pw
 
 # Key file containing the keys and key identifiers used when operating
 # with symmetric key cryptography.
-keys $KEY_FILE
+$KEY_FILE
 
 # Specify the key identifiers which are trusted.
 $ntp_trustedkey

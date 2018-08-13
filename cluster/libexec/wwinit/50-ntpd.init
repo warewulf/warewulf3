@@ -29,6 +29,13 @@ fi
 NETWORK=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network->new()->network(Warewulf::Config->new("provision.conf")->get("network device"));'`
 NETMASK=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network->new()->netmask(Warewulf::Config->new("provision.conf")->get("network device"));'`
 
+ntp_trustedkey=$(cat /etc/ntp.conf | sed -ne "s/^[^#t]*\(trustedkey[^#]\+\).*/\1/p")
+[ -z "$ntp_trustedkey" ] && ntp_trustedkey='#controlkey 8'
+ntp_controlkey=$(cat /etc/ntp.conf | sed -ne "s/^[^#c]*\(controlkey[^#]\+\).*/\1/p")
+[ -z "$ntp_controlkey" ] && ntp_controlkey='#trustedkey 4 8 42'
+ntp_requestkey=$(cat /etc/ntp.conf | sed -ne "s/^[^#r]*\(requestkey[^#]\+\).*/\1/p")
+[ -z "$ntp_requestkey" ] && ntp_requestkey='#requestkey 8'
+
 if ! grep -q "^# This file was created by Warewulf" /etc/ntp.conf; then
     cp /etc/ntp.conf /etc/ntp.conf-orig
     wwprint "Backed up current NTP config to /etc/ntp.conf-orig\n"
@@ -74,13 +81,13 @@ includefile /etc/ntp/crypto/pw
 keys $KEY_FILE
 
 # Specify the key identifiers which are trusted.
-#trustedkey 4 8 42
+$ntp_trustedkey
 
 # Specify the key identifier to use with the ntpdc utility.
-#requestkey 8
+$ntp_requestkey
 
 # Specify the key identifier to use with the ntpq utility.
-#controlkey 8
+$ntp_controlkey
 
 # Enable writing of statistics records.
 #statistics clockstats cryptostats loopstats peerstats

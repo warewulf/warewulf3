@@ -239,7 +239,8 @@ wwservice_activate() {
             fi
             if systemctl list-unit-files --type=service,socket | egrep -q "^$SERVICE"; then
                 wwprint "Activating Systemd unit: $1\n"
-                if wwrun /bin/systemctl -q enable $SERVICE; then
+                if systemctl is-enabled --quiet $SERVICE ||
+			wwrun /bin/systemctl -q enable $SERVICE; then
                     if wwrun /bin/systemctl -q restart $SERVICE; then
                         return 0
                     fi

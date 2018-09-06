@@ -109,6 +109,39 @@ AC_DEFUN([FIND_LOCAL], [
     AC_SUBST(local_$1_path)
 ])
 
+FIND_LOCAL(busybox, busybox)
+busybox_links_path="/usr/share/busybox/busybox.links"
+AS_IF([test -n "$local_busybox_path"],
+    [AC_MSG_CHECKING([for local busybox links file])
+        AC_ARG_WITH([busybox-links-file],
+            [AS_HELP_STRING([--with-busybox-links-file],
+                [use list of busybox links @<:@default is $busybox_links_path@:>@]
+            )],
+            [AS_IF([test -n "$with_busybox_links_file"],
+                [AS_IF([test "x$with_busybox_links_file" == "xno"],
+                    [busybox_links_path=],
+                    [AS_IF([test "x$with_busybox_links_file" != "xyes"],
+                        [busybox_links_path="$with_busybox_links_file"])
+                    ]
+                )]
+            )]
+        )
+        AS_IF([test -z "$busybox_links_path"],
+            [AC_MSG_RESULT([cannot use local busybox without links file - fallback to internal busybox build])
+                local_busybox_path=
+            ],
+            [AS_IF([test -f "$busybox_links_path"],
+                [AC_MSG_RESULT([$busybox_links_path])],
+                [AC_MSG_RESULT([$busybox_links_path not found - fallback to internal busybox build])
+                    local_busybox_path=
+                    busybox_links_path=
+                ]
+            )]
+        )
+    ]
+)
+
+AC_SUBST(busybox_links_path)
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])

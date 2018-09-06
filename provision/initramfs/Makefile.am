@@ -46,22 +46,27 @@ e2fsprogs:
 
 
 busybox:
-	@ if [ ! -d "_work/$(BUSYBOX_DIR)" ]; then \
-		echo "Preparing to build initramfs core" ;\
-		mkdir -p _work/ ;\
-		tar xjf $(BUSYBOX_SOURCE) -C _work/ ;\
-		for i in $(BUSYBOX_PATCHES); do \
-			(cd _work/$(BUSYBOX_DIR); patch -p1 < ../../$${i} || exit 1) \
-		done ;\
-		cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
-	fi
-	@ if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
-		echo "Building initramfs core" ;\
-		$(MAKE) -C _work/$(BUSYBOX_DIR) busybox ;\
-	fi
-	@ if [ ! -d "_work/$(BUSYBOX_DIR)/_install" ]; then \
-		echo "Installing initramfs core" ;\
-		$(MAKE) -C _work/$(BUSYBOX_DIR) install ;\
+	@ if [ -n "@local_busybox_path@" -a -f "@local_busybox_path@" -a \
+	    -n "@local_busybox_path@" -a -f "@busybox_links_path@" ]; then \
+		echo "Detected local install of busybox. Bypassing busybox build process." ;\
+	else \
+		if [ ! -d "_work/$(BUSYBOX_DIR)" ]; then \
+			echo "Preparing to build initramfs core" ;\
+			mkdir -p _work/ ;\
+			tar xjf $(BUSYBOX_SOURCE) -C _work/ ;\
+			for i in $(BUSYBOX_PATCHES); do \
+				(cd _work/$(BUSYBOX_DIR); patch -p1 < ../../$${i} || exit 1) ;\
+			done ;\
+			cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
+		fi ;\
+		if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
+			echo "Building initramfs core" ;\
+			$(MAKE) -C _work/$(BUSYBOX_DIR) busybox ;\
+		fi ;\
+		if [ ! -d "_work/$(BUSYBOX_DIR)/_install" ]; then \
+			echo "Installing initramfs core" ;\
+			$(MAKE) -C _work/$(BUSYBOX_DIR) install ;\
+		fi ;\
 	fi
 
 libarchive:
@@ -103,7 +108,18 @@ rootfs: busybox e2fsprogs libarchive parted
 	mkdir rootfs/lib
 	mkdir rootfs/lib64
 	chmod -R u+w rootfs/
-	cp -a _work/$(BUSYBOX_DIR)/_install/* rootfs/
+	if [ -n "@local_busybox_path@" -a -f "@local_busybox_path@" -a \
+	    -n "@local_busybox_path@" -a -f "@busybox_links_path@" ]; then \
+		while read lfpath; do \
+			if [ ! -d rootfs$$(dirname $${lfpath}) ]; then \
+				mkdir -p rootfs$$(dirname $${lfpath}); \
+			fi; \
+			ln -vs /bin/busybox rootfs$${lfpath}; \
+		done < "@busybox_links_path@" ;\
+		cp -av "@local_busybox_path@" rootfs/bin/busybox ;\
+	else \
+		cp -av _work/$(BUSYBOX_DIR)/_install/* rootfs/ ;\
+	fi
 	cp _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	cp -a _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar

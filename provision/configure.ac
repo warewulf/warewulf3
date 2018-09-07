@@ -78,6 +78,37 @@ fi
 AC_MSG_RESULT($apache_moddir)
 AC_SUBST(apache_moddir)
 
+AC_DEFUN([FIND_LOCAL], [
+    AC_MSG_CHECKING([for locally installed $1])
+    AC_ARG_WITH([local-$1], [
+        AS_HELP_STRING([--with-local-$1], [
+            use locally installed $1 @<:@default is no@:>@
+        ])], [], [with_local_$1=no]
+    )
+
+    local_$1_path=
+    AS_IF([test -n "$with_local_$1" -a "x$with_local_$1" != "xno"], [
+        local_$1_path="$with_local_$1"
+        AS_IF([test "x$with_local_$1" == "xyes"], [local_$1_path="$2"])
+        AS_IF([test -f "$local_$1_path"], [
+            AC_MSG_RESULT([$local_$1_path])
+        ], [
+            search_$1_path=`which "$local_$1_path" 2>/dev/null`
+            AS_IF([test -z "$search_$1_path"], [
+                AC_MSG_ERROR([no, $local_$1_path could not be found])
+            ], [
+                AC_MSG_RESULT([$search_$1_path])
+                local_$1_path="$search_$1_path"
+            ])
+        ])
+    ], [
+        AC_MSG_RESULT([no])
+        local_$1_path=
+    ])
+
+    AC_SUBST(local_$1_path)
+])
+
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])

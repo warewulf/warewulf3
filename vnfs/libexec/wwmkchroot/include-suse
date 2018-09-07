@@ -92,7 +92,7 @@ prechroot() {
         ZYP_MIRROR=$INSTALLDIRS
     fi
 
-    PKGR_CMD="$ZYP_CMD install $PKGLIST"
+    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses $PKGLIST"
     return 0
 }
 

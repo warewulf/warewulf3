@@ -143,6 +143,8 @@ AS_IF([test -n "$local_busybox_path"],
 
 AC_SUBST(busybox_links_path)
 
+FIND_LOCAL(e2fsprogs, mkfs.ext4)
+
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])
 #])

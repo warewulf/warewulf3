@@ -27,21 +27,25 @@ PARTED_DIR = parted-$(PARTED_VERSION)
 PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
 
 e2fsprogs:
-	@ if [ ! -d "_work/$(E2FSPROGS_DIR)" ]; then \
-		echo "Preparing to build e2fsprogs" ;\
-		mkdir -p _work/ ;\
-		tar xzf $(E2FSPROGS_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(E2FSPROGS_DIR)/misc/mke2fs" ]; then \
-		echo "Building e2fsprogs" ;\
-		if [ -f "/usr/lib/rpm/config.guess" ]; then \
-			cp /usr/lib/rpm/config.guess _work/$(E2FSPROGS_DIR)/config;\
-		fi; \
-		if [ -f "/usr/lib/rpm/config.sub" ]; then \
-			cp /usr/lib/rpm/config.sub _work/$(E2FSPROGS_DIR)/config;\
-		fi; \
-		(cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
-		$(MAKE) -C _work/$(E2FSPROGS_DIR);\
+	@ if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
+		echo "Detected local install of e2fsprogs. Bypassing e2fsprogs build process." ;\
+	else \
+		if [ ! -d "_work/$(E2FSPROGS_DIR)" ]; then \
+			echo "Preparing to build e2fsprogs" ;\
+			mkdir -p _work/ ;\
+			tar xzf $(E2FSPROGS_SOURCE) -C _work/ ;\
+		fi ;\
+		if [ ! -f "_work/$(E2FSPROGS_DIR)/misc/mke2fs" ]; then \
+			echo "Building e2fsprogs" ;\
+			if [ -f "/usr/lib/rpm/config.guess" ]; then \
+				cp /usr/lib/rpm/config.guess _work/$(E2FSPROGS_DIR)/config;\
+			fi; \
+			if [ -f "/usr/lib/rpm/config.sub" ]; then \
+				cp /usr/lib/rpm/config.sub _work/$(E2FSPROGS_DIR)/config;\
+			fi; \
+			(cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
+			$(MAKE) -C _work/$(E2FSPROGS_DIR);\
+		fi ;\
 	fi
 
 
@@ -120,7 +124,11 @@ rootfs: busybox e2fsprogs libarchive parted
 	else \
 		cp -av _work/$(BUSYBOX_DIR)/_install/* rootfs/ ;\
 	fi
-	cp _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4
+	if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
+		cp -av "@local_e2fsprogs_path@" rootfs/sbin/mkfs.ext4 ;\
+	else \
+		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
+	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	cp -a _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar
 	$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install

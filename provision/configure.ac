@@ -144,6 +144,9 @@ AS_IF([test -n "$local_busybox_path"],
 AC_SUBST(busybox_links_path)
 
 FIND_LOCAL(e2fsprogs, mkfs.ext4)
+FIND_LOCAL(ipxe_undionly, /usr/share/ipxe/undionly.kpxe)
+FIND_LOCAL(ipxe_snp_i386, /usr/share/ipxe/snp-i386.efi)
+FIND_LOCAL(ipxe_snp_x86_64, /usr/share/ipxe/snp-x86_64.efi)
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])

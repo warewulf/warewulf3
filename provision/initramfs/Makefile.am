@@ -90,16 +90,21 @@ libarchive:
 	fi
 
 parted:
-	@ if [ ! -d "_work/$(PARTED_DIR)" ]; then \
-		echo "Preparing to build parted" ;\
-		mkdir -p _work/ ;\
-        echo In directory `pwd` ;\
-		tar Jxf $(PARTED_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(PARTED_DIR)/" ]; then \
-		echo "Building parted" ;\
-		(cd _work/$(PARTED_DIR)/; ./configure $(PARTED_CONFIGARGS)) ;\
-		$(MAKE) -C _work/$(PARTED_DIR);\
+	@ if [ -n "@local_parted_path@" -a -f "@local_parted_path@" -a \
+	  -n "@local_partprobe_path@" -a -f "@local_partprobe_path@" ]; then \
+		echo "Detected local install of parted. Bypassing parted build process." ;\
+	else \
+		if [ ! -d "_work/$(PARTED_DIR)" ]; then \
+			echo "Preparing to build parted" ;\
+			mkdir -p _work/ ;\
+		echo In directory `pwd` ;\
+			tar Jxf $(PARTED_SOURCE) -C _work/ ;\
+		fi; \
+		if [ ! -f "_work/$(PARTED_DIR)/" ]; then \
+			echo "Building parted" ;\
+			(cd _work/$(PARTED_DIR)/; ./configure $(PARTED_CONFIGARGS)) ;\
+			$(MAKE) -C _work/$(PARTED_DIR);\
+		fi \
 	fi
 
 rootfs: busybox e2fsprogs libarchive parted
@@ -138,7 +143,13 @@ rootfs: busybox e2fsprogs libarchive parted
 	else \
 		cp -av _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar; \
 	fi
-	$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install
+	if [ -n "@local_parted_path@" -a -f "@local_parted_path@" -a \
+	  -n "@local_partprobe_path@" -a -f "@local_partprobe_path@" ]; then \
+		cp -av "@local_parted_path@" rootfs/usr/sbin/parted; \
+		cp -av "@local_partprobe_path@" rootfs/usr/sbin/partprobe; \
+	else \
+		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \
+	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la

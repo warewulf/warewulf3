@@ -74,16 +74,19 @@ busybox:
 	fi
 
 libarchive:
-	@ if [ ! -d "_work/$(LIBARCHIVE_DIR)" ]; then \
-		echo "Preparing to build libarchive" ;\
-		mkdir -p _work/ ;\
-        echo In directory `pwd` ;\
-		tar xzf $(LIBARCHIVE_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(LIBARCHIVE_DIR)/" ]; then \
-		echo "Building libarchive" ;\
-		(cd _work/$(LIBARCHIVE_DIR)/; ./configure $(LIBARCHIVE_CONFIGARGS)) ;\
-		$(MAKE) -C _work/$(LIBARCHIVE_DIR);\
+	@ if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
+		echo "Detected local install of bsdtar. Bypassing libarchive build process." ;\
+	else \
+		if [ ! -d "_work/$(LIBARCHIVE_DIR)" ]; then \
+			echo "Preparing to build libarchive" ;\
+			mkdir -p _work/ ;\
+			tar xzf $(LIBARCHIVE_SOURCE) -C _work/ ;\
+		fi ;\
+		if [ ! -f "_work/$(LIBARCHIVE_DIR)/" ]; then \
+			echo "Building libarchive" ;\
+			(cd _work/$(LIBARCHIVE_DIR)/; ./configure $(LIBARCHIVE_CONFIGARGS)) ;\
+			$(MAKE) -C _work/$(LIBARCHIVE_DIR);\
+		fi ;\
 	fi
 
 parted:
@@ -130,7 +133,11 @@ rootfs: busybox e2fsprogs libarchive parted
 		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
 	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
-	cp -a _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar
+	if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
+		cp -av "@local_libarchive_path@" rootfs/bin/bsdtar; \
+	else \
+		cp -av _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar; \
+	fi
 	$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install
 	cp -L --parents /lib*/ld-linux* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done

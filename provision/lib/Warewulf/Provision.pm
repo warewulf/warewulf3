@@ -243,7 +243,7 @@ ipxeurl()
         @val = undef;
     }
 
-    return $self->prop("ipxeurl", qr/^([a-zA-Z0-9\.\/\-_\:%{}\$]+)$/, @val);
+    return $self->prop("ipxeurl", qr/^([a-zA-Z0-9\.\/\-_\:%\{}\$]+)$/, @val);
 }
 
 =item fileidadd(@fileids)

@@ -41,6 +41,15 @@ AM_COND_IF([ISDEB],
     AC_MSG_RESULT([no])
 )
 
+AC_MSG_CHECKING([for SUSE based system])
+AM_CONDITIONAL(ISSUSE, [test -e /etc/SUSEConfig ||
+		       { test -e /etc/os-release &&
+		       grep -q "ID_LIKE=\".*suse.*\"" /etc/os-release; }])
+AM_COND_IF([ISSUSE],
+    AC_MSG_RESULT([yes]),
+    AC_MSG_RESULT([no])
+)
+
 AC_PATH_PROG(PERLBIN, perl)
 if test -z "$PERLBIN"; then
    AC_MSG_ERROR([perl not found])

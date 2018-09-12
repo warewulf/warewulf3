@@ -68,6 +68,17 @@ PERL_VENDORLIB="$force_prefix$PERL_VENDORLIB"
 AC_MSG_RESULT($PERL_VENDORLIB)
 AC_SUBST(PERL_VENDORLIB)
 
+apache_moddir="modules"
+AC_MSG_CHECKING([for Apache2 module path])
+AC_ARG_WITH(apache2moddir, [  --with-apache2moddir=path  Manually specify where the Apache2 modules live], [
+if test -n "$withval" -a "x$withval" != "xno" ; then
+   apache_moddir="$withval"
+fi
+])
+AC_MSG_RESULT($apache_moddir)
+AC_SUBST(apache_moddir)
+
+
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])
 #])

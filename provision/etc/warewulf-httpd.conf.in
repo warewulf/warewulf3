@@ -1,8 +1,8 @@
 <IfModule !perl_module>
-    LoadModule perl_module modules/mod_perl.so
+    LoadModule perl_module @apache_moddir@/mod_perl.so
 </IfModule>
 <IfModule !version_module>
-    LoadModule version_module modules/mod_version.so
+    LoadModule version_module @apache_moddir@/mod_version.so
 </IfModule>
 PerlSwitches -w
 PerlSwitches -T

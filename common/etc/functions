@@ -210,8 +210,8 @@ wwreqroot() {
 wwpackage_check() {
     for PACKAGE in "$@"; do
         if [ -x /bin/rpm ]; then
-            wwprint "Checking to see if RPM '$PACKAGE' is installed "
-            if wwtest rpm -q $PACKAGE; then
+            wwprint "Checking to see if RPM or capability '$PACKAGE' is installed "
+            if wwtest rpm -q --whatprovides "$PACKAGE"; then
                 return 0
             fi
         elif [ -x /bin/dpkg ] || [ -x /usr/bin/dpkg ]; then

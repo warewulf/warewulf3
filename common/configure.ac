@@ -22,6 +22,13 @@ fi
 AC_MSG_RESULT($PERL_VENDORLIB)
 AC_SUBST(PERL_VENDORLIB)
 
+AC_ARG_WITH([bashcompletionconfdir],
+    [AS_HELP_STRING([--with-bashcompletionconfdir], [Directory for bash completion configuration files (default is SYSCONFDIR/bash_completion.d)])],
+    [bashcompletionconfdir=$withval],
+    [bashcompletionconfdir='${sysconfdir}/bash_completion.d']
+)
+AC_SUBST([bashcompletionconfdir])
+
 dnl# Compatibility for RHEL5
 if test "x${datarootdir}" = "x"; then
     datarootdir="$datadir"

@@ -1,6 +1,4 @@
-REPO_NAME="SLES12-12-0-sp1"
-ZYP_CONF="/root/yum-ww.conf"
-ZYP_CMD="zypper -c $CHROOTDIR/$ZYP_CONF --root $CHROOTDIR -n --gpg-auto-import-keys"
+ZYP_CMD="zypper --root $CHROOTDIR -n --gpg-auto-import-keys"
 
 distro_check() {
     if ! rpm -q zypper >/dev/null 2>&1 ; then
@@ -15,7 +13,16 @@ set_overlay() {
         echo "ERROR: This is an overlay that must work on an existing chroot!"
         return 1
     fi
-    if [ ! -f "$CHROOTDIR/etc/SuSE-release" ]; then
+    suse=0
+    if [ -f "$CHROOTDIR/etc/os-release" ]; then
+        if [[ "$(grep "ID_LIKE" $CHROOTDIR/etc/os-release | \
+            awk -F= '{print $2;}')" =~ .*suse.* ]]; then
+            suse=1
+        fi
+    elif [  -f "$CHROOTDIR/etc/SuSE-release" ]; then
+        suse=1
+    fi
+    if [ $no_suse -eq 1 ]; then
         echo "ERROR: This must be a SuSE compatible chroot!"
         return 1
     fi
@@ -27,48 +34,27 @@ prechroot() {
     if [ -n "$OS_MIRROR" ]; then
         ZYP_MIRROR="$OS_MIRROR"
     fi
-    if [[ -z "$ZYP_MIRROR" && -z "$INSTALL_ISO" ]]; then
-        echo "ERROR: You must define the \$ZYP_MIRROR variable in the template"
-        cleanup
-        return 1
+
+    if [ -e "/etc/os-release" ]; then
+        VERSION=`rpm -qf /etc/os-release  --qf '%{VERSION}\n'`
+    else
+        VERSION=`rpm -qf /etc/SuSE-release  --qf '%{VERSION}\n'`
     fi
-
-    VERSION=`rpm -qf /etc/SuSE-release  --qf '%{VERSION}\n'`
-
     mkdir -p $CHROOTDIR
-    mkdir -p $CHROOTDIR/etc
-    mkdir -p $CHROOTDIR/etc/zypp
-    mkdir -p $CHROOTDIR/dev
+    mkdir -p -m 755 $CHROOTDIR/etc
+    mkdir -p -m 755 $CHROOTDIR/etc/zypp
+    mkdir -p -m 755 $CHROOTDIR/dev
+    rm -f $CHROOTDIR/dev/zero && mknod -m 666 $CHROOTDIR/dev/zero c 1 5
 
-    cp -rap /etc/zypp/zypper.conf /etc/zypp/repos.d $CHROOTDIR/etc
+    cp -rap /etc/zypp/zypper.conf $CHROOTDIR/etc
+    if [[ -z "$ZYP_MIRROR" && -z "$INSTALL_ISO" ]]; then
+        cp -rap /etc/zypp/repos.d $CHROOTDIR/etc
+        [ -d /etc/zypp/services.d ] && cp -rap /etc/zypp/services.d $CHROOTDIR/etc
+        [ -d /etc/zypp/credentials.d ] && cp -rap /etc/zypp/credentials.d $CHROOTDIR/etc
+    fi
     sed -i -e "s/\$releasever/$VERSION/g" `find $CHROOTDIR/etc/zypp* -type f`
 
-    ZYP_CONF_DIRNAME=`dirname $ZYP_CONF`
-    mkdir -m 0755 -p $CHROOTDIR/$ZYP_CONF_DIRNAME
-
-    > $CHROOTDIR/$ZYP_CONF
-    echo "[main]" >> $CHROOTDIR/$ZYP_CONF
-    echo '#cachedir=/var/cache/yum/$basearch/$releasever' >> $CHROOTDIR/$ZYP_CONF
-    echo "#keepcache=0" >> $CHROOTDIR/$ZYP_CONF
-    echo "#debuglevel=2" >> $CHROOTDIR/$ZYP_CONF
-    echo "#logfile=/var/log/yum.log" >> $CHROOTDIR/$ZYP_CONF
-    echo "#exactarch=1" >> $CHROOTDIR/$ZYP_CONF
-    echo "#obsoletes=1" >> $CHROOTDIR/$ZYP_CONF
-    echo "#gpgcheck=0" >> $CHROOTDIR/$ZYP_CONF
-    echo "#plugins=1" >> $CHROOTDIR/$ZYP_CONF
-    echo "#reposdir=0" >> $CHROOTDIR/$ZYP_CONF
-    echo "" >> $CHROOTDIR/$ZYP_CONF
-
-    cp -RLp /dev/zero $CHROOTSDIR/.
-
-    if [ -z "$INSTALL_ISO" ]; then
-        echo "[$REPO_NAME]" >> $CHROOTDIR/$ZYP_CONF
-        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$ZYP_CONF
-        echo "baseurl=$ZYP_MIRROR" >> $CHROOTDIR/$ZYP_CONF
-        echo "enabled=1" >> $CHROOTDIR/$ZYP_CONF
-        echo "type=rpm-md" >> $CHROOTDIR/$ZYP_CONF
-        echo "gpgcheck=0" >> $CHROOTDIR/$ZYP_CONF
-    else
+    if [ -n "$INSTALL_ISO" ]; then
         for i in `ls -d $MEDIA_MOUNTPATH.*`; do
             if [ -z "$INSTALLDIRS" ]; then
                 if [ -d $i/repodata ]; then
@@ -82,21 +68,22 @@ prechroot() {
                 INSTALLDIRS="$INSTALLDIRS,file://$i"
             fi
         done
-        echo "[$REPO_NAME]" >> $CHROOTDIR/$ZYP_CONF
-        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$ZYP_CONF
-        echo "baseurl=$INSTALLDIRS" >> $CHROOTDIR/$ZYP_CONF
-        echo "enabled=1" >> $CHROOTDIR/$ZYP_CONF
-        echo "type=rpm-md" >> $CHROOTDIR/$ZYP_CONF
-        echo "gpgcheck=0" >> $CHROOTDIR/$ZYP_CONF
 
         ZYP_MIRROR=$INSTALLDIRS
     fi
-
+    declare -i cnt=0
+    $ZYP_CMD rr --all
+    for i in `echo $ZYP_MIRROR | sed -e 's/,/ /'`; do
+        $ZYP_CMD ar $i repo-$((cnt++))
+    done
     PKGR_CMD="$ZYP_CMD install $PKGLIST"
     return 0
 }
 
 postchroot() {
+    for i in `echo $ZYP_MIRROR | sed -e 's/,/ /'`; do
+        $ZYP_CMD rr $i
+    done
     touch $CHROOTDIR/fastboot
     return 0
 }

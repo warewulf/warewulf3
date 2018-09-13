@@ -41,6 +41,15 @@ AM_COND_IF([ISDEB],
     AC_MSG_RESULT([no])
 )
 
+AC_MSG_CHECKING([for SUSE based system])
+AM_CONDITIONAL(ISSUSE, [test -e /etc/SUSEConfig ||
+		       { test -e /etc/os-release &&
+		       grep -q "ID_LIKE=\".*suse.*\"" /etc/os-release; }])
+AM_COND_IF([ISSUSE],
+    AC_MSG_RESULT([yes]),
+    AC_MSG_RESULT([no])
+)
+
 AC_PATH_PROG(PERLBIN, perl)
 if test -z "$PERLBIN"; then
    AC_MSG_ERROR([perl not found])
@@ -58,6 +67,17 @@ fi
 PERL_VENDORLIB="$force_prefix$PERL_VENDORLIB"
 AC_MSG_RESULT($PERL_VENDORLIB)
 AC_SUBST(PERL_VENDORLIB)
+
+apache_moddir="modules"
+AC_MSG_CHECKING([for Apache2 module path])
+AC_ARG_WITH(apache2moddir, [  --with-apache2moddir=path  Manually specify where the Apache2 modules live], [
+if test -n "$withval" -a "x$withval" != "xno" ; then
+   apache_moddir="$withval"
+fi
+])
+AC_MSG_RESULT($apache_moddir)
+AC_SUBST(apache_moddir)
+
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])

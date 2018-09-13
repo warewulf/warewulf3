@@ -1,0 +1,21 @@
+# The general SUSE include has all of the necessary functions, but requires
+# some basic variables specific to each chroot type to be defined.
+. include-suse
+
+
+
+# Define the location of the YUM repository
+ZYP_MIRROR="http://download.opensuse.org/distribution/leap/15.0/repo/oss/,\
+http://download.opensuse.org/update/leap/15.0/oss/"
+
+# Install only what is necessary/specific for this distribution
+PKGLIST="systemd-sysvinit aaa_base bash dracut openSUSE-release coreutils \
+    e2fsprogs ethtool filesystem findutils gawk grep iproute2 iputils \
+    mingetty net-tools nfs-kernel-server pam rpcbind procps psmisc shadow \
+    rsync sed rsyslog tcpd timezone util-linux tar less gzip kmod-compat \
+    udev openssh dhcp-client pciutils vim strace cron cpupower cpio wget zypper"
+
+
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

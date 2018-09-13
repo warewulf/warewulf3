@@ -1,6 +1,6 @@
 dist_confDATA_INSTALL = ${INSTALL} -m 644
 
-confdir = $(sysconfdir)/bash_completion.d/
+confdir = @bashcompletionconfdir@
 
 dist_conf_DATA = warewulf_completion
 

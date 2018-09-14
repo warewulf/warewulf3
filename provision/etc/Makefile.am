@@ -7,8 +7,12 @@ bash_completiondir = $(sysconfdir)/bash_completion.d/
 if ISDEB
 httpdir = $(sysconfdir)/apache2/conf.d/
 else
+if ISSUSE
+httpdir = $(sysconfdir)/apache2/conf.d/
+else
 # Assume RHEL Layout
 httpdir = $(sysconfdir)/httpd/conf.d/
+endif
 endif
 
 httpdconfdir = $(httpdir)

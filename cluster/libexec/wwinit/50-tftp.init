@@ -20,7 +20,7 @@ fi
 
 wwreqroot
 
-if wwpackage_check tftp-server tftpd tftpd-hpa; then
+if wwpackage_check tftp-server tftpd "tftp(server)" tftpd-hpa; then
     if wwservice_activate tftp.socket tftpd tftp tftpd-hpa; then
         exit 0
     fi

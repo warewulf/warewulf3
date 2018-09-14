@@ -41,6 +41,15 @@ AM_COND_IF([ISDEB],
     AC_MSG_RESULT([no])
 )
 
+AC_MSG_CHECKING([for SUSE based system])
+AM_CONDITIONAL(ISSUSE, [test -e /etc/SUSEConfig ||
+		       { test -e /etc/os-release &&
+		       grep -q "ID_LIKE=\".*suse.*\"" /etc/os-release; }])
+AM_COND_IF([ISSUSE],
+    AC_MSG_RESULT([yes]),
+    AC_MSG_RESULT([no])
+)
+
 AC_PATH_PROG(PERLBIN, perl)
 if test -z "$PERLBIN"; then
    AC_MSG_ERROR([perl not found])
@@ -58,6 +67,89 @@ fi
 PERL_VENDORLIB="$force_prefix$PERL_VENDORLIB"
 AC_MSG_RESULT($PERL_VENDORLIB)
 AC_SUBST(PERL_VENDORLIB)
+
+apache_moddir="modules"
+AC_MSG_CHECKING([for Apache2 module path])
+AC_ARG_WITH(apache2moddir, [  --with-apache2moddir=path  Manually specify where the Apache2 modules live], [
+if test -n "$withval" -a "x$withval" != "xno" ; then
+   apache_moddir="$withval"
+fi
+])
+AC_MSG_RESULT($apache_moddir)
+AC_SUBST(apache_moddir)
+
+AC_DEFUN([FIND_LOCAL], [
+    AC_MSG_CHECKING([for locally installed $1])
+    AC_ARG_WITH([local-$1], [
+        AS_HELP_STRING([--with-local-$1], [
+            use locally installed $1 @<:@default is no@:>@
+        ])], [], [with_local_$1=no]
+    )
+
+    local_$1_path=
+    AS_IF([test -n "$with_local_$1" -a "x$with_local_$1" != "xno"], [
+        local_$1_path="$with_local_$1"
+        AS_IF([test "x$with_local_$1" == "xyes"], [local_$1_path="$2"])
+        AS_IF([test -f "$local_$1_path"], [
+            AC_MSG_RESULT([$local_$1_path])
+        ], [
+            search_$1_path=`which "$local_$1_path" 2>/dev/null`
+            AS_IF([test -z "$search_$1_path"], [
+                AC_MSG_ERROR([no, $local_$1_path could not be found])
+            ], [
+                AC_MSG_RESULT([$search_$1_path])
+                local_$1_path="$search_$1_path"
+            ])
+        ])
+    ], [
+        AC_MSG_RESULT([no])
+        local_$1_path=
+    ])
+
+    AC_SUBST(local_$1_path)
+])
+
+FIND_LOCAL(busybox, busybox)
+busybox_links_path="/usr/share/busybox/busybox.links"
+AS_IF([test -n "$local_busybox_path"],
+    [AC_MSG_CHECKING([for local busybox links file])
+        AC_ARG_WITH([busybox-links-file],
+            [AS_HELP_STRING([--with-busybox-links-file],
+                [use list of busybox links @<:@default is $busybox_links_path@:>@]
+            )],
+            [AS_IF([test -n "$with_busybox_links_file"],
+                [AS_IF([test "x$with_busybox_links_file" == "xno"],
+                    [busybox_links_path=],
+                    [AS_IF([test "x$with_busybox_links_file" != "xyes"],
+                        [busybox_links_path="$with_busybox_links_file"])
+                    ]
+                )]
+            )]
+        )
+        AS_IF([test -z "$busybox_links_path"],
+            [AC_MSG_RESULT([cannot use local busybox without links file - fallback to internal busybox build])
+                local_busybox_path=
+            ],
+            [AS_IF([test -f "$busybox_links_path"],
+                [AC_MSG_RESULT([$busybox_links_path])],
+                [AC_MSG_RESULT([$busybox_links_path not found - fallback to internal busybox build])
+                    local_busybox_path=
+                    busybox_links_path=
+                ]
+            )]
+        )
+    ]
+)
+
+AC_SUBST(busybox_links_path)
+
+FIND_LOCAL(e2fsprogs, mkfs.ext4)
+FIND_LOCAL(ipxe_undionly, /usr/share/ipxe/undionly.kpxe)
+FIND_LOCAL(ipxe_snp_i386, /usr/share/ipxe/snp-i386.efi)
+FIND_LOCAL(ipxe_snp_x86_64, /usr/share/ipxe/snp-x86_64.efi)
+FIND_LOCAL(libarchive, bsdtar)
+FIND_LOCAL(parted, parted)
+FIND_LOCAL(partprobe, partprobe)
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])

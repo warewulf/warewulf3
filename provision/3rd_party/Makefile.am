@@ -6,7 +6,7 @@ MAINTAINERCLEANFILES = Makefile.in
 
 all: $(IPXETARGETS)
 
-IPXE_VERSION = 041d362
+IPXE_VERSION = 133f4c4
 IPXE_SOURCE = $(top_srcdir)/3rd_party/GPL/ipxe-$(IPXE_VERSION).tar.xz
 IPXE_DIR = ipxe-$(IPXE_VERSION)
 

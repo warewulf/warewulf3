@@ -65,14 +65,18 @@ sub
 service($$$)
 {
     my ($self, $service, $command) = @_;
+    my $cmdline;
 
     &dprint("Running service command: $service, $command\n");
 
     if ( -x "/bin/systemctl" ) {
-        system("/bin/systemctl $command $service.service");
+        $cmdline="/bin/systemctl $command $service.service";
     } elsif (-x "/etc/init.d/$service") {
+        $cmdline="/etc/init.d/$service $command";
+    }
+    if ($cmdline) {
         $self->{"OUTPUT"} = ();
-        open(SERVICE, "/etc/init.d/$service $command 2>&1|");
+        open(SERVICE, $cmdline . " 2>&1|");
         while(<SERVICE>) {
             $self->{"OUTPUT"} .= $_;
         }
@@ -81,19 +85,10 @@ service($$$)
             &dprint("Service command ran successfully\n");
             return(1);
         } else {
-            &dprint("Error running: /etc/init.d/$service $command\n");
+            &dprint("Error running: " . $cmdline . "\n");
         }
     }
-    if ($self->{"OUTPUT"}) {
-        chomp($self->{"OUTPUT"});
-        if (close SERVICE) {
-            &dprint("Service command ran successfully\n");
-            return(1);
-        } else {
-            &dprint("Error running: /usr/bin/systemctl $command $service\n");
-        }
-    }
-    return(1);
+    return(0);
 }
 
 =item chkconfig($name, $command)
@@ -107,11 +102,15 @@ sub
 chkconfig($$$)
 {
     my ($self, $service, $command) = @_;
+    my $cmdline;
 
     if ( -x "/bin/systemctl" ) {
-        system("/bin/systemctl enable $service.service");
+        $cmdline="/bin/systemctl enable $service.service";
     } elsif (-x "/sbin/chkconfig") {
-        open(CHKCONFIG, "/sbin/chkconfig $service $command 2>&1|");
+        $cmdline="/sbin/chkconfig $service $command";
+    }
+    if ($cmdline) {
+        open(CHKCONFIG, $cmdline . " 2>&1|");
         while(<CHKCONFIG>) {
             $self->{"OUTPUT"} .= $_;
         }
@@ -122,10 +121,10 @@ chkconfig($$$)
             &dprint("Chkconfig command ran successfully\n");
             return(1);
         } else {
-            &dprint("Error running: /sbin/chkconfig $service $command\n");
+            &dprint("Error running: " . $cmdline . "\n");
         }
     }
-    return(1);
+    return(0);
 }
 
 

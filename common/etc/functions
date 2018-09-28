@@ -210,8 +210,8 @@ wwreqroot() {
 wwpackage_check() {
     for PACKAGE in "$@"; do
         if [ -x /bin/rpm ]; then
-            wwprint "Checking to see if RPM '$PACKAGE' is installed "
-            if wwtest rpm -q $PACKAGE; then
+            wwprint "Checking to see if RPM or capability '$PACKAGE' is installed "
+            if wwtest rpm -q --whatprovides "$PACKAGE"; then
                 return 0
             fi
         elif [ -x /bin/dpkg ] || [ -x /usr/bin/dpkg ]; then
@@ -239,7 +239,8 @@ wwservice_activate() {
             fi
             if systemctl list-unit-files --type=service,socket | egrep -q "^$SERVICE"; then
                 wwprint "Activating Systemd unit: $1\n"
-                if wwrun /bin/systemctl -q enable $SERVICE; then
+                if systemctl is-enabled --quiet $SERVICE ||
+			wwrun /bin/systemctl -q enable $SERVICE; then
                     if wwrun /bin/systemctl -q restart $SERVICE; then
                         return 0
                     fi

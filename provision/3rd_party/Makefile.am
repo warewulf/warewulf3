@@ -6,7 +6,7 @@ MAINTAINERCLEANFILES = Makefile.in
 
 all: $(IPXETARGETS)
 
-IPXE_VERSION = 041d362
+IPXE_VERSION = 133f4c4
 IPXE_SOURCE = $(top_srcdir)/3rd_party/GPL/ipxe-$(IPXE_VERSION).tar.xz
 IPXE_DIR = ipxe-$(IPXE_VERSION)
 
@@ -21,19 +21,37 @@ prep:
 bin-i386-pcbios/undionly.kpxe: prep
 
 if BUILD_X86_64
-	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-pcbios/undionly.kpxe
+	@ if [ -n "@local_ipxe_undionly_path@" -a -f "@local_ipxe_undionly_path@" ]; then \
+		echo "Detected local install of undionly.kpxe boot image. Bypassing build process." ;\
+		mkdir -p _work/$(IPXE_DIR)/src/bin-i386-pcbios ;\
+		cp "@local_ipxe_undionly_path@" _work/$(IPXE_DIR)/src/bin-i386-pcbios/undionly.kpxe ;\
+	else \
+		$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-pcbios/undionly.kpxe; \
+	fi
 endif
 
 bin-x86_64-efi/snp.efi: prep
 
 if BUILD_X86_64
-	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/snp.efi
+	@ if [ -n "@local_ipxe_snp_x86_64_path@" -a -f "@local_ipxe_snp_x86_64_path@" ]; then \
+		echo "Detected local install of x86_64 snp.efi boot image. Bypassing build process." ;\
+		mkdir -p _work/$(IPXE_DIR)/src/bin-x86_64-efi ;\
+		cp "@local_ipxe_snp_x86_64_path@" _work/$(IPXE_DIR)/src/bin-x86_64-efi/snp.efi ;\
+	else \
+		$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-x86_64-efi/snp.efi; \
+	fi
 endif
 
 bin-i386-efi/snp.efi: prep
 
 if BUILD_X86_64
-	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/snp.efi
+	@ if [ -n "@local_ipxe_snp_i386_path@" -a -f "@local_ipxe_snp_i386_path@" ]; then \
+		echo "Detected local install of i386 snp.efi boot image. Bypassing build process." ;\
+		mkdir -p _work/$(IPXE_DIR)/src/bin-i386-efi ;\
+		cp "@local_ipxe_snp_i386_path@" _work/$(IPXE_DIR)/src/bin-i386-efi/snp.efi ;\
+	else \
+		$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_X86_64) bin-i386-efi/snp.efi; \
+	fi
 endif
 
 bin-arm64-efi/snp.efi: prep

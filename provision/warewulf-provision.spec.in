@@ -13,6 +13,7 @@ Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
 BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel libuuid-devel device-mapper-devel xz-devel
+BuildRequires: libtirpc-devel
 
 %if 0%{?_cross_compile}
 

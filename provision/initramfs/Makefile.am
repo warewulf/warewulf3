@@ -27,67 +27,84 @@ PARTED_DIR = parted-$(PARTED_VERSION)
 PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
 
 e2fsprogs:
-	@ if [ ! -d "_work/$(E2FSPROGS_DIR)" ]; then \
-		echo "Preparing to build e2fsprogs" ;\
-		mkdir -p _work/ ;\
-		tar xzf $(E2FSPROGS_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(E2FSPROGS_DIR)/misc/mke2fs" ]; then \
-		echo "Building e2fsprogs" ;\
-		if [ -f "/usr/lib/rpm/config.guess" ]; then \
-			cp /usr/lib/rpm/config.guess _work/$(E2FSPROGS_DIR)/config;\
-		fi; \
-		if [ -f "/usr/lib/rpm/config.sub" ]; then \
-			cp /usr/lib/rpm/config.sub _work/$(E2FSPROGS_DIR)/config;\
-		fi; \
-		(cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
-		$(MAKE) -C _work/$(E2FSPROGS_DIR);\
+	@ if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
+		echo "Detected local install of e2fsprogs. Bypassing e2fsprogs build process." ;\
+	else \
+		if [ ! -d "_work/$(E2FSPROGS_DIR)" ]; then \
+			echo "Preparing to build e2fsprogs" ;\
+			mkdir -p _work/ ;\
+			tar xzf $(E2FSPROGS_SOURCE) -C _work/ ;\
+		fi ;\
+		if [ ! -f "_work/$(E2FSPROGS_DIR)/misc/mke2fs" ]; then \
+			echo "Building e2fsprogs" ;\
+			if [ -f "/usr/lib/rpm/config.guess" ]; then \
+				cp /usr/lib/rpm/config.guess _work/$(E2FSPROGS_DIR)/config;\
+			fi; \
+			if [ -f "/usr/lib/rpm/config.sub" ]; then \
+				cp /usr/lib/rpm/config.sub _work/$(E2FSPROGS_DIR)/config;\
+			fi; \
+			(cd _work/$(E2FSPROGS_DIR)/; ./configure $(E2FSPROGS_CONFIGARGS)) ;\
+			$(MAKE) -C _work/$(E2FSPROGS_DIR);\
+		fi ;\
 	fi
 
 
 busybox:
-	@ if [ ! -d "_work/$(BUSYBOX_DIR)" ]; then \
-		echo "Preparing to build initramfs core" ;\
-		mkdir -p _work/ ;\
-		tar xjf $(BUSYBOX_SOURCE) -C _work/ ;\
-		for i in $(BUSYBOX_PATCHES); do \
-			(cd _work/$(BUSYBOX_DIR); patch -p1 < ../../$${i} || exit 1) \
-		done ;\
-		cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
-	fi
-	@ if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
-		echo "Building initramfs core" ;\
-		$(MAKE) -C _work/$(BUSYBOX_DIR) busybox ;\
-	fi
-	@ if [ ! -d "_work/$(BUSYBOX_DIR)/_install" ]; then \
-		echo "Installing initramfs core" ;\
-		$(MAKE) -C _work/$(BUSYBOX_DIR) install ;\
+	@ if [ -n "@local_busybox_path@" -a -f "@local_busybox_path@" -a \
+	    -n "@local_busybox_path@" -a -f "@busybox_links_path@" ]; then \
+		echo "Detected local install of busybox. Bypassing busybox build process." ;\
+	else \
+		if [ ! -d "_work/$(BUSYBOX_DIR)" ]; then \
+			echo "Preparing to build initramfs core" ;\
+			mkdir -p _work/ ;\
+			tar xjf $(BUSYBOX_SOURCE) -C _work/ ;\
+			for i in $(BUSYBOX_PATCHES); do \
+				(cd _work/$(BUSYBOX_DIR); patch -p1 < ../../$${i} || exit 1) ;\
+			done ;\
+			cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
+		fi ;\
+		if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
+			echo "Building initramfs core" ;\
+			$(MAKE) -C _work/$(BUSYBOX_DIR) busybox ;\
+		fi ;\
+		if [ ! -d "_work/$(BUSYBOX_DIR)/_install" ]; then \
+			echo "Installing initramfs core" ;\
+			$(MAKE) -C _work/$(BUSYBOX_DIR) install ;\
+		fi ;\
 	fi
 
 libarchive:
-	@ if [ ! -d "_work/$(LIBARCHIVE_DIR)" ]; then \
-		echo "Preparing to build libarchive" ;\
-		mkdir -p _work/ ;\
-        echo In directory `pwd` ;\
-		tar xzf $(LIBARCHIVE_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(LIBARCHIVE_DIR)/" ]; then \
-		echo "Building libarchive" ;\
-		(cd _work/$(LIBARCHIVE_DIR)/; ./configure $(LIBARCHIVE_CONFIGARGS)) ;\
-		$(MAKE) -C _work/$(LIBARCHIVE_DIR);\
+	@ if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
+		echo "Detected local install of bsdtar. Bypassing libarchive build process." ;\
+	else \
+		if [ ! -d "_work/$(LIBARCHIVE_DIR)" ]; then \
+			echo "Preparing to build libarchive" ;\
+			mkdir -p _work/ ;\
+			tar xzf $(LIBARCHIVE_SOURCE) -C _work/ ;\
+		fi ;\
+		if [ ! -f "_work/$(LIBARCHIVE_DIR)/" ]; then \
+			echo "Building libarchive" ;\
+			(cd _work/$(LIBARCHIVE_DIR)/; ./configure $(LIBARCHIVE_CONFIGARGS)) ;\
+			$(MAKE) -C _work/$(LIBARCHIVE_DIR);\
+		fi ;\
 	fi
 
 parted:
-	@ if [ ! -d "_work/$(PARTED_DIR)" ]; then \
-		echo "Preparing to build parted" ;\
-		mkdir -p _work/ ;\
-        echo In directory `pwd` ;\
-		tar Jxf $(PARTED_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(PARTED_DIR)/" ]; then \
-		echo "Building parted" ;\
-		(cd _work/$(PARTED_DIR)/; ./configure $(PARTED_CONFIGARGS)) ;\
-		$(MAKE) -C _work/$(PARTED_DIR);\
+	@ if [ -n "@local_parted_path@" -a -f "@local_parted_path@" -a \
+	  -n "@local_partprobe_path@" -a -f "@local_partprobe_path@" ]; then \
+		echo "Detected local install of parted. Bypassing parted build process." ;\
+	else \
+		if [ ! -d "_work/$(PARTED_DIR)" ]; then \
+			echo "Preparing to build parted" ;\
+			mkdir -p _work/ ;\
+		echo In directory `pwd` ;\
+			tar Jxf $(PARTED_SOURCE) -C _work/ ;\
+		fi; \
+		if [ ! -f "_work/$(PARTED_DIR)/" ]; then \
+			echo "Building parted" ;\
+			(cd _work/$(PARTED_DIR)/; ./configure $(PARTED_CONFIGARGS)) ;\
+			$(MAKE) -C _work/$(PARTED_DIR);\
+		fi \
 	fi
 
 rootfs: busybox e2fsprogs libarchive parted
@@ -103,11 +120,36 @@ rootfs: busybox e2fsprogs libarchive parted
 	mkdir rootfs/lib
 	mkdir rootfs/lib64
 	chmod -R u+w rootfs/
-	cp -a _work/$(BUSYBOX_DIR)/_install/* rootfs/
-	cp _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4
+	if [ -n "@local_busybox_path@" -a -f "@local_busybox_path@" -a \
+	    -n "@local_busybox_path@" -a -f "@busybox_links_path@" ]; then \
+		while read lfpath; do \
+			if [ ! -d rootfs$$(dirname $${lfpath}) ]; then \
+				mkdir -p rootfs$$(dirname $${lfpath}); \
+			fi; \
+			ln -vs /bin/busybox rootfs$${lfpath}; \
+		done < "@busybox_links_path@" ;\
+		cp -av "@local_busybox_path@" rootfs/bin/busybox ;\
+	else \
+		cp -av _work/$(BUSYBOX_DIR)/_install/* rootfs/ ;\
+	fi
+	if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
+		cp -av "@local_e2fsprogs_path@" rootfs/sbin/mkfs.ext4 ;\
+	else \
+		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
+	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
-	cp -a _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar
-	$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install
+	if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
+		cp -av "@local_libarchive_path@" rootfs/bin/bsdtar; \
+	else \
+		cp -av _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar; \
+	fi
+	if [ -n "@local_parted_path@" -a -f "@local_parted_path@" -a \
+	  -n "@local_partprobe_path@" -a -f "@local_partprobe_path@" ]; then \
+		cp -av "@local_parted_path@" rootfs/usr/sbin/parted; \
+		cp -av "@local_partprobe_path@" rootfs/usr/sbin/partprobe; \
+	else \
+		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \
+	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la

@@ -648,7 +648,7 @@ exec()
         }
 
         if ($opt_ipxeurl) {
-            if ($opt_ipxeurl =~ /^([a-zA-Z0-9\.\/\-_\:%{}\$]+)/) {
+            if ($opt_ipxeurl =~ /^([a-zA-Z0-9\.\/\-_\:%\{}\$]+)/) {
                 $opt_ipxeurl = $1;
 
                 foreach my $obj ($objSet->get_list()) {

@@ -47,13 +47,24 @@ new($$)
     my ($mod_name, $obj);
 
     if (! $type) {
+        $type = "unsupported";
         if (-f "/etc/redhat-release") {
             $type = "rhel";
         } elsif (-f "/etc/SuSE-release") {
             $type = "Suse";
-        }
-		else {
+        } elsif ( -f "/etc/debian_version" ) {
             $type = "Deb";
+        } elsif ( -f "/etc/os-release") {
+            open(SYSTEM, "/etc/os-release");
+            while (<SYSTEM>) {
+                if (/^NAME=/) {
+                    if (/SUSE|SLE/) {
+                        $type = "Suse";
+                    }
+                    last;
+                }
+            }
+            close SYSTEM;
         }
     }
 

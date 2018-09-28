@@ -413,16 +413,24 @@ sync()
         
         my $was_stored = 1;
         
-        while ($total_len > $cur_len) {
-            my $buffer = substr($data, $start, $db->chunk_size());
+        if ( $total_len > 0 ) {
+            while ($total_len > $cur_len) {
+                my $buffer = substr($data, $start, $db->chunk_size());
 
-            if ( ! $binstore->put_chunk($buffer) ) {
-                $was_stored = 0;
-                last;
+                if ( ! $binstore->put_chunk($buffer) ) {
+                    $was_stored = 0;
+                    last;
+                }
+                $start += $db->chunk_size();
+                $cur_len += length($buffer);
+                &dprint("Chunked $cur_len of $total_len\n");
             }
-            $start += $db->chunk_size();
-            $cur_len += length($buffer);
-            &dprint("Chunked $cur_len of $total_len\n");
+        } else {
+            if ( ! $binstore->put_chunk('') ) {
+                $was_stored = 0;
+            } else {
+                &dprint("Zero-length chunk\n");
+            }
         }
         if ( $was_stored ) {
             $self->checksum($digest->hexdigest());

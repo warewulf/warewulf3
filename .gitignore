@@ -31,6 +31,7 @@ provision/3rd_party/pxelinux.0
 provision/3rd_party/syslinux32.efi
 provision/3rd_party/syslinux64.efi
 provision/initramfs/_work/
+provision/initramfs/busybox.config
 provision/initramfs/capabilities/*/capability.cpio
 provision/initramfs/capabilities/*/rootfs/
 provision/initramfs/initramfs.cpio

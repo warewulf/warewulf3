@@ -7,6 +7,9 @@
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
 
+if [ -n "${WWNOKMODCOPY}" ]; then
+    exit 0
+fi
 
 KVERSION=$(uname -r)
 

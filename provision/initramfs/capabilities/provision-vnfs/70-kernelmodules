@@ -8,7 +8,8 @@
 #
 
 if [ -n "${WWNOKMODCOPY}" ]; then
-    exit 0
+    # Skipping
+    exit 1
 fi
 
 KVERSION=$(uname -r)

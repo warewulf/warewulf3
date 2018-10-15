@@ -4,7 +4,11 @@ Documentation is always a work in progress... Please report errors via [GitHub i
 
 ## Contributing
 
-To contribute to the Warewulf wiki pages, create issues, or contribute to the source tree visit GitHub. You can ask one of the contributors for repo access on our [mailing list](https://groups.google.com/a/lbl.gov/forum/#!forum/warewulf). You can get access to our [Slack](warewulf.slack.com) instance by asking on the mailing list.
+To contribute to Warewulf, create issues, or contribute to the source tree visit the [GitHub page](https://github.com/warewulf/warewulf3).
+
+Other ways to contact us:
+ * [Mailing List](https://groups.google.com/a/lbl.gov/forum/#!forum/warewulf) - [warewulf@lbl.gov](mailto:warewulf@lbl.gov)
+ * [Slack](https://warewulf.slack.com) - Ask on mailing list for an invite
 
 > _note: Any new branches or changes to the given structure must be vetted and approved by a primary developer._
 

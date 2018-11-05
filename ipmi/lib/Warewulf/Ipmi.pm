@@ -121,6 +121,14 @@ ipmi_uid()
     return $self->prop("ipmi_uid", qr/^([0-9]+)$/, @_);
 }
 
+sub
+ipmi_lanchannel()
+{
+    my $self = shift;
+
+    return $self->prop("ipmi_lanchannel", qr/^([0-9]+)$/, @_);
+}
+
 =item ipmi_proto($string)
 
 Set or return the IPMI interface protocol of this object. Supported protocols

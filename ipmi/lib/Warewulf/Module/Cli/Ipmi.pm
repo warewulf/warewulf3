@@ -106,6 +106,7 @@ help()
     $h .= "                         each node given\n";
     $h .= "         --netmask       The netmask defined for this node\n";
     $h .= "         --uid           The IPMI ID to use for the user on this node\n";
+    $h .= "         --lanchannel    The IPMI LAN CHANNEL for this node\n";
     $h .= "         --username      Define the IPMI username for this node\n";
     $h .= "         --password      Define the IPMI password for this node\n";
     $h .= "         --proto         Define the IPMI protocol for this node (defaults to lan)\n";
@@ -185,6 +186,7 @@ exec()
     my $opt_ipaddr;
     my $opt_netmask;
     my $opt_uid;
+    my $opt_lanchannel;
     my $opt_username;
     my $opt_password;
     my $opt_proto;
@@ -206,6 +208,7 @@ exec()
         'ipaddr=s'      => \$opt_ipaddr,
         'netmask=s'     => \$opt_netmask,
         'uid=s'         => \$opt_uid,
+        'lanchannel=s'  => \$opt_lanchannel,
         'username=s'    => \$opt_username,
         'password=s'    => \$opt_password,
         'proto=s'       => \$opt_proto,
@@ -286,6 +289,21 @@ exec()
                     $o->ipmi_uid($opt_uid);
                 }
                 push(@changes, sprintf("     SET: %-20s\n", "IPMI_UID", $opt_uid));
+                $persist_bool = 1;
+            }
+        }
+        if ($opt_lanchannel) {
+            if (uc($opt_lanchannel) eq "UNDEF") {
+                foreach my $o ($objSet->get_list()) {
+                    $o->ipmi_lanchannel(undef);
+                }
+                push(@changes, sprintf("    UNDEF: %-20s\n", "IPMI_LANCHANNEL"));
+                $persist_bool = 1;
+            } else {
+                foreach my $o ($objSet->get_list()) {
+                    $o->ipmi_lanchannel($opt_lanchannel);
+                }
+                push(@changes, sprintf("     SET: %-20s\n", "IPMI_LANCHANNEL", $opt_lanchannel));
                 $persist_bool = 1;
             }
         }
@@ -611,6 +629,7 @@ exec()
             printf("%15s: %-16s = %s\n", $name, "IPMI_IPADDR", $o->get("ipmi_ipaddr") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_NETMASK", $o->get("ipmi_netmask") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_UID", $o->get("ipmi_uid") || "UNDEF");
+            printf("%15s: %-16s = %s\n", $name, "IPMI_LANCHANNEL", $o->get("ipmi_lanchannel") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_USERNAME", $o->get("ipmi_username") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_PASSWORD", $o->get("ipmi_password") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_AUTOCONFIG", $o->get("ipmi_autoconfig") || "UNDEF");

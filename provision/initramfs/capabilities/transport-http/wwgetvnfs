@@ -73,7 +73,6 @@ while true; do
         fi
 
         msg_gray "   * checksum ${WWVNFS_CHECKSUM:-}"
-         "   * checksum ${WWVNFS_CHECKSUM:-}"
         if [ "${VALIDATE_VNFS}" -eq 1 ]; then
             CHECKSUM=$(cut -f1 -d " " /tmp/wwgetvnfs_checksum)
             if [ "${CHECKSUM}" != "${WWVNFS_CHECKSUM:-}" ]; then

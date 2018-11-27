@@ -26,7 +26,7 @@ set_overlay() {
         echo "ERROR: This must be a SuSE compatible chroot!"
         return 1
     fi
-    PKGR_CMD="$ZYP_CMD install $PKGLIST"
+    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses $PKGLIST"
     return 0
 }
 

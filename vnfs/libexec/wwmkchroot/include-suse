@@ -67,18 +67,25 @@ prechroot() {
                 INSTALLDIRS="$INSTALLDIRS,file://$i"
             fi
         done
-
         ZYP_MIRROR=$INSTALLDIRS
     fi
 
-    declare -i cnt=0
-    $ZYP_CMD rr --all
-    for i in `echo $ZYP_MIRROR | sed -e 's/,/ /'`; do
-        $ZYP_CMD ar $i repo-$((cnt++))
-    done
-    
+    if [ -n "${ZYP_MIRROR}" ]; then
+        declare -i i=0 cnt
+        cnt=$($ZYP_CMD lr | grep '|' | wc -l)
+        while [ $i -lt $cnt ]; do
+            $ZYP_CMD rr $i
+            let i++
+        done
+
+        cnt=0
+        for i in `echo $ZYP_MIRROR | sed -e 's/,/ /'`; do
+            $ZYP_CMD ar $i repo-$((cnt++))
+        done
+    fi
+
     PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses $PKGLIST"
-    
+
     return 0
 }
 

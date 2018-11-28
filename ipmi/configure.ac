@@ -62,6 +62,35 @@ dnl# Get git version
 GITVERSION=`cat .gitversion | tr -d '\n'`
 AC_SUBST(GITVERSION)
 
+AC_MSG_CHECKING([for locally installed ipmitool])
+AC_ARG_WITH([local-ipmitool], [
+   AS_HELP_STRING([--with-local-ipmitool], [
+           use locally installed ipmitool @<:@default is no@:>@
+    ])], [], [with_local_ipmitool=no]
+)
+
+local_ipmitool_path=
+AS_IF([test -n "$with_local_ipmitool" -a "x$with_local_ipmitool" != "xno"], [
+    local_ipmitool_path="$with_local_ipmitool"
+    AS_IF([test "x$with_local_ipmitool" == "xyes"], [local_ipmitool_path=ipmitool])
+    AS_IF([test -f "$local_ipmitool_path"], [
+        AC_MSG_RESULT([$local_ipmitool_path])
+    ], [
+        search_ipmitool_path=`which "$local_ipmitool_path" 2>/dev/null`
+        AS_IF([test -z "$search_ipmitool_path"], [
+            AC_MSG_ERROR([no, $local_ipmitool_path could not be found])
+        ], [
+            AC_MSG_RESULT([$search_ipmitool_path])
+            local_ipmitool_path="$search_ipmitool_path"
+        ])
+    ])
+], [
+      AC_MSG_RESULT([no])
+      local_ipmitool_path=
+])
+
+AC_SUBST(local_ipmitool_path)
+
 AC_OUTPUT(Makefile
    warewulf-ipmi.spec
    lib/Makefile

@@ -257,8 +257,13 @@ ipmi_command()
     my $proto = $self->ipmi_proto();
     my $name = $self->name() || "UNDEF";
     my $libexecdir = Warewulf::ACVars->libexecdir();
-    my $ret = "$libexecdir/warewulf/ipmitool ";
+    my $ret;
 
+    if ( -e "$libexecdir/warewulf/ipmitool" ) {
+        $ret = "$libexecdir/warewulf/ipmitool ";
+    } else {
+        $ret = "ipmitool ";
+    }
     if ($ipaddr and $username and $password and $proto) {
         $ret .= "-I $proto -U $username -P $password -H $ipaddr ";
         if ($action eq "poweron" ) {

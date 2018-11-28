@@ -86,7 +86,7 @@ rm -rf $RPM_BUILD_ROOT
 %doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO LICENSE
 %attr(0755, root, warewulf) %dir %{_sysconfdir}/warewulf/
 %attr(0755, root, warewulf) %dir %{_sysconfdir}/warewulf/defaults/
-%attr(0444, root, warewulf) %{_sysconfdir}/warewulf/functions
+%attr(0444, root, warewulf) %{_libexecdir}/warewulf/wwinit/functions
 %attr(0644, root, root) %{_sysconfdir}/bash_completion.d/warewulf_completion
 %attr(0644, root, warewulf) %config(noreplace) %{_sysconfdir}/warewulf/database.conf
 %attr(0640, root, warewulf) %config(noreplace) %{_sysconfdir}/warewulf/database-root.conf

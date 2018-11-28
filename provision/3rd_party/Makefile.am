@@ -57,7 +57,13 @@ endif
 bin-arm64-efi/snp.efi: prep
 
 if BUILD_ARM64
-	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi
+	@ if [ -n "@local_ipxe_snp_arm64_path@" -a -f "@local_ipxe_snp_arm64_path@" ]; then \
+		echo "Detected local install of arm64 snp.efi boot image. Bypassing build process." ;\
+		mkdir -p _work/$(IPXE_DIR)/src/bin-arm64-efi ;\
+		cp "@local_ipxe_snp_arm64_path@" _work/$(IPXE_DIR)/src/bin-arm64-efi/snp.efi ;\
+	else \
+	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi; \
+        fi
 endif
 
 install-data-local: $(IPXETARGETS)

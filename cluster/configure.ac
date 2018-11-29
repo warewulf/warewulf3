@@ -53,6 +53,5 @@ AC_OUTPUT(
    lib/Warewulf/Module/Cli/Makefile
    libexec/Makefile
    libexec/wwinit/Makefile
-   libexec/wwfirstboot/Makefile
 )
 

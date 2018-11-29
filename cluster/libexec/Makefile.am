@@ -1,4 +1,4 @@
-SUBDIRS = wwinit wwfirstboot
+SUBDIRS = wwinit
 
 MAINTAINERCLEANFILES = Makefile.in
 

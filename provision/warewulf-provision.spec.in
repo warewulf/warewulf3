@@ -1,6 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_sharedstatedir}}}
 
 Name: warewulf-provision
 Version: @PACKAGE_VERSION@
@@ -96,7 +96,7 @@ administrate system provisioning.  To perform provisioning, the
 
 
 %build
-%configure --localstatedir=%{wwsrvdir} %{?CONF_FLAGS} %{?CROSS_FLAG}
+%configure --sharedstatedir=%{wwsrvdir} %{?CONF_FLAGS} %{?CROSS_FLAG}
 %{__make} %{?mflags}
 
 

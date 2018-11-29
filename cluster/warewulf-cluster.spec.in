@@ -24,19 +24,6 @@ This package contains tools to facilitate management of a Cluster
 with Warewulf.
 
 
-%package node
-Summary: Tools used for clustering with Warewulf
-Group: System Environment/Clustering
-Requires: /sbin/sfdisk
-
-%description node
-Warewulf >= 3 is a set of utilities designed to better enable
-utilization and maintenance of clusters or groups of computers.
-
-This is the cluster-node module, that is installed onto the
-provisioned nodes.
-
-
 %prep
 %setup
 
@@ -48,13 +35,6 @@ provisioned nodes.
 
 %install
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
-cp -r $RPM_BUILD_ROOT/etc/warewulf/vnfs/include/* $RPM_BUILD_ROOT
-rm -rf $RPM_BUILD_ROOT/etc/warewulf/vnfs
-rmdir $RPM_BUILD_ROOT/etc/warewulf >/dev/null 2>&1 || :
-
-
-%post node
-chkconfig --add wwfirstboot
 
 
 %clean
@@ -63,19 +43,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-, root, root)
-%doc AUTHORS COPYING ChangeLog INSTALL LICENSE NEWS README README.node TODO
+%doc AUTHORS COPYING ChangeLog INSTALL LICENSE NEWS README TODO
 %{_sysconfdir}/profile.d/*
 %{_bindir}/*
 %{_libexecdir}/warewulf/wwinit/*
 %{perl_vendorlib}/Warewulf/Module/Cli/*
-
-%files node
-%doc AUTHORS COPYING LICENSE README.node
-%defattr(-, root, root)
-%config(noreplace) /etc/sysconfig/wwfirstboot.conf
-/etc/rc.d/init.d/wwfirstboot
-%defattr(0755, root, root)
-%{_libexecdir}/warewulf/wwfirstboot/*
-
 
 %changelog

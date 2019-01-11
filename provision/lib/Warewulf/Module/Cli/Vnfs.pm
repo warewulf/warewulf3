@@ -319,6 +319,14 @@ exec()
                 return undef;
             }
 
+            if ($opt_name) {
+               foreach my $o ($objSet->get_list()) {
+                    $o->name($opt_name);
+                    $persist_count++;
+                }
+                push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "NAME", $opt_name));
+            }  
+
             if ($opt_chroot) {
                 if ($opt_chroot =~ /^([a-zA-Z0-9\/\.\-_]+)$/) {
                     if (-d $opt_chroot) {
@@ -340,7 +348,6 @@ exec()
                     $persist_count++;
                 }
                 push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "ARCH", $opt_arch));
-
             }
 
             if ($persist_count > 0) {

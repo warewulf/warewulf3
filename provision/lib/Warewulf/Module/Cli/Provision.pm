@@ -787,11 +787,15 @@ exec()
             }
 
             &nprintf("#### %s %s#\n", $name, "#" x (72 - length($name)));
+            printf("%15s: %-16s = %s\n", $name, "MASTER", join(",", $o->master()) || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "BOOTSTRAP", $bootstrap);
             printf("%15s: %-16s = %s\n", $name, "VNFS", $vnfs);
+            printf("%15s: %-16s = %s\n", $name, "VALIDATE", $o->validate_vnfs() ? "TRUE" : "FALSE");
             printf("%15s: %-16s = %s\n", $name, "FILES", join(",", @files));
             printf("%15s: %-16s = %s\n", $name, "PRESHELL", $o->preshell() ? "TRUE" : "FALSE");
             printf("%15s: %-16s = %s\n", $name, "POSTSHELL", $o->postshell() ? "TRUE" : "FALSE");
+            printf("%15s: %-16s = %s\n", $name, "POSTNETDOWN", $o->postnetdown() ? "TRUE" : "FALSE");
+            printf("%15s: %-16s = %s\n", $name, "POSTREBOOT", $o->postreboot() ? "TRUE" : "FALSE");
             printf("%15s: %-16s = %s\n", $name, "CONSOLE", $o->console() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "PXELOADER", $o->pxeloader() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPXEURL", $o->ipxeurl() || "UNDEF");

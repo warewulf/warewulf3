@@ -63,6 +63,28 @@ ipmi_ipaddr()
 }
 
 
+=item ipmi_vlanid($string)
+
+Set or return the IPMI VLAN ID of this object.
+VLAN ID can be 1-4096 or "off". "off" disables VLAN tagging.
+
+=cut
+
+sub
+ipmi_vlanid()
+{
+    my ($self, $value) = @_; 
+
+    if ($value) {
+        if ( $value eq "off" or ( $value =~ /^\d+$/ && int($value) >= 1 && int($value) <= 4096 ) ) {
+            $self->set("ipmi_vlanid", $value);
+        } else {
+            &eprint("VLAN ID must be set to 1-4096 or 'off'\n");
+        }
+    } 
+    return($self->get("ipmi_vlanid") || "UNDEF");
+}
+
 =item ipmi_netmask($string)
 
 Set or return the IPMI IPv4 netmask of this object.

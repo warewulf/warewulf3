@@ -1,0 +1,26 @@
+# EFI / GPT Example for NVME device
+
+# Note that partitions on NVME drives are named by appending "pN" to
+# the device name, where N is the partition index, and not just the
+# partition index.
+
+# Parted specific commands
+select /dev/nvme0n1
+mklabel gpt
+mkpart ESP fat32 1MiB 513MiB
+mkpart primary linux-swap 513MiB 1025MiB
+mkpart primary ext4 1025MiB 100%
+name 1 ESP
+name 2 swap
+name 3 root
+set 1 boot on
+
+# mkfs NUMBER FS-TYPE [ARGS...]
+mkfs p1 vfat -n ESP
+mkfs p2 swap
+mkfs p3 ext4 -L root
+
+# fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
+fstab p3 / ext4 defaults 0 0
+fstab p1 /boot/efi vfat defaults 0 0
+fstab p2 swap swap defaults 0

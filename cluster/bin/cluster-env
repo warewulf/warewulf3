@@ -9,7 +9,12 @@
 
 _UID=`id -u`
 
-if [ $_UID -lt 500 -a $_UID -ne 0 ]; then
+_UID_MIN=`grep '^UID_MIN' /etc/login.defs 2>/dev/null | tail -n 1 | awk '{print $2;}'`
+if [ -z "$_UID_MIN" ]; then
+    _UID_MIN=500
+fi
+
+if [ $_UID -lt "$_UID_MIN" -a $_UID -ne 0 ]; then
     exit
 fi
 

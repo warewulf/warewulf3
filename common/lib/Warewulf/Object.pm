@@ -445,6 +445,19 @@ get_hash()
     return ((wantarray()) ? (%{$hashref}) : ($hashref));
 }
 
+=item TO_JSON()
+
+Return a scalar that will be converted to json
+
+=cut
+
+sub
+TO_JSON()
+{
+    my $self = shift;
+    return $self->get_hash()
+}
+
 =item to_string()
 
 Return the canonical string representation of the object.  For a

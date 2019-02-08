@@ -93,12 +93,12 @@ generate()
 
     my $netdev = $config->get("network device");
     my $defdomain = $config->get("use localdomain") || "yes";
-    my $master_ipaddr = $netobj->ipaddr($netdev);
-    my $master_netmask = $netobj->netmask($netdev);
-    my $master_network = $netobj->network($netdev);
+    my $master_ipaddr = $config->get("ip address") // $netobj->ipaddr($netdev);
+    my $master_network = $config->get("ip network") // $netobj->network($netdev);
+    my $master_netmask = $config->get("ip netmask") // $netobj->netmask($netdev);
 
     if (! $master_ipaddr or ! $master_netmask or ! $master_network) {
-        &wprint("Could not generate hostfile, check 'network device' configuration!\n");
+        &wprint("Could not generate hostfile, check 'network device' or 'ip address/netmask/network' configuration!\n");
         return undef;
     }
 

@@ -141,7 +141,7 @@ update()
     my $master_netmask = $config->get("ip netmask") // $netobj->netmask($devname);
 
     if (! $master_ipaddr) {
-        &wprint("Could not generate PXE configurations, check 'network device' configuration!\n");
+        &wprint("Could not generate PXE configurations, check 'network device' or 'ip address/netmask/network' configuration!\n");
         return undef;
     }
 

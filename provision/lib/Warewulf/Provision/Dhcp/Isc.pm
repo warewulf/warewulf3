@@ -168,7 +168,7 @@ persist()
 
 
     if (! $ipaddr or ! $netmask or ! $network) {
-        &wprint("Could not configure DHCP, check 'network device' configuration!\n");
+        &wprint("Could not configure DHCP, check 'network device' or 'ip address/netmask/network' configuration!\n");
         return undef;
     }
 

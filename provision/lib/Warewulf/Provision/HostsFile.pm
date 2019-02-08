@@ -98,7 +98,7 @@ generate()
     my $master_netmask = $config->get("ip netmask") // $netobj->netmask($netdev);
 
     if (! $master_ipaddr or ! $master_netmask or ! $master_network) {
-        &wprint("Could not generate hostfile, check 'network device' configuration!\n");
+        &wprint("Could not generate hostfile, check 'network device' or 'ip address/netmask/network' configuration!\n");
         return undef;
     }
 

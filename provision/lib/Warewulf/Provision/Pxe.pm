@@ -136,12 +136,12 @@ update()
     my $db = Warewulf::DataStore->new();
     my $config = Warewulf::Config->new("provision.conf");
     my $devname = $config->get("network device");
-    my $master_ipaddr = $netobj->ipaddr($devname);
-    my $master_network = $netobj->network($devname);
-    my $master_netmask = $netobj->netmask($devname);
+    my $master_ipaddr = $config->get("ip address") // $netobj->ipaddr($devname);
+    my $master_network = $config->get("ip network") // $netobj->network($devname);
+    my $master_netmask = $config->get("ip netmask") // $netobj->netmask($devname);
 
     if (! $master_ipaddr) {
-        &wprint("Could not generate PXE configurations, check 'network device' configuration!\n");
+        &wprint("Could not generate PXE configurations, check 'network device' or 'ip address/netmask/network' configuration!\n");
         return undef;
     }
 

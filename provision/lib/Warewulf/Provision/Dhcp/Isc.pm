@@ -149,9 +149,9 @@ persist()
     my $netobj = Warewulf::Network->new();
     my $config = Warewulf::Config->new("provision.conf");
     my $devname = $config->get("network device");
-    my $ipaddr = $netobj->ipaddr($devname);
-    my $netmask = $netobj->netmask($devname);
-    my $network = $netobj->network($devname);
+    my $ipaddr = $config->get("ip address") // $netobj->ipaddr($devname);
+    my $netmask = $config->get("ip netmask") // $netobj->netmask($devname);
+    my $network = $config->get("ip network") // $netobj->network($devname);
     my $config_template;
     my $dhcpd_contents;
     my %seen;
@@ -168,7 +168,7 @@ persist()
 
 
     if (! $ipaddr or ! $netmask or ! $network) {
-        &wprint("Could not configure DHCP, check 'network device' configuration!\n");
+        &wprint("Could not configure DHCP, check 'network device' or 'ip address/netmask/network' configuration!\n");
         return undef;
     }
 

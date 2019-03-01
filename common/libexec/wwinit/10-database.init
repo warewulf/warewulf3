@@ -145,6 +145,8 @@ if [ "$DATASTORE" = "mysql" ]; then
         wwservice_activate mysqld mysql
     elif wwpackage_check mariadb-server; then
         wwservice_activate mariadb
+    elif wwpackage_check mariadb; then
+        wwservice_activate mariadb
     else
         wwprint "No database package seems to exist for mysql!\n" error
         exit 255

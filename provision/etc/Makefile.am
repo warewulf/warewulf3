@@ -17,7 +17,7 @@ endif
 
 httpdconfdir = $(httpdir)
 
-dist_conf_DATA = provision.conf livesync.conf dhcpd-template.conf
+dist_conf_DATA = provision.conf livesync.conf dhcpd-template.conf dnsmasq-template.conf
 dist_httpdconf_DATA = warewulf-httpd.conf
 
 MAINTAINERCLEANFILES = Makefile.in

@@ -20,9 +20,22 @@ fi
 
 wwreqroot
 
-if wwpackage_check dhcp dhcpd dhcp-server dhcpd-server isc-dhcp-server; then
-    if wwservice_activate dhcp dhcpd isc-dhcp-server; then
-        exit 0
+DHCP="$(egrep "^\s*dhcp server\s*=" $WAREWULF_SYSCONFDIR/warewulf/provision.conf | awk -F = '{print $2}' | sed -e 's/\s*//g' | tr '[:upper:]' '[:lower:]')"
+
+if [ "$DHCP" = "isc" ]; then
+    if wwpackage_check dhcp dhcpd dhcp-server dhcpd-server isc-dhcp-server; then
+        if wwservice_activate dhcp dhcpd isc-dhcp-server; then
+            exit 0
+        fi
     fi
 fi
+
+if [ "$DHCP" = "dnsmasq" ]; then
+    if wwpackage_check dnsmasq; then
+        if wwservice_activate dnsmasq; then
+            exit 0
+        fi
+    fi
+fi
+
 exit 1

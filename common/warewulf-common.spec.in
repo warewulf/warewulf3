@@ -11,7 +11,7 @@ ExclusiveOS: linux
 Conflicts: warewulf <= 2.9
 BuildArch: noarch
 BuildRoot: %{?_tmppath}/%{name}-%{version}-%{release}-root
-Requires: perl-DBD-MySQL perl-DBD-Pg perl-DBD-SQLite
+Requires: perl-DBD-MySQL perl-DBD-Pg perl-DBD-SQLite perl-JSON-PP
 %if %{?rhel}%{!?rhel:0} >= 7
 Requires: mariadb
 %else
@@ -25,7 +25,7 @@ utilization and maintenance of clusters or groups of computers.
 This is the main package which includes the common libraries and
 command line interface.
 
-%package localdb 
+%package localdb
 Summary: Warewulf - Common Module - Localdb
 Group: System Environment/Clustering
 Requires: %{name} = %{version}-%{release}

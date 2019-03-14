@@ -188,6 +188,7 @@ rm -rf $RPM_BUILD_ROOT
 %files server
 %defattr(-, root, root)
 %config(noreplace) %{_sysconfdir}/warewulf/dhcpd-template.conf
+%config(noreplace) %{_sysconfdir}/warewulf/dnsmasq-template.conf
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/warewulf-httpd.conf
 %{_bindir}/*
 %attr(0750, root, apache) %{_libexecdir}/warewulf/cgi-bin/

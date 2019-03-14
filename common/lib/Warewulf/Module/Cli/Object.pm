@@ -18,6 +18,7 @@ use Warewulf::DataStore;
 use Warewulf::Util;
 use Getopt::Long;
 use Text::ParseWords;
+use JSON::PP;
 
 our @ISA = ('Warewulf::Module::Cli');
 
@@ -61,6 +62,7 @@ help()
     $h .= "     print           Display object(s) and their members\n";
     $h .= "     delete          Completely remove object(s) from the data store\n";
     $h .= "     dump            Recursively dump objects in internal format\n";
+    $h .= "     jsondump        Recursively dump objects in json format\n";
     $h .= "     canonicalize    Check and update objects to current standard format\n";
     $h .= "     help            Show usage information\n";
     $h .= "\n";
@@ -220,6 +222,19 @@ exec()
         }
         return 0;
     }
+
+    if ($command eq "jsondump") {
+        my $json = JSON::PP->new->allow_nonref;
+        $json->convert_blessed(1);
+        my @jsondata;
+        for (my $i = 0; $i < $objectSet->count(); $i++) {
+            my $o = $objectSet->get_object($i);
+            push @jsondata, {%$o};
+        }
+        &nprint($json->encode(\@jsondata),"\n");
+        return 0;
+    }
+
     if ($command eq "canonicalize") {
         my $obj_count = $objectSet->count();
         my $count = 0;

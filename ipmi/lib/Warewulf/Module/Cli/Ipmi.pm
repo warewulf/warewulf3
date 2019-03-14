@@ -104,6 +104,7 @@ help()
     $h .= "         --ipaddr        The IPMI accessible IP address for this node. If multiple\n";
     $h .= "                         nodes are given, this IP address will be incremented for\n";
     $h .= "                         each node given\n";
+    $h .= "         --vlan          The VLAN ID defined for this node (1-4096 or 'off')\n";
     $h .= "         --netmask       The netmask defined for this node\n";
     $h .= "         --uid           The IPMI ID to use for the user on this node\n";
     $h .= "         --lanchannel    The IPMI LAN CHANNEL for this node\n";
@@ -184,6 +185,7 @@ exec()
     my $opt_fanout = 8;
     my $opt_padding;
     my $opt_ipaddr;
+    my $opt_vlanid;
     my $opt_netmask;
     my $opt_uid;
     my $opt_lanchannel;
@@ -206,6 +208,7 @@ exec()
 
     GetOptions(
         'ipaddr=s'      => \$opt_ipaddr,
+        'vlan=s'        => \$opt_vlanid,
         'netmask=s'     => \$opt_netmask,
         'uid=s'         => \$opt_uid,
         'lanchannel=s'  => \$opt_lanchannel,
@@ -259,6 +262,21 @@ exec()
                     $ip_serialized++;
                 }
                 push(@changes, sprintf("     SET: %-20s = %s\n", "IPMI_IPADDR", $opt_ipaddr));
+                $persist_bool = 1;
+            }
+        }
+        if ($opt_vlanid) {
+            if (uc($opt_vlanid) eq "UNDEF") {
+                foreach my $o ($objSet->get_list()) {
+                    $o->ipmi_vlanid(undef);
+                }
+                push(@changes, sprintf("   UNDEF: %-20s\n", "IPMI_VLANID"));
+                $persist_bool = 1;
+            } else {
+                foreach my $o ($objSet->get_list()) {
+                    $o->ipmi_vlanid($opt_vlanid);
+                }
+                push(@changes, sprintf("     SET: %-20s = %s\n", "IPMI_VLANID", $opt_vlanid));
                 $persist_bool = 1;
             }
         }
@@ -627,6 +645,7 @@ exec()
             
             &nprintf("#### %s %s#\n", $name, "#" x (72 - length($name)));
             printf("%15s: %-16s = %s\n", $name, "IPMI_IPADDR", $o->get("ipmi_ipaddr") || "UNDEF");
+            printf("%15s: %-16s = %s\n", $name, "IPMI_VLANID", $o->get("ipmi_vlanid") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_NETMASK", $o->get("ipmi_netmask") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_UID", $o->get("ipmi_uid") || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPMI_LANCHANNEL", $o->get("ipmi_lanchannel") || "UNDEF");

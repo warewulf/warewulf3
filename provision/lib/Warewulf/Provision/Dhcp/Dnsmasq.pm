@@ -209,7 +209,6 @@ persist()
         if (! @bootservers or scalar(grep { $_ eq $ipaddr} @bootservers)) {
             my $clustername = $n->cluster();
             my $domainname = $n->domain();
-            my $pxelinux_file = $n->pxelinux();
             my $master_ipv4_addr;
             my $domain;
 

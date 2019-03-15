@@ -15,6 +15,7 @@ use Warewulf::DataStore;
 use Warewulf::Util;
 use Warewulf::File;
 use Warewulf::DSO::File;
+use Cwd 'abs_path';
 use Getopt::Long;
 use File::Basename;
 use File::Path;
@@ -287,6 +288,8 @@ exec()
         }
         foreach my $path (@ARGV) {
             my @statinfo;
+
+            my $path = abs_path($path);
 
             @statinfo = lstat($path);
             if (-e _) {

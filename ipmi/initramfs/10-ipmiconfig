@@ -50,6 +50,9 @@ if [ -n "$WWIPMI_IPADDR" ] && [ -n "$WWIPMI_NETMASK" ]; then
             ipmitool lan set $channel ipsrc static                              >/dev/null || RETVAL=2
             ipmitool lan set $channel ipaddr $WWIPMI_IPADDR                     >/dev/null || RETVAL=2
             ipmitool lan set $channel netmask $WWIPMI_NETMASK                   >/dev/null || RETVAL=2
+            if [ -n "${WWIPMI_VLANID}" ] && [ "${WWIPMI_VLANID}" != "0" ]; then
+                ipmitool lan set $channel vlan id "${WWIPMI_VLANID}"              >/dev/null || RETVAL=2
+            fi
             ipmitool lan set $channel access on                                 >/dev/null || RETVAL=2
             ipmitool channel setaccess $channel $IPMI_UID ipmi=on privilege=4   >/dev/null || RETVAL=2
 

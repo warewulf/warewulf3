@@ -59,7 +59,7 @@ prechroot() {
     echo "#reposdir=0" >> $CHROOTDIR/$ZYP_CONF
     echo "" >> $CHROOTDIR/$ZYP_CONF
 
-    cp -RLp /dev/zero $CHROOTSDIR/.
+    cp -RLp /dev/zero $CHROOTDIR/dev
 
     if [ -z "$INSTALL_ISO" ]; then
         echo "[$REPO_NAME]" >> $CHROOTDIR/$ZYP_CONF

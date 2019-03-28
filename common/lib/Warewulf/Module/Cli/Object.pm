@@ -124,7 +124,7 @@ complete()
     if (exists($ARGV[1])) {
         if (($ARGV[1] eq "print") || ($ARGV[1] eq "modify") || ($ARGV[1] eq "delete") || ($ARGV[1] eq "canonicalize")) {
             @ret = $db->get_lookups(undef, "name");
-        } elsif (($ARGV[1] eq "dump") || ($ARGV[1] eq "help")) {
+        } elsif (($ARGV[1] eq "dump") || ($ARGV[1] eq "jsondump") || ($ARGV[1] eq "help")) {
             @ret = ();
         }
     }
@@ -220,7 +220,7 @@ exec()
 
             &nprint(&examine_object($o, "Object #$i:  "), "\n\n");
         }
-        return 0;
+        return 1;
     }
 
     if ($command eq "jsondump") {
@@ -232,7 +232,7 @@ exec()
             push @jsondata, {%$o};
         }
         &nprint($json->encode(\@jsondata),"\n");
-        return 0;
+        return 1;
     }
 
     if ($command eq "canonicalize") {
@@ -246,7 +246,7 @@ exec()
         if ($count > 0) {
             $db->persist(@objList);
         }
-        return 0;
+        return 1;
     }
     if ($command eq "modify") {
         foreach my $chg (@opt_set) {

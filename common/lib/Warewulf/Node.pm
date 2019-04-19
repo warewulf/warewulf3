@@ -445,14 +445,14 @@ netdel()
     $netdev = $self->netdevs($devname);
     $nodename = $self->nodename() || "UNDEF";
     if ($netdev) {
-        my $hwaddr = $netdev->get("hwaddr");
+        my @hwaddrs = $netdev->get("hwaddr");
         my $ipaddr = $netdev->get("ipaddr");
         my $hwprefix = $netdev->get("hwprefix");
         
         &dprint("Object $nodename del netdev $devname\n");
         $self->netdevs()->del($netdev);
-        if ($hwaddr) {
-            $self->del("_hwaddr", $hwaddr);
+        if (@hwaddrs) {
+            $self->del("_hwaddr", @hwaddrs);
         }
         if ($ipaddr) {
             $self->del("_ipaddr", $ipaddr);
@@ -532,12 +532,11 @@ Get or set the hwaddr for the network device named I<$devname>.
 sub
 hwaddr()
 {
-    my ($self, $devname, $new_hwaddr) = @_;
+    my ($self, $devname, @new_hwaddr) = @_;
 
     return $self->update_netdev_member($devname, "hwaddr", "_hwaddr",
-                                       (((scalar(@_) >= 3) && (!defined($new_hwaddr))) ? ("__UNDEF")
-                                        : ((defined($new_hwaddr)) ? (lc($new_hwaddr)) : (undef))),
-                                       qr/^((?:[0-9a-f]{2}:){5,7}[0-9a-f]{2})$/);
+            qr/^((?:[0-9a-f]{2}:){5,7}[0-9a-f]{2})$/,
+            ((scalar(@_) >= 3) && (!defined $new_hwaddr[0])) ? ("__UNDEF") : (@new_hwaddr));
 }
 
 =item hwprefix_list()
@@ -566,9 +565,9 @@ hwprefix()
     my ($self, $devname, $new_hwprefix) = @_;
 
     return $self->update_netdev_member($devname, "hwprefix", "_hwprefix",
-                                        (((scalar(@_) >= 3) && (!defined($new_hwprefix))) ? ("__UNDEF")
-                                         : ((defined($new_hwprefix)) ? (lc($new_hwprefix)) : (undef))),
-                                       qr/^((?:[0-9a-f]{2}:){11}[0-9a-f]{2})$/);
+            qr/^((?:[0-9a-f]{2}:){11}[0-9a-f]{2})$/,
+            ((scalar(@_) >= 3) && (!defined($new_hwprefix))) ? ("__UNDEF")
+             : ((defined($new_hwprefix)) ? (lc($new_hwprefix)) : (undef)));
 }
 
 =item ipaddr_list()
@@ -598,8 +597,8 @@ ipaddr()
     my ($self, $devname, $new_ipaddr) = @_;
 
     return $self->update_netdev_member($devname, "ipaddr", "_ipaddr",
-                                       (((scalar(@_) >= 3) && (!defined($new_ipaddr))) ? ("__UNDEF") : ($new_ipaddr)),
-                                       qr/^(\d+\.\d+\.\d+\.\d+)$/);
+            qr/^(\d+\.\d+\.\d+\.\d+)$/,
+            ((scalar(@_) >= 3) && (!defined($new_ipaddr))) ? ("__UNDEF") : ($new_ipaddr));
 }
 
 
@@ -615,8 +614,8 @@ netmask()
     my ($self, $devname, $new_netmask) = @_;
 
     return $self->update_netdev_member($devname, "netmask", "",
-                                       (((scalar(@_) >= 3) && (!defined($new_netmask))) ? ("__UNDEF") : ($new_netmask)),
-                                       qr/^(\d+\.\d+\.\d+\.\d+)$/);
+            qr/^(\d+\.\d+\.\d+\.\d+)$/,
+            ((scalar(@_) >= 3) && (!defined($new_netmask))) ? ("__UNDEF") : ($new_netmask));
 }
 
 
@@ -632,8 +631,8 @@ network()
     my ($self, $devname, $new_network) = @_;
 
     return $self->update_netdev_member($devname, "network", "",
-                                       (((scalar(@_) >= 3) && (!defined($new_network))) ? ("__UNDEF") : ($new_network)),
-                                       qr/^(\d+\.\d+\.\d+\.\d+)$/);
+            qr/^(\d+\.\d+\.\d+\.\d+)$/,
+            ((scalar(@_) >= 3) && (!defined($new_network))) ? ("__UNDEF") : ($new_network));
 }
 
 
@@ -649,8 +648,8 @@ gateway()
     my ($self, $devname, $new_gateway) = @_;
 
     return $self->update_netdev_member($devname, "gateway", "",
-                                       (((scalar(@_) >= 3) && (!defined($new_gateway))) ? ("__UNDEF") : ($new_gateway)),
-                                       qr/^(\d+\.\d+\.\d+\.\d+|UNDEF|undef)$/);
+            qr/^(\d+\.\d+\.\d+\.\d+|UNDEF|undef)$/,
+            ((scalar(@_) >= 3) && (!defined($new_gateway))) ? ("__UNDEF") : ($new_gateway));
 }
 
 
@@ -666,8 +665,8 @@ fqdn()
     my ($self, $devname, $new_fqdn) = @_;
 
     return $self->update_netdev_member($devname, "fqdn", "",
-                                       (((scalar(@_) >= 3) && (!defined($new_fqdn))) ? ("__UNDEF") : ($new_fqdn)),
-                                       qr/^([a-zA-Z0-9\-\.\_]+)$/);
+            qr/^([a-zA-Z0-9\-\.\_]+)$/,
+            ((scalar(@_) >= 3) && (!defined($new_fqdn))) ? ("__UNDEF") : ($new_fqdn));
 }
 
 
@@ -683,8 +682,40 @@ mtu()
     my ($self, $devname, $new_mtu) = @_;
 
     return $self->update_netdev_member($devname, "mtu", "",
-                                       (((scalar(@_) >= 3) && (!defined($new_mtu))) ? ("__UNDEF") : ($new_mtu)),
-                                       qr/^([0-9]+)$/);
+            qr/^([0-9]+)$/,
+            ((scalar(@_) >= 3) && (!defined($new_mtu))) ? ("__UNDEF") : ($new_mtu));
+}
+
+=item bonddevs($devname, [ $value ])
+
+Get or set the bond devices for the network device named I<$devname>.
+
+=cut
+
+sub
+bonddevs()
+{
+    my ($self, $devname, @new_bonddevs) = @_;
+
+    return $self->update_netdev_member($devname, "bonddevs", "",
+            qr/^([a-z0-9]+)$/,
+            ((scalar(@_) >= 3) && (!@new_bonddevs)) ? ("__UNDEF") : (@new_bonddevs));
+}
+
+=item bondmode($devname, [ $value ])
+
+Get or set the bonding mode for the network device named I<$devname>.
+
+=cut
+
+sub
+bondmode()
+{
+    my ($self, $devname, $new_bondmode) = @_;
+
+    return $self->update_netdev_member($devname, "bondmode", "",
+            qr/^(.+)$/,
+            ((scalar(@_) >= 3) && (!defined($new_bondmode))) ? ("__UNDEF") : ($new_bondmode));
 }
 
 =item enabled([$value])
@@ -753,7 +784,7 @@ validate_netdev_name()
 sub
 update_netdev_member()
 {
-    my ($self, $devname, $member, $tracker, $new_value, $validator) = @_;
+    my ($self, $devname, $member, $tracker, $validator, @new_values) = @_;
     my ($netdev, $nodename);
 
     $nodename = $self->nodename() || "UNDEF";
@@ -773,29 +804,34 @@ update_netdev_member()
     }
 
     $netdev = $self->netdev_get_add($devname);
-    if (defined($new_value)) {
-        my $old_value = $netdev->get($member) || "";
+    if (@new_values && scalar @new_values && defined $new_values[0]) {
+        my @old_values = $netdev->get($member);
+        @old_values = () unless (@old_values);
 
-        if ($new_value eq "__UNDEF" || lc($new_value) eq "undef" ) {
-            $new_value = undef;
-            &dprint("Removing $nodename.$devname.$member (was \"$old_value\")\n");
+        if (grep { $_ eq "__UNDEF" || lc($_) eq "undef" } @new_values) {
+            @new_values = undef;
+            &dprint("Removing $nodename.$devname.$member (was \"@old_values\")\n");
         } else {
-            if ($new_value =~ $validator) {
-                $new_value = $1;
-            } else {
-                &eprint("Invalid value for $nodename.$devname.$member:  \"$new_value\"\n");
-                return undef;
+            if ($validator) {
+                foreach my $new_value (@new_values) {
+                    if ($new_value =~ $validator) {
+                        $new_value = $1;
+                    } else {
+                        &eprint("Invalid value for $nodename.$devname.$member:  \"@new_values\"\n");
+                        return undef;
+                    }
+                }
             }
-            &dprint("Updating object $nodename.$devname.$member:  \"$old_value\" -> \"$new_value\"\n");
+            &dprint("Updating object $nodename.$devname.$member:  \"@old_values\" -> \"@new_values\"\n");
         }
-        $netdev->set($member, $new_value);
+        $netdev->set($member, @new_values);
         if ($tracker) {
-            if ($old_value) {
+            if (@old_values) {
                 # Delete the previous member if exists...
-                $self->del($tracker, $old_value);
+                $self->del($tracker, @old_values);
             }
-            if (defined($new_value)) {
-                $self->add($tracker, $new_value);
+            if (@new_values) {
+                $self->add($tracker, @new_values);
             } else {
                 return undef;
             }

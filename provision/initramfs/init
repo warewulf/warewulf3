@@ -70,6 +70,158 @@ for module in `/sbin/detect`; do
 done
 wwsuccess
 
+bondup() {
+    DEVICE=$1
+    BONDDEVS=`echo "$2" | sed -e "s/,/ /g"`
+    HWADDR=$3
+
+    RETVAL=1
+
+    if [ -z "$WWBONDMODE" ]; then
+        WWBONDMODE="balance-rr"
+    fi
+
+    msg_white "Configuring bonding interfaces: $DEVICE $WWBONDMODE ($BONDDEVS)\n"
+
+    msg_gray "Loading bonding module\n"
+# dont automatically created devices
+    modprobe bonding max_bonds=0 >/dev/null
+
+    for slave in $BONDDEVS; do
+        ip addr flush dev $slave >/dev/null
+#        ip link set dev $slave nomaster down >/dev/null 2>&1 
+    done
+
+    msg_gray "Bringing up interface $DEVICE"
+
+    ip link add $DEVICE type bond >/dev/null 
+# busybox "ip" command does not support bonding modes
+    echo "$WWBONDMODE" > /sys/class/net/$DEVICE/bonding/mode
+    ip link set dev $DEVICE up
+
+    if ifenslave $DEVICE $BONDDEVS >/dev/null ; then
+        wwsuccess
+        
+        if [ -n "$WWMTU" ]; then
+            msg_white "Setting the MTU to: $WWMTU "
+            if ip link set mtu $WWMTU dev $DEVICE >/dev/null; then
+                wwsuccess
+            else
+                wwfailure
+            fi
+        fi
+
+# give the device some time to come up
+        sleep 5
+        
+        if [ -n "$WWIPADDR" -a -n "$WWNETMASK" -a -n "$WWMASTER" ]; then
+            msg_white "Configuring $DEVICE ($BONDDEVS) statically: "
+            msg_gray "($WWIPADDR/$WWNETMASK)"
+
+            if ip address add $WWIPADDR/$WWNETMASK broadcast + dev $DEVICE; then
+                wwsuccess
+                if [ -n "$WWGATEWAY" ]; then
+                    msg_white "Configuring gateway: "
+                    msg_gray "($WWGATEWAY)"
+                    if ip route add default via $WWGATEWAY; then
+                        wwsuccess
+                    else
+                        wwfailure
+                    fi
+                fi
+
+                if [ -z "$WWNETCFGFILE" ]; then
+                    msg_white "Creating network initialization files: "
+                    msg_gray "($DEVICE)"
+                    # Debian based /etc/network/interfaces
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/interfaces
+                    echo "auto lo" >> /tmp/interfaces
+                    echo "iface lo inet loopback" >> /tmp/interfaces
+                    echo '' >> /tmp/interfaces
+
+                    for slave in $BONDDEVS; do
+                        echo "auto $slave" >> /tmp/interfaces
+                        echo "iface $slave inet manual" >> /tmp/interfaces
+                        echo "    bond-master $DEVICE" >> /tmp/interfaces
+                        echo '' >> /tmp/interfaces
+                    done
+                    echo "auto $DEVICE" >> /tmp/interfaces
+                    echo "iface $DEVICE inet static" >> /tmp/interfaces
+                    echo "    address $WWIPADDR" >> /tmp/interfaces
+                    echo "    netmask $WWNETMASK" >> /tmp/interfaces
+                    if [ -n "$WWGATEWAY" ]; then
+                        echo "    gateway $WWGATEWAY" >> /tmp/interfaces
+                    fi
+                    if [ -n "$HWADDR" ]; then
+                        echo "    hwaddress ether $HWADDR" >> /tmp/interfaces
+                    fi
+                    if [ -n "$WWMTU" ]; then
+                        echo "    mtu $WWMTU" >> /tmp/interfaces
+                    fi
+                    if [ -n "$WWBONDMODE" ]; then
+                        echo "    bond-mode $WWBONDMODE" >> /tmp/interfaces
+                    fi
+                    echo "    bond-slaves $BONDDEVS" >> /tmp/interfaces
+
+                    # RHEL based ifcfg
+                    for slave in $BONDDEVS; do
+                        echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$slave
+                        echo "DEVICE=$slave" >> /tmp/ifcfg-$slave
+                        echo "BOOTPROTO=none" >> /tmp/ifcfg-$slave
+                        echo "ONBOOT=yes" >> /tmp/ifcfg-$slave
+                        echo "MASTER=$DEVICE" >> /tmp/ifcfg-$slave
+                        echo "SLAVE=yes" >> /tmp/ifcfg-$slave
+                    done
+
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$DEVICE
+                    echo "DEVICE=$DEVICE" >> /tmp/ifcfg-$DEVICE
+                    echo "TYPE=Bond" >> /tmp/ifcfg-$DEVICE
+                    echo "BONDING_MASTER=yes" >> /tmp/ifcfg-$DEVICE
+                    echo "BOOTPROTO=static" >> /tmp/ifcfg-$DEVICE
+                    echo "ONBOOT=yes" >> /tmp/ifcfg-$DEVICE
+                    echo "IPADDR=$WWIPADDR" >> /tmp/ifcfg-$DEVICE
+                    echo "NETMASK=$WWNETMASK" >> /tmp/ifcfg-$DEVICE
+                    if [ -n "$WWGATEWAY" ]; then
+                        echo "GATEWAY=$WWGATEWAY" >> /tmp/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$HWADDR" ]; then
+                        echo "HWADDR=$HWADDR" >> /tmp/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWMTU" ]; then
+                        echo "MTU=$WWMTU" >> /tmp/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWBONDMODE" ]; then
+                        echo "BONDING_OPTS=\"mode=$WWBONDMODE\"" >> /tmp/ifcfg-$DEVICE
+                    fi
+                    wwsuccess
+                fi
+
+                COUNT=0
+                msg_white  "Trying to reach the master node at $WWMASTER "
+                while [ $COUNT -le $WWNETRETRY ]; do
+                    if ping -c 1 $WWMASTER >/dev/null 2>&1; then
+                        wwsuccess
+                        return 0
+                    fi
+                    msg_white "."
+                    COUNT=`expr $COUNT + 1`
+                    sleep 1
+                done
+                wwfailure
+            else
+                wwfailure
+            fi
+        fi
+    else
+        wwfailure
+    fi
+    
+    # If we have gotten here, give up for this device, and bring device down
+    # just in case its present.
+    ip link set dev $DEVICE down >/dev/null 2>&1
+    return 255
+}
+
 ifup() {
     DEVICE=$1
     HWADDR=$2
@@ -231,20 +383,36 @@ else
     wwfailure
 fi
 
-# First try to find interface based on WWHWADDR
-for i in `echo /sys/class/net/* | xargs -n1 /usr/bin/basename | grep -v lo`; do
-    HWADDR=`cat /sys/class/net/$i/address`
-    # Use GUID if IB
-    if [ ${#HWADDR} -eq 59 ]; then
-        HWADDR=`expr substr $HWADDR 37 23`
+# First try to setup bonding if requested
+if [ -n "$WWBONDDEVS" ]; then
+    if bondup $WWNETDEV $WWBONDDEVS $WWHWADDR; then
+        echo "$WWNETDEV" > /tmp/wwdev
     fi
-    if [ $HWADDR == $WWHWADDR ]; then
-        if ifup $i $WWHWADDR $WWNETDEV; then
-            echo "$i" > /tmp/wwdev
+fi
+
+# Else try to setup the interface as specified via kernel args
+if [ ! -f /tmp/wwdev ]; then
+    if ifup $WWNETDEV $WWHWADDR $WWNETDEV; then
+        echo "$WWNETDEV" > /tmp/wwdev
+    fi
+fi
+
+# Else try to find interface based on WWHWADDR
+if [ ! -f /tmp/wwdev ]; then
+    for i in `echo /sys/class/net/* | xargs -n1 /usr/bin/basename | grep -v lo`; do
+        HWADDR=`cat /sys/class/net/$i/address`
+        # Use GUID if IB
+        if [ ${#HWADDR} -eq 59 ]; then
+            HWADDR=`expr substr $HWADDR 37 23`
         fi
-        break
-    fi
-done
+        if [ $HWADDR == $WWHWADDR ]; then
+            if ifup $i $WWHWADDR $WWNETDEV; then
+                echo "$i" > /tmp/wwdev
+            fi
+            break
+        fi
+    done
+fi
 
 # If the above doesn't exist or fails, then try brute force
 if [ ! -f /tmp/wwdev ]; then

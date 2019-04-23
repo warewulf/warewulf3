@@ -201,6 +201,7 @@ bondup() {
                 while [ $COUNT -le $WWNETRETRY ]; do
                     if ping -c 1 $WWMASTER >/dev/null 2>&1; then
                         wwsuccess
+                        WWBONDINGDEV=$DEVICE
                         return 0
                     fi
                     msg_white "."
@@ -218,7 +219,8 @@ bondup() {
     
     # If we have gotten here, give up for this device, and bring device down
     # just in case its present.
-    ip link set dev $DEVICE down >/dev/null 2>&1
+    # ip link del also releases the slaves
+    ip link del dev $DEVICE >/dev/null
     return 255
 }
 
@@ -533,10 +535,12 @@ if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
     else
         wwfailure
     fi
+
     if [ -n "$WWPOSTNETDOWN" ]; then
         NETDEV=`cat /tmp/wwdev`
         if [ -f "/tmp/ifcfg-$WWNETDEV" ]; then
             . /tmp/ifcfg-$WWNETDEV
+            
             if [ -n "$IPADDR" -a -n "$NETMASK" ]; then
                 wwlogger "Deleting network interface address $NETDEV:$IPADDR/$NETMASK ($WWNETDEV)"
                 msg_white "Deleting network interface address $NETDEV:$IPADDR/$NETMASK ($WWNETDEV)"
@@ -567,6 +571,13 @@ if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
             wwfailure "Could not bring down $NETDEV ($WWNETDEV)"
             msg_white "Could not bring down $NETDEV ($WWNETDEV)"
             wwfailure
+        fi
+
+        # did we create a bonding device?            
+        if [ -n "$WWBONDINGDEV" ]; then
+            # Delete bonding device. This will also detach the slaves.
+            # Deliberately not use NETDEV here; bondup() never guesses device names.
+            ip link del dev $WWBONDINGDEV >/dev/null
         fi
     fi
 

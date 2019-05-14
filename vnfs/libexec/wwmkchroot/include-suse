@@ -26,7 +26,7 @@ set_overlay() {
         echo "ERROR: This must be a SuSE compatible chroot!"
         return 1
     fi
-    PKGR_CMD="$ZYP_CMD install $PKGLIST"
+    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses $PKGLIST"
     return 0
 }
 
@@ -47,14 +47,13 @@ prechroot() {
     rm -f $CHROOTDIR/dev/zero && mknod -m 666 $CHROOTDIR/dev/zero c 1 5
 
     cp -rap /etc/zypp/zypper.conf $CHROOTDIR/etc
+    # Use repos of installed system
     if [[ -z "$ZYP_MIRROR" && -z "$INSTALL_ISO" ]]; then
-        cp -rap /etc/zypp/repos.d $CHROOTDIR/etc
-        [ -d /etc/zypp/services.d ] && cp -rap /etc/zypp/services.d $CHROOTDIR/etc
-        [ -d /etc/zypp/credentials.d ] && cp -rap /etc/zypp/credentials.d $CHROOTDIR/etc
-    fi
-    sed -i -e "s/\$releasever/$VERSION/g" `find $CHROOTDIR/etc/zypp* -type f`
-
-    if [ -n "$INSTALL_ISO" ]; then
+        cp -rap /etc/zypp/repos.d $CHROOTDIR/etc/zypp
+        [ -d /etc/zypp/services.d ] && cp -rap /etc/zypp/services.d $CHROOTDIR/etc/zypp
+        [ -d /etc/zypp/credentials.d ] && cp -rap /etc/zypp/credentials.d $CHROOTDIR/etc/zypp
+    elif [ -n "$INSTALL_ISO" ]; then
+        # Use ISO
         for i in `ls -d $MEDIA_MOUNTPATH.*`; do
             if [ -z "$INSTALLDIRS" ]; then
                 if [ -d $i/repodata ]; then
@@ -68,18 +67,25 @@ prechroot() {
                 INSTALLDIRS="$INSTALLDIRS,file://$i"
             fi
         done
-
         ZYP_MIRROR=$INSTALLDIRS
     fi
 
-    declare -i cnt=0
-    $ZYP_CMD rr --all
-    for i in `echo $ZYP_MIRROR | sed -e 's/,/ /'`; do
-        $ZYP_CMD ar $i repo-$((cnt++))
-    done
-    
+    if [ -n "${ZYP_MIRROR}" ]; then
+        declare -i i=0 cnt
+        cnt=$($ZYP_CMD lr | grep '|' | wc -l)
+        while [ $i -lt $cnt ]; do
+            $ZYP_CMD rr $i
+            let i++
+        done
+
+        cnt=0
+        for i in `echo $ZYP_MIRROR | sed -e 's/,/ /'`; do
+            $ZYP_CMD ar $i repo-$((cnt++))
+        done
+    fi
+
     PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses $PKGLIST"
-    
+
     return 0
 }
 

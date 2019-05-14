@@ -40,6 +40,12 @@ export WWDNS
 WWNETDEV=`sed -e '/ wwnetdev=/!d;s/.*wwnetdev=\([^ ]*\).*/\1/' /proc/cmdline`
 export WWNETDEV
 
+WWBONDDEVS=`sed -e '/ wwbonddevs=/!d;s/.*wwbonddevs=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWBONDDEVS
+
+WWBONDMODE=`sed -e '/ wwbondmode=/!d;s/.*wwbondmode=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWBONDMODE
+
 WWMTU=`sed -e '/ wwmtu=/!d;s/.*wwmtu=\([^ ]*\).*/\1/' /proc/cmdline`
 export WWMTU
 

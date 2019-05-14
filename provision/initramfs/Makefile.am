@@ -9,7 +9,7 @@ MACHINE:=$(shell uname -m)
 BUSYBOX_VERSION = 1.26.2
 BUSYBOX_SOURCE = $(top_srcdir)/3rd_party/GPL/busybox-$(BUSYBOX_VERSION).tar.bz2
 BUSYBOX_DIR = busybox-$(BUSYBOX_VERSION)
-BUSYBOX_PATCHES = 
+BUSYBOX_PATCHES =
 
 E2FSPROGS_VERSION = 1.42.12
 E2FSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/e2fsprogs-$(E2FSPROGS_VERSION).tar.gz
@@ -51,7 +51,7 @@ e2fsprogs:
 
 busybox:
 	@ if [ -n "@local_busybox_path@" -a -f "@local_busybox_path@" -a \
-	    -n "@local_busybox_path@" -a -f "@busybox_links_path@" ]; then \
+	    -n "@busybox_links_path@" -a -f "@busybox_links_path@" ]; then \
 		echo "Detected local install of busybox. Bypassing busybox build process." ;\
 	else \
 		if [ ! -d "_work/$(BUSYBOX_DIR)" ]; then \

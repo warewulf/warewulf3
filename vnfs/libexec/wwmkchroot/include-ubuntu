@@ -2,7 +2,8 @@
 APT_CONF="root/ww-apt.conf"
 DEB_SRCS="root/sources.list"
 DEB_ISOS="root/iso.list"
-APT_CMD="apt-get -c $CHROOTDIR/$APT_CONF -o Dir::Etc::SourceList=/$CHROOTDIR/"
+#APT_CMD="env DEBIAN_FRONTEND="noninteractive" apt-get -c $CHROOTDIR/$APT_CONF -o Dir::Etc::SourceList=/$CHROOTDIR/"
+APT_CMD="env DEBIAN_FRONTEND="noninteractive" apt-get -c $APT_CONF"
 
 distro_check() {
     if ! [ -x "/usr/bin/dpkg" ] ; then
@@ -66,9 +67,9 @@ prechroot() {
     > $CHROOTDIR/$APT_CONF
     echo "APT{ Get{ Assume-Yes \"true\";" >> $CHROOTDIR/$APT_CONF
     echo "AllowUnauthenticated \"true\"; }; };" >> $CHROOTDIR/$APT_CONF
-    echo "Dir \"$CHROOTDIR/\" { State "var/lib/apt/"" >> $CHROOTDIR/$APT_CONF
-    echo "{ status \"$CHROOTDIR/var/lib/dpkg/status\"; }; };" >> $CHROOTDIR/$APT_CONF
-    echo "DPkg{ Chroot-Directory \"$CHROOTDIR/\"; };" >> $CHROOTDIR/$APT_CONF
+#    echo "Dir \"$CHROOTDIR/\" { State "var/lib/apt/"" >> $CHROOTDIR/$APT_CONF
+#    echo "{ status \"$CHROOTDIR/var/lib/dpkg/status\"; }; };" >> $CHROOTDIR/$APT_CONF
+#    echo "DPkg{ Chroot-Directory \"$CHROOTDIR/\"; };" >> $CHROOTDIR/$APT_CONF
 
     > $CHROOTDIR/$DEB_SRCS
     echo "deb $DEB_MIRROR ${SUITE} main restricted" >> $CHROOTDIR/$DEB_SRCS
@@ -103,16 +104,17 @@ prechroot() {
 }
 
 postchroot() {
+    echo "Begin post-debootstrap additional package installation."
     # copy a more robust sources.list to our chroot
     cp $CHROOTDIR/$DEB_SRCS $CHROOTDIR/etc/apt/
 
     # create proc in chroot as this may be required by some packaged
-    mkdir -o $CHROOTDIR/proc
+    mkdir -p $CHROOTDIR/proc
     mount none -t proc $CHROOTDIR/proc
 
     # debootstrap created our base chroot and now
     # we install all the required packages into it
-    APT_CMD="${APT_CMD}${SOURCESPATH}"
+    APT_CMD="chroot ${CHROOTDIR} ${APT_CMD}"
     $APT_CMD update
     $APT_CMD install $PKGLIST
 

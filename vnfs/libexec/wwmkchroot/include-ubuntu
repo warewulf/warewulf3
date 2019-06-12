@@ -2,7 +2,6 @@
 APT_CONF="root/ww-apt.conf"
 DEB_SRCS="root/sources.list"
 DEB_ISOS="root/iso.list"
-#APT_CMD="env DEBIAN_FRONTEND="noninteractive" apt-get -c $CHROOTDIR/$APT_CONF -o Dir::Etc::SourceList=/$CHROOTDIR/"
 APT_CMD="env DEBIAN_FRONTEND="noninteractive" apt-get -c $APT_CONF"
 
 distro_check() {
@@ -52,7 +51,7 @@ prechroot() {
         return 1
     fi
     if [ -z "$SUITE" ]; then
-        SUITE="xenial"
+        SUITE="cosmic"
     fi
     if [ -z "$ARCH" ]; then
         ARCH="amd64"
@@ -67,9 +66,6 @@ prechroot() {
     > $CHROOTDIR/$APT_CONF
     echo "APT{ Get{ Assume-Yes \"true\";" >> $CHROOTDIR/$APT_CONF
     echo "AllowUnauthenticated \"true\"; }; };" >> $CHROOTDIR/$APT_CONF
-#    echo "Dir \"$CHROOTDIR/\" { State "var/lib/apt/"" >> $CHROOTDIR/$APT_CONF
-#    echo "{ status \"$CHROOTDIR/var/lib/dpkg/status\"; }; };" >> $CHROOTDIR/$APT_CONF
-#    echo "DPkg{ Chroot-Directory \"$CHROOTDIR/\"; };" >> $CHROOTDIR/$APT_CONF
 
     > $CHROOTDIR/$DEB_SRCS
     echo "deb $DEB_MIRROR ${SUITE} main restricted" >> $CHROOTDIR/$DEB_SRCS

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-zypper install autoconf automake libacl-devel libattr-devel libuuid-devel nfs-kernel-server device-mapper-devel xz-devel apache2 apache2-mod_perl tftp dhcp-server xinetd tcpdump policycoreutils-python sles-release util-linux mysql perl-DBD-mysql openssl-devel wget gcc ipmitool ipxe
+zypper install autoconf automake libacl-devel libattr-devel libuuid-devel nfs-kernel-server device-mapper-devel xz-devel apache2 apache2-mod_perl tftp dhcp-server xinetd tcpdump python3-policycoreutils util-linux mariadb perl-DBD-mysql libopenssl-devel wget gcc ipmitool ipxe-bootimgs python3 make libtirpc-devel parted autofs bzip2 ntp perl-CGI
 
 if [ $? -eq 0 ]; then
     for SUBDIR in common cluster vnfs ipmi provision; do
@@ -10,6 +10,8 @@ if [ $? -eq 0 ]; then
         fi
         if [ "$SUBDIR" = "ipmi" ]; then
           ./autogen.sh --with-local-ipmitool --prefix=/
+        elif [ "$SUBDIR" = "provision" ]; then
+	  ./autogen.sh --with-apache2moddir=/usr/lib64/apache2 --prefix=/
         else
           ./autogen.sh --prefix=/
         fi

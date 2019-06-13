@@ -80,7 +80,9 @@ service($$$)
         while(<SERVICE>) {
             $self->{"OUTPUT"} .= $_;
         }
-        chomp($self->{"OUTPUT"});
+        if (defined($self->{"OUTPUT"})) {
+            chomp($self->{"OUTPUT"});
+        }
         if (close SERVICE) {
             &dprint("Service command ran successfully\n");
             return(1);

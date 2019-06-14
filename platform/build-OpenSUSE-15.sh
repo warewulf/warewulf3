@@ -4,17 +4,18 @@ zypper install autoconf automake libacl-devel libattr-devel libuuid-devel nfs-ke
 
 if [ $? -eq 0 ]; then
     for SUBDIR in common cluster vnfs ipmi provision; do
+        OPTIONS=" "
         cd ../$SUBDIR
         if [ $? -ne 0 ]; then
             break
         fi
-        if [ "$SUBDIR" = "ipmi" ]; then
-          ./autogen.sh --with-local-ipmitool --prefix=/
-        elif [ "$SUBDIR" = "provision" ]; then
-	  ./autogen.sh --with-apache2moddir=/usr/lib64/apache2 --prefix=/
-        else
-          ./autogen.sh --prefix=/
+        if [ "$SUBDIR" = "provision" ]; then
+	  OPTIONS="--with-apache2moddir=/usr/lib64/apache2"
         fi
+	if [ "$SUBDIR" = "ipmi" ]; then
+          OPTIONS="--with-local-ipmitool"
+        fi
+          ./autogen.sh --prefix=/ --bindir=/usr/bin $OPTIONS
         if [ $? -eq 0 ]; then
             make
         else

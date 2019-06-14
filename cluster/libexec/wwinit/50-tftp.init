@@ -23,7 +23,7 @@ wwreqroot
 DHCP="$(egrep "^\s*dhcp server\s*=" $WAREWULF_SYSCONFDIR/warewulf/provision.conf | awk -F = '{print $2}' | sed -e 's/\s*//g' | tr '[:upper:]' '[:lower:]')"
 
 if [ "$DHCP" = "isc" ]; then
-    if wwpackage_check tftp-server tftpd tftpd-hpa; then
+    if wwpackage_check tftp-server tftpd tftpd-hpa tftp\(server\); then
         if wwservice_activate tftp.socket tftpd tftp tftpd-hpa; then
             exit 0
         fi

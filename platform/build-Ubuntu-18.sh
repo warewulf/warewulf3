@@ -4,15 +4,15 @@ apt install apache2 libapache2-mod-perl2 tftpd-hpa mysql-server debootstrap isc-
 
 if [ $? -eq 0 ]; then
     for SUBDIR in common cluster vnfs ipmi provision; do
+        OPTIONS=" "
         cd ../$SUBDIR
         if [ $? -ne 0 ]; then
             break
         fi
         if [ "$SUBDIR" = "ipmi" ]; then
-          ./autogen.sh --with-local-ipmitool --prefix=/
-        else
-          ./autogen.sh --prefix=/
+          OPTIONS="--with-local-ipmitool"
         fi
+          ./autogen.sh --prefix=/ --bindir=/usr/bin $OPTIONS
         if [ $? -eq 0 ]; then
             make
         else

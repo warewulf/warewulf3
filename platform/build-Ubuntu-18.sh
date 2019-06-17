@@ -1,6 +1,6 @@
 #!/bin/bash
 
-apt install apache2 libapache2-mod-perl2 tftpd-hpa mysql-server debootstrap isc-dhcp-server tcpdump openssh-client nfs-kernel-server nfs-common rpcbind ntp wget build-essential perl make automake pkg-config busybox e2fsprogs parted libarchive-tools ipxe libtirpc-dev libselinux-dev gcc python python3 libssl-dev uuid-dev libblkid-dev gettext libdevmapper-dev liblzma-dev ipmitool 
+apt install apache2 libapache2-mod-perl2 tftpd-hpa mysql-server debootstrap isc-dhcp-server tcpdump openssh-client nfs-kernel-server nfs-common rpcbind ntp wget build-essential perl make automake pkg-config libarchive-tools ipxe libtirpc-dev libselinux-dev gcc python python3 libssl-dev uuid-dev libblkid-dev gettext libdevmapper-dev liblzma-dev ipmitool 
 
 if [ $? -eq 0 ]; then
     for SUBDIR in common cluster vnfs ipmi provision; do

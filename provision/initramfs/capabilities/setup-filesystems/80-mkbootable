@@ -75,7 +75,7 @@ check_efi() {
 check_grubx() {
   local GRUBX
 
-  for GRUBX in "${NEWROOT}"/boot/efi/EFI/*/grubx64.efi; do
+  for GRUBX in "${NEWROOT}"/boot/efi/EFI/*/grub*64.efi; do
     if [ -e "${GRUBX}" ]; then
       return 0
     fi

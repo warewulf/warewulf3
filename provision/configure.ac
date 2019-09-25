@@ -41,6 +41,14 @@ AM_COND_IF([ISDEB],
     AC_MSG_RESULT([no])
 )
 
+AC_MSG_CHECKING([for Ubuntu based system])
+AM_CONDITIONAL(ISUBU, [test -e /etc/lsb-release &&
+		       grep -q "DISTRIB_ID=.*buntu.*" /etc/lsb-release])
+AM_COND_IF([ISUBU],
+    AC_MSG_RESULT([yes]),
+    AC_MSG_RESULT([no])
+)
+
 AC_MSG_CHECKING([for SUSE based system])
 AM_CONDITIONAL(ISSUSE, [test -e /etc/SUSEConfig ||
 		       { test -e /etc/os-release &&

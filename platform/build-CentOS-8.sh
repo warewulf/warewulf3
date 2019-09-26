@@ -1,6 +1,7 @@
 #!/bin/bash
 
 dnf install autoconf automake libacl-devel libattr-devel libuuid-devel nfs-utils device-mapper-devel xz-devel httpd tftp dhcp-server xinetd tcpdump python3-policycoreutils util-linux mariadb-server perl-DBD-mysql openssl-devel wget gcc ipmitool ipxe-bootimgs python3 make libtirpc-devel parted autofs bzip2 chrony perl-CGI tar e2fsprogs libarchive bsdtar
+
 dnf install perl-Sys-Syslog tftp-server perl-JSON-PP
 
 if [ $? -eq 0 ]; then

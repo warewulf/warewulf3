@@ -20,6 +20,11 @@ fi
 
 wwreqroot
 
+if  rpm -q chrony >/dev/null 2>&1 ; then
+    wwprint "Chrony found; skipping NTP configuration\n"
+    return 0
+fi
+
 if [ ! -f "/etc/ntp.conf" ]; then
     wwprint "Is NTP installed? /etc/ntp.conf is not present!\n" error
     return 1

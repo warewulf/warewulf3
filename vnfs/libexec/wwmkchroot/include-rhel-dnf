@@ -1,0 +1,110 @@
+declare -a REPO_NAME
+REPO_NAME[0]="BaseOS"
+REPO_NAME[1]="StreamApp"
+DNF_CONF="/root/dnf-ww.conf"
+DNF_CMD="yum -c $CHROOTDIR/$DNF_CONF -y --installroot $CHROOTDIR"
+declare -a DNF_MIRROR
+DNF_MIRROR[0]=$YUM_MIRROR
+
+distro_check() {
+    if ! rpm -q dnf >/dev/null 2>&1 ; then
+        echo "ERROR: Could not query RPM for DNF"
+        return 1
+    fi
+    return 0
+}
+
+set_overlay() {
+    if [ ! -d "$CHROOTDIR" -o ! -x "$CHROOTDIR/sbin/init" ]; then
+        echo "ERROR: This is an overlay that must work on an existing chroot!"
+        return 1
+    fi
+    if [ ! -f "$CHROOTDIR/etc/redhat-release" ]; then
+        echo "ERROR: This must be a Red Hat compatible chroot!"
+        return 1
+    fi
+    PKGR_CMD="$DNF_CMD install $PKGLIST"
+    return 0
+}
+
+prechroot() {
+    if [ -n "$OS_MIRROR" ]; then
+        DNF_MIRROR[0]="$OS_MIRROR"
+    fi
+    if [[ -z "$DNF_MIRROR[0]" && -z "$INSTALL_ISO" ]]; then
+        echo "ERROR: You must define the \$DNF_MIRROR[] array"
+        cleanup
+        return 1
+    fi
+
+    VERSION=`rpm -qf /etc/redhat-release  --qf '%{VERSION}\n'`
+
+    mkdir -p $CHROOTDIR
+    mkdir -p $CHROOTDIR/etc/dnf
+    
+    cp -rap /etc/dnf/dnf.conf /etc/yum.repos.d $CHROOTDIR/etc
+    sed -i -e "s/\$releasever/$VERSION/g" `find $CHROOTDIR/etc/dnf* -type f`
+
+    DNF_CONF_DIRNAME=`dirname $DNF_CONF`
+    mkdir -m 0755 -p $CHROOTDIR/$DNF_CONF_DIRNAME
+
+    > $CHROOTDIR/$DNF_CONF
+    echo "[main]" >> $CHROOTDIR/$DNF_CONF
+    echo 'cachedir=/var/cache/yum/$basearch/$releasever' >> $CHROOTDIR/$DNF_CONF
+    echo "keepcache=0" >> $CHROOTDIR/$DNF_CONF
+    echo "debuglevel=2" >> $CHROOTDIR/$DNF_CONF
+    echo "logfile=/var/log/dnf.log" >> $CHROOTDIR/$DNF_CONF
+    echo "exactarch=1" >> $CHROOTDIR/$DNF_CONF
+    echo "obsoletes=1" >> $CHROOTDIR/$DNF_CONF
+    echo "gpgcheck=0" >> $CHROOTDIR/$DNF_CONF
+    echo "plugins=1" >> $CHROOTDIR/$DNF_CONF
+    echo "reposdir=0" >> $CHROOTDIR/$DNF_CONF
+    echo "" >> $CHROOTDIR/$DNF_CONF
+
+    if [ -z "$INSTALL_ISO" ]; then
+        echo "[$REPO_NAME[0]]" >> $CHROOTDIR/$DNF_CONF
+        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$DNF_CONF
+        echo "baseurl=$DNF_MIRROR[0]" >> $CHROOTDIR/$DNF_CONF
+        echo "enabled=1" >> $CHROOTDIR/$DNF_CONF
+        echo "gpgcheck=0" >> $CHROOTDIR/$DNF_CONF
+        if [ -n $DNF_MIRROR[1]; then
+            echo "[$REPO_NAME[1]]" >> $CHROOTDIR/$DNF_CONF
+            echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$DNF_CONF
+            echo "baseurl=$DNF_MIRROR[1]" >> $CHROOTDIR/$DNF_CONF
+            echo "enabled=1" >> $CHROOTDIR/$DNF_CONF
+            echo "gpgcheck=0" >> $CHROOTDIR/$DNF_CONF
+        fi
+    else
+        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
+            if [ -z "$INSTALLDIRS[0]" ]; then
+                if [ -d $i/BaseOS/repodata ]; then
+                    INSTALLDIRS[0]="file://$i"
+                elif [ -d $i/StreamApp/repodata ]; then
+                    INSTALLDIRS[1]="file://$i"
+                fi
+            fi
+        done
+        echo "[$REPO_NAME[0]]" >> $CHROOTDIR/$DNF_CONF
+        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$DNF_CONF
+        echo "baseurl=$INSTALLDIRS[0]" >> $CHROOTDIR/$DNF_CONF
+        echo "enabled=1" >> $CHROOTDIR/$DNF_CONF
+        echo "gpgcheck=0" >> $CHROOTDIR/$DNF_CONF
+        echo "[$REPO_NAME[1]]" >> $CHROOTDIR/$DNF_CONF
+        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$DNF_CONF
+        echo "baseurl=$INSTALLDIRS[1]" >> $CHROOTDIR/$DNF_CONF
+        echo "enabled=1" >> $CHROOTDIR/$DNF_CONF
+        echo "gpgcheck=0" >> $CHROOTDIR/$DNF_CONF
+
+        DNF_MIRROR=("${INSTALLDIRS[@]}")
+    fi
+    PKGR_CMD="$DNF_CMD install $PKGLIST"
+    return 0
+}
+
+postchroot() {
+    touch $CHROOTDIR/fastboot
+    return 0
+}
+
+
+# vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

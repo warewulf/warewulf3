@@ -19,10 +19,11 @@ VALIDATE_VNFS="${WWVALIDATE_VNFS:-0}"
 cd "${NEWROOT:-/}"
 
 while true; do
+    echo == wwgetvnfs == >> /error.log
     for master in $(echo "${WWMASTER}" | sed -e 's/,/ /g'); do
 
-        rm -f /tmp/vnfs-download /tmp/vnfs-checksum /tmp/vnfs-extract 2>/dev/null
-        if ! mkfifo /tmp/vnfs-download /tmp/vnfs-checksum /tmp/vnfs-extract 2>/dev/null; then
+        rm -f /tmp/vnfs-download /tmp/vnfs-checksum /tmp/vnfs-extract 2>>/error.log
+        if ! mkfifo /tmp/vnfs-download /tmp/vnfs-checksum /tmp/vnfs-extract 2>>/error.log; then
             echo "ERROR: Could not create the fifo!"
             exit 1
         fi
@@ -32,7 +33,7 @@ while true; do
             tee /tmp/vnfs-extract < /tmp/vnfs-download > /tmp/vnfs-checksum &
             TEE_PID=$!
             
-            gunzip < /tmp/vnfs-extract | bsdtar -pxf - 2>/dev/null &
+            gunzip < /tmp/vnfs-extract | bsdtar -pxf - 2>>/error.log &
             EXTRACT_PID=$!
             
             md5sum /tmp/vnfs-checksum > /tmp/wwgetvnfs_checksum &
@@ -48,7 +49,7 @@ while true; do
         wwlogger "vnfs ${WWVNFS_NAME}, ${WWVNFSID}, ${WWVNFS_CHECKSUM:-undef}"
         msg_gray "   * fetching ${WWVNFS_NAME} (ID:${WWVNFSID})"
 
-        wget -q -O /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >/dev/null 2>&1
+        wget -q -O /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >>/error.log 2>&1
         WGETEXIT=$?
 
         if [ "${WGETEXIT}" -eq 0 ]; then
@@ -68,7 +69,7 @@ while true; do
             } || wwfailure
         else
             wwretrying
-            kill "${EXTRACT_PID}" "${TEE_PID:-}" "${MD5SUM_PID:-}" 2>/dev/null || true
+            kill "${EXTRACT_PID}" "${TEE_PID:-}" "${MD5SUM_PID:-}" 2>>/error.log || true
             continue
         fi
 

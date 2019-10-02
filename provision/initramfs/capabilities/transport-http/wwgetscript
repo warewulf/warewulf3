@@ -26,8 +26,8 @@ case $1 in
     ;;
 esac
 
+echo "== wwgetscript ==" >> /tmp/http.log
 while true; do
-    echo "== wwgetscript ==" >> /tmp/http.log
     for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
         if wget -q -O - "http://$master/WW/script?hwaddr=$WWINIT_HWADDR&type=$TYPE" 2>>/tmp/http.log; then
             exit 0

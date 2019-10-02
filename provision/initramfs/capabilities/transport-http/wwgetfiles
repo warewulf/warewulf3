@@ -53,8 +53,8 @@ elif [ -f "$TIMESTAMP_FILE" ]; then
     fi
 fi
 
+echo "== wwgetfiles ==" >> /tmp/http.log
 while true; do
-    echo "== wwgetfiles ==" >> /tmp/http.log
     for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
         TMPFILE=`mktemp`
         if wget -q -O "$TMPFILE" "http://$master/WW/file?hwaddr=$WWINIT_HWADDR&timestamp=$TIMESTAMP" 2>>/tmp/http.log; then

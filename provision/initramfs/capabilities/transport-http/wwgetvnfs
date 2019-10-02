@@ -18,8 +18,8 @@ VALIDATE_VNFS="${WWVALIDATE_VNFS:-0}"
 
 cd "${NEWROOT:-/}"
 
+echo "== wwgetvnfs ==" >> /tmp/http.log
 while true; do
-    echo "== wwgetvnfs ==" >> /tmp/http.log
     for master in $(echo "${WWMASTER}" | sed -e 's/,/ /g'); do
 
         rm -f /tmp/vnfs-download /tmp/vnfs-checksum /tmp/vnfs-extract 2>>/tmp/http.log

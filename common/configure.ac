@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT(warewulf-common, 3.8.2, warewulf-devel@lbl.gov)
+AC_INIT(warewulf-common, 3.9, warewulf-devel@lbl.gov)
 AC_CONFIG_SRCDIR([.])
 
 AC_PROG_INSTALL

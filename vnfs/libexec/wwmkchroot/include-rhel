@@ -1,5 +1,5 @@
 # FYI: Value of $Use_DNF is not important. If it isn't empty, it will evaluate to true.
-if [ $USE_DNF ];
+if [ $USE_DNF ]; then
     YUM_BIN="dnf"
     YUM_CMD="dnf -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR"
     YUM_REPOCMD="dnf config-manager -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR"
@@ -12,7 +12,7 @@ else
 fi
 
 distro_check() {
-    if [ $USE_DNF ];
+    if [ $USE_DNF ]; then
         if dnf --version >/dev/null 2>&1 ; then
         echo "ERROR: dnf command not available"
         return 1
@@ -99,7 +99,7 @@ postchroot() {
     # improperly writen overlay template wont cause repeated file concatenation
     # network-functions is not present on RHEL 8
     NETFILE=$CHROOTDIR/etc/sysconfig/network-scripts/network-functions
-    if [ -f $NETFILE ];
+    if [ -f $NETFILE ]; then
         if grep -q 'rename_device' $NETFILE && ! grep -q 'rename_device() { return 0; }' $NETFILE; then
             echo "" >> $NETFILE
             echo "# This is a kludge added by Warewulf so devices don't get renamed (broke things with IB)" >> $NETFILE

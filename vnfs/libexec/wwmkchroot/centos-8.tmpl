@@ -4,7 +4,9 @@
 # some basic variables specific to each chroot type to be defined.
 
 # Use DNF as the package manager
-USE_DNF=True
+PKG_MGR=dnf
+EXTRA_OPTS="--releasever=8" 
+PLATFORMID="platform:el8"
 
 . include-rhel
 

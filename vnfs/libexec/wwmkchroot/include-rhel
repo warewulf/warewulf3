@@ -1,28 +1,29 @@
-# FYI: Value of $Use_DNF is not important. If it isn't empty, it will evaluate to true.
-if [ $USE_DNF ]; then
-    YUM_BIN="dnf"
-    YUM_CMD="dnf -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR"
-    YUM_REPOCMD="dnf config-manager -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR"
+if [ "$PKG_MGR" = "dnf" ]; then
     YUM_CONF="/etc/dnf/dnf.conf"
-else    
-    YUM_BIN="yum"
-    YUM_CMD="yum -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR"
-    YUM_REPOCMD="yum-config-manager -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR"
+    YUM_CMD="dnf -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_OPTS" 
+    YUM_REPOCMD="dnf config-manager -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_OPTS"
+else
+    PKG_MGR="yum"    
     YUM_CONF="/etc/yum.conf"
+    YUM_CMD="yum -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_OPTS"
+    YUM_REPOCMD="yum-config-manager -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_OPTS"
 fi
 
 distro_check() {
-    if [ $USE_DNF ]; then
-        if dnf --version >/dev/null 2>&1 ; then
+    if [ "$PKG_MGR" = "dnf" ]; then
+        if ! dnf --version >/dev/null 2>&1 ; then
         echo "ERROR: dnf command not available"
         return 1
+        fi
     else 
-        if yum --version >/dev/null 2>&1 ; then
+        if ! yum --version >/dev/null 2>&1 ; then
         echo "ERROR: yum command not available"
         return 1
-        if yum-config-manager --version >/dev/null 2>&1 ; then
+        fi
+        if ! yum-config-manager --version >/dev/null 2>&1 ; then
         echo "ERROR: yum-config-manager command not available"
         return 1
+        fi
     fi
     return 0
 }
@@ -41,7 +42,7 @@ set_overlay() {
 }
 
 prechroot() {
-    if [ -n "$OS_MIRROR" && -z "$YUM_MIRROR" ]; then
+    if [[ -n "$OS_MIRROR" && -z "$YUM_MIRROR" ]]; then
         YUM_MIRROR="$OS_MIRROR"
     fi
 
@@ -51,26 +52,31 @@ prechroot() {
         return 1
     fi
 
-    mkdir -p $CHROOTDIR
+    mkdir -p $CHROOTDIR/var/log
+    mkdir -p $CHROOTDIR/var/cache
 
     mkdir -m 0755 -p $CHROOTDIR/$(dirname $YUM_CONF)
-
+    
+    # Write a yum or dnf config file, with minor differences
     echo "[main]" > $CHROOTDIR/$YUM_CONF
-    echo 'cachedir=/var/cache/$YUM_BIN/$basearch/$releasever' >> $CHROOTDIR/$YUM_CONF
     echo "keepcache=0" >> $CHROOTDIR/$YUM_CONF
     echo "debuglevel=2" >> $CHROOTDIR/$YUM_CONF
-    echo "logfile=/var/log/$YUM_BIN.log" >> $CHROOTDIR/$YUM_CONF
+    echo "logfile=/var/log/$PKG_MGR.log" >> $CHROOTDIR/$YUM_CONF
     echo "obsoletes=1" >> $CHROOTDIR/$YUM_CONF
     echo "gpgcheck=0" >> $CHROOTDIR/$YUM_CONF
     echo "plugins=1" >> $CHROOTDIR/$YUM_CONF
     echo "reposdir=0" >> $CHROOTDIR/$YUM_CONF
     echo "reposdir=0" >> $CHROOTDIR/$YUM_CONF
-    echo "" >> $CHROOTDIR/$YUM_CONF
-    if [ $USE_DNF ]; then
+    if [ "$PKG_MGR" = "dnf" ]; then
         echo "install_weak_deps=0" >> $CHROOTDIR/$YUM_CONF
+        echo "cachedir=/var/cache/dnf" >> $CHROOTDIR/$YUM_CONF
+        # New DNF requires the os-release file with platform ID
+        echo "PLATFORM_ID=\"$PLATFORMID\"" > $CHROOTDIR/etc/os-release
     else
         echo "exactarch=1" >> $CHROOTDIR/$YUM_CONF
+        echo "cachedir=/var/cache/yum/\$basearch/\$releasever" >> $CHROOTDIR/$YUM_CONF
     fi
+    echo "" >> $CHROOTDIR/$YUM_CONF
 
     # Add all of the repos found on the ISO image
     if [ -n "$INSTALL_ISO" ]; then
@@ -81,10 +87,10 @@ prechroot() {
     fi
 
     # Remove all existing repos in CHROOT; just a precaution
-    rm -f /etc/yum.repos.d/*
-
+    rm -f $CHROOTDIR/etc/yum.repos.d/*
+    
     # Create new repos from comma-seperated list (using bash inline S&R)
-    for i ${YUM_MIRROR//,/ }; do
+    for i in ${YUM_MIRROR//,/ }; do
         $YUM_REPOCMD --add-repo $i 
     done
 

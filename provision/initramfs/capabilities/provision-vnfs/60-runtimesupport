@@ -64,6 +64,6 @@ if [ -z "$WWNORUNTIMESERVICES" ]; then
     echo "WWFQDN=$WWFQDN" >> $NEWROOT/warewulf/config
     echo "export WWFQDN" >> $NEWROOT/warewulf/config
 
-    echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * root WWGETFILES_INTERVAL=180 /warewulf/bin/wwgetfiles >/var/log/warewulf/wwgetfiles.log 2>&1" > $NEWROOT/etc/cron.d/wwupdatefiles
-    echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * root . /warewulf/config; /warewulf/bin/wwgetscript runtime 2>/var/log/warewulf/wwgetfiles.log | /bin/sh" > $NEWROOT/etc/cron.d/wwrunscript
+    echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * root WWGETFILES_INTERVAL=180 /warewulf/bin/wwgetfiles >/var/log/warewulf/provision/wwgetfiles.log 2>&1" > $NEWROOT/etc/cron.d/wwupdatefiles
+    echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * root . /warewulf/config; /warewulf/bin/wwgetscript runtime 2>/var/log/warewulf/provision/wwgetfiles.log | /bin/sh" > $NEWROOT/etc/cron.d/wwrunscript
 fi

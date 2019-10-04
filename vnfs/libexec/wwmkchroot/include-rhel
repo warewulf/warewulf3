@@ -112,6 +112,17 @@ postchroot() {
             echo "rename_device() { return 0; }" >> $NETFILE
         fi
     fi
+
+    # Dracut on newer releases doesn't work within a chroot without sys/proc filesystems mounted.
+    # Post-install scripts on kernel-core RPM will fail
+    # Manually add a pointer to the Linux kernel to /boot
+    # This provides for initrd images to be created from the chroot.
+    for i in $(find $CHROOTDIR/lib/modules -path /*/vmlinuz -printf "%P\n" | cut -d / -f 1); do
+        if [ ! -f /$CHROOTDIR/boot/vmlinuz-$i ]; then
+            ln -s ../lib/modules/$i/vmlinuz $CHROOTDIR/boot/vmlinuz-$i
+        fi
+    done
+
     return 0
 }
 

@@ -20,40 +20,54 @@ fi
 
 wwreqroot
 
-if  rpm -q chrony >/dev/null 2>&1 ; then
-    wwprint "Chrony found; skipping NTP configuration\n"
-    exit 0
+# Check for NTP daemon; if not found, check for chrony
+if ! rpm --quiet -q ntp && ! rpm --quiet -q openntpd; then
+    if rpm --quiet -q chrony; then
+        wwprint "Using chrony; skipping ntp configuration\n"
+        exit 0
+    else
+        wwprint "No time server daemon found!\n" error
+        exit 1
+    fi
 fi
 
+# Backup existing configuration; if backup fails, don't overwrite original
 if [ ! -f "/etc/ntp.conf" ]; then
-    wwprint "Is NTP installed? /etc/ntp.conf is not present!\n" error
-    exit 1
+    wwprint "No existing /etc/ntp.conf\n" 
+else
+    if cp --backup /etc/ntp.conf /etc/ntp.conf.save; then
+       wwprint "Backed up current NTP config to /etc/ntp.conf.save\n"
+    else
+       wwprint "ERROR: Cannot backup current /etc/ntp.conf\n" error
+       exit 1
+    fi
 fi
 
-
+# Get network information using Warewulf Perl modules
 NETWORK=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network->new()->network(Warewulf::Config->new("provision.conf")->get("network device"));'`
 NETMASK=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network->new()->netmask(Warewulf::Config->new("provision.conf")->get("network device"));'`
 
-ntp_trustedkey=$(cat /etc/ntp.conf | sed -ne "s/^[^#t]*\(trustedkey[^#]\+\).*/\1/p")
+# Pull Secure NTP keys from old config; otherwise set default values
+if [ -f /etc/ntp.conf.save ]; then
+    ntp_trustedkey=$(cat /etc/ntp.conf.save | sed -ne "s/^[^#t]*\(trustedkey[^#]\+\).*/\1/p")
+    ntp_controlkey=$(cat /etc/ntp.conf.save | sed -ne "s/^[^#c]*\(controlkey[^#]\+\).*/\1/p")
+    ntp_requestkey=$(cat /etc/ntp.conf.save | sed -ne "s/^[^#r]*\(requestkey[^#]\+\).*/\1/p")
+fi
 [ -z "$ntp_trustedkey" ] && ntp_trustedkey='#controlkey 8'
-ntp_controlkey=$(cat /etc/ntp.conf | sed -ne "s/^[^#c]*\(controlkey[^#]\+\).*/\1/p")
 [ -z "$ntp_controlkey" ] && ntp_controlkey='#trustedkey 4 8 42'
-ntp_requestkey=$(cat /etc/ntp.conf | sed -ne "s/^[^#r]*\(requestkey[^#]\+\).*/\1/p")
 [ -z "$ntp_requestkey" ] && ntp_requestkey='#requestkey 8'
 
-if ! grep -q "^# This file was created by Warewulf" /etc/ntp.conf; then
-    cp /etc/ntp.conf /etc/ntp.conf-orig
-    wwprint "Backed up current NTP config to /etc/ntp.conf-orig\n"
-fi
-
+# Check for keyfile; otherwise use commented-out RHEL standard location
 if [ -f "/etc/ntp.keys" ]; then
     KEY_FILE="keys /etc/ntp.keys"
 elif [ -f "/etc/ntp/keys" ]; then
     KEY_FILE="keys /etc/ntp/keys"
 else
-    KEY_FILE="#keys /etc/ntp.keys"
+    KEY_FILE="#keys /etc/ntp/keys"
 fi
 
+# Create new copy of /etc/ntp.conf
+# ============================================================ 
 cat <<EOF > /etc/ntp.conf
 # This file was created by Warewulf/wwinit
 #
@@ -99,11 +113,11 @@ $ntp_controlkey
 # Enable writing of statistics records.
 #statistics clockstats cryptostats loopstats peerstats
 EOF
+# ============================================================ 
 
 wwprint "Configured NTP services\n"
 
-wwservice_activate ntp ntpd
+wwservice_activate ntp ntpd openntpd
 RETVAL=$?
-
 
 exit $RETVAL

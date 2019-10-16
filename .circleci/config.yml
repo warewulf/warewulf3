@@ -151,6 +151,10 @@ jobs:
               set -o xtrace
               set -o nounset
               cd ipmi
+              #REMOVEME
+              ipmitool -V
+              rpm -q ipmitool
+              #REMOVEME
               ./autogen.sh --with-local-ipmitool
               make dist-gzip
               rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-ipmi.spec

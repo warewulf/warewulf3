@@ -112,7 +112,7 @@ jobs:
                  openssl-devel perl-CGI perl-Compress-Raw-Bzip2 perl-Compress-Raw-Zlib \
                  perl-DBD-MySQL perl-DBI perl-Digest perl-Digest-MD5 perl-IO-Compress \
                  perl-Sys-Syslog perl-Test-Simple xz-devel ipmitool parted autofs \
-                 e2fsprogs libarchive perl-Test-Harness perl-JSON-PP
+                 e2fsprogs libarchive perl-Test-Harness perl-JSON-PP bsdtar
           name: "Install Build Dependencies"
       -
         run:
@@ -155,7 +155,7 @@ jobs:
               ipmitool -V
               rpm -q ipmitool
               #REMOVEME
-              ./autogen.sh --with-local-ipmitool
+              ./autogen.sh --with-local-ipmitool=yes
               make dist-gzip
               rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-ipmi.spec
           name: "Build IPMI"
@@ -165,8 +165,8 @@ jobs:
               set -o xtrace
               set -o nounset
               cd provision
-              ./autogen.sh --with-local-e2fsprogs  --with-local-libarchive \
-                 --with-local-parted --with-local-partprobe
+              ./autogen.sh --with-local-e2fsprogsi=yes --with-local-libarchive=yes \
+                 --with-local-parted=yes --with-local-partprobe=yes
               make dist-gzip
               rpmbuild -D "_sourcedir $PWD" -D "cross_compile 1" \
                  -D "mflags -j$(/usr/bin/getconf _NPROCESSORS_ONLN)" \

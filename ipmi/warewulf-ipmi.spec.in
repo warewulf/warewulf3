@@ -13,8 +13,14 @@ URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
+
+if 0%{?rhel} >= 8
+BuildRequires: ipmitool
+Requires: ipmitool
+endif
+
 BuildRequires: warewulf-common openssl-devel
-Conflicts: warewulf < 3
+Conflicts: warewulf < 3.9
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
 %description

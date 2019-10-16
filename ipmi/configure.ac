@@ -76,8 +76,7 @@ AS_IF([test -n "$with_local_ipmitool" -a "x$with_local_ipmitool" != "xno"], [
     AS_IF([test -f "$local_ipmitool_path"], [
         AC_MSG_RESULT([$local_ipmitool_path])
     ], [
-        search_ipmitool_path=`which "$local_ipmitool_path"`
-        AC_MSG_NOTICE([$search_ipmitool_path])
+        search_ipmitool_path=`which "$local_ipmitool_path" 2>/dev/null`
         AS_IF([test -z "$search_ipmitool_path"], [
             AC_MSG_ERROR([no, $local_ipmitool_path could not be found])
         ], [

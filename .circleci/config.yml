@@ -112,7 +112,7 @@ jobs:
                  openssl-devel perl-CGI perl-Compress-Raw-Bzip2 perl-Compress-Raw-Zlib \
                  perl-DBD-MySQL perl-DBI perl-Digest perl-Digest-MD5 perl-IO-Compress \
                  perl-Sys-Syslog perl-Test-Simple xz-devel ipmitool parted autofs \
-                 e2fsprogs libarchive perl-Test-Harness perl-JSON-PP bsdtar
+                 e2fsprogs libarchive perl-Test-Harness perl-JSON-PP bsdtar which
           name: "Install Build Dependencies"
       -
         run:

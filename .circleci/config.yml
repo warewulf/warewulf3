@@ -155,7 +155,7 @@ jobs:
               ipmitool -V
               rpm -q ipmitool
               #REMOVEME
-              ./autogen.sh --with-local-ipmitool=yes
+              ./autogen.sh --with-local-ipmitool
               make dist-gzip
               rpmbuild -D "_sourcedir $PWD" -ba ./warewulf-ipmi.spec
           name: "Build IPMI"
@@ -165,8 +165,8 @@ jobs:
               set -o xtrace
               set -o nounset
               cd provision
-              ./autogen.sh --with-local-e2fsprogsi=yes --with-local-libarchive=yes \
-                 --with-local-parted=yes --with-local-partprobe=yes
+              ./autogen.sh --with-local-e2fsprogs --with-local-libarchive \
+                 --with-local-parted --with-local-partprobe
               make dist-gzip
               rpmbuild -D "_sourcedir $PWD" -D "cross_compile 1" \
                  -D "mflags -j$(/usr/bin/getconf _NPROCESSORS_ONLN)" \

@@ -77,7 +77,6 @@ jobs:
           destination: SRPMS
 
   build_centos8:
-
     docker:
      - image: centos:8
 
@@ -159,10 +158,4 @@ workflows:
   build:
     jobs:
       - build_centos7
-         - filters:
-            tags:
-              ignore: el8
       - build_centos8
-         - filters:
-            tags:
-              only: el8

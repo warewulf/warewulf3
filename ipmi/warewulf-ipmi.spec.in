@@ -14,10 +14,10 @@ Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
 
-if 0%{?rhel} >= 8
+%if 0%{?rhel} >= 8
 BuildRequires: ipmitool
 Requires: ipmitool
-endif
+%endif
 
 BuildRequires: warewulf-common openssl-devel
 Conflicts: warewulf < 3.9

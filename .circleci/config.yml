@@ -165,7 +165,7 @@ jobs:
               ./autogen.sh --with-local-e2fsprogs --with-local-libarchive \
                  --with-local-parted --with-local-partprobe
               make dist-gzip
-              rpmbuild -D "_sourcedir $PWD" -D "cross_compile 1" \
+              rpmbuild -D "_sourcedir $PWD" -D "cross_compile 0" \
                  -D "mflags -j$(/usr/bin/getconf _NPROCESSORS_ONLN)" \
                  -ba ./warewulf-provision.spec
           name: "Build Provision"

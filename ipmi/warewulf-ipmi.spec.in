@@ -14,7 +14,9 @@ Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
 
+%dump
 %if 0%{?rhel} >= 8
+%{echo: Instaling ipmitool}
 BuildRequires: ipmitool
 Requires: ipmitool
 %endif
@@ -44,8 +46,6 @@ Warewulf Provisioning initramfs IPMI capabilities for %{_arch}.
 
 %build
 %configure
-echo "================================================================"
-which ipmitool
 cat initramfs/Makefile
 %{__make} %{?mflags}
 

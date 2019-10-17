@@ -19,10 +19,10 @@ BuildRequires: libuuid-devel device-mapper-devel xz-devel
 BuildRequires: autoconf automake
 BuildRequires: libtirpc-devel
 
-%define CONF_FLAGS " "
+%global CONF_FLAGS " "
 
 %if 0%{?_cross_compile}
-%define CONF_FLAGS "--enable-cross-compile %{CONF_FLAGS}"
+%global CONF_FLAGS "--enable-cross-compile %{CONF_FLAGS}"
 %if "%{_arch}" == "x86_64"
 BuildRequires: gcc-aarch64-linux-gnu
 %endif # x86_64
@@ -34,7 +34,7 @@ BuildRequires: gcc-x86_64-linux-gnu
 %if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
 BuildRequires: parted e2fsprogs libarchive
 Requires: parted autofs e2fsprogs libarchive
-%define CONF_FLAGS "%{CONF_FLAGS} --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe"
+%global CONF_FLAGS "%{CONF_FLAGS} --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe"
 %endif
 
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root

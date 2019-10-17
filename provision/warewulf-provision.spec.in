@@ -12,27 +12,33 @@ Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
-BuildRequires: warewulf-common libselinux-devel libacl-devel libattr-devel libuuid-devel device-mapper-devel xz-devel
+Conflicts: warewulf < 3
+BuildRequires: warewulf-common
+BuildRequires: libselinux-devel libacl-devel libattr-devel
+BuildRequires: libuuid-devel device-mapper-devel xz-devel
+BuildRequires: autoconf automake
 BuildRequires: libtirpc-devel
 
 %if 0%{?_cross_compile}
-
+%global CONF_CROSS --enable-cross-compile %{CONF_FLAGS}
 %if "%{_arch}" == "x86_64"
 BuildRequires: gcc-aarch64-linux-gnu
-%endif
-
+%endif # x86_64
 %if "%{_arch}" == "aarch64"
 BuildRequires: gcc-x86_64-linux-gnu
+%endif # aarch64
+%endif # cross_compile
+
+%if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+BuildRequires: parted e2fsprogs libarchive
+Requires: parted autofs e2fsprogs libarchive
+%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe
 %endif
 
-%endif
-
-
-Conflicts: warewulf < 3
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
 %description
-Warewulf >= 3 is a set of utilities designed to better enable
+Warewulf 3 is a set of utilities designed to better enable
 utilization and maintenance of clusters or groups of computers.  The
 provision module provides functionality for provisioning, configuring,
 and booting systems.
@@ -114,12 +120,7 @@ available the included GPL software.
 
 %build
 
-%if 0%{?_cross_compile}
-  %configure --enable-cross-compile
-%else
-  %configure
-%endif
-
+%configure %{?CONF_FLAGS} %{?CONF_CROSS}
 %{__make} %{?mflags}
 
 

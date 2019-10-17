@@ -2,9 +2,16 @@
 
 # The general RHEL include has all of the necessary functions, but requires
 # some basic variables specific to each chroot type to be defined.
+
+# Check if we're building the chroot from RHEL/CentOS 8
+if [ $(awk -F= '/VERSION_ID/ {print $2}' < /etc/os-release) = '"8"' ]; then
+     PKG_MGR="dnf"
+     PLATFORMID="platform:el6"
+fi
+
+EXTRA_OPTS="--releasever=6"
+
 . include-rhel
-
-
 
 # Define the location of the YUM repository
 YUM_MIRROR="http://mirror.centos.org/centos-6/6/os/\$basearch/"

@@ -18,8 +18,6 @@ Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
 BuildRequires: ipmitool
 Requires: ipmitool
 %define CONF_FLAGS "--with-local-ipmitool=yes"
-%else
-%define CONF_FLAGS " "
 %endif
 
 BuildRequires: warewulf-common openssl-devel
@@ -47,7 +45,7 @@ Warewulf Provisioning initramfs IPMI capabilities for %{_arch}.
 
 
 %build
-%configure %{CONF_FLAGS}
+%configure %{?CONF_FLAGS}
 %{__make} %{?mflags}
 
 

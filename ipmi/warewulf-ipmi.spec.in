@@ -62,7 +62,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO
-%if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+%if 0%{?rhel} < 8 && 0%{?sle_version} < 150000
 %{_libexecdir}/warewulf/ipmitool
 %endif
 %{perl_vendorlib}/Warewulf/Ipmi.pm

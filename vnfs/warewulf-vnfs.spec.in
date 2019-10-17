@@ -19,7 +19,7 @@ BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 # YUM to properly update a package of a different BuildArch...
 
 %description
-Warewulf >= 3 is a set of utilities designed to better enable
+Warewulf 3 is a set of utilities designed to better enable
 utilization and maintenance of clusters or groups of computers.
 
 This is the VNFS module which supports the creation and management of

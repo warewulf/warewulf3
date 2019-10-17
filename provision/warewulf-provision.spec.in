@@ -7,7 +7,7 @@ Summary: Warewulf - Provisioning Module
 Version: @PACKAGE_VERSION@
 Release: %{_rel}%{?dist}
 #Release: 1.%{?_dist}
-License: US Dept. of Energy (BSD-like)
+License: US Dept. of Energy (BSD-like) and BSD-3 Clause
 Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
@@ -16,7 +16,6 @@ Conflicts: warewulf < 3
 BuildRequires: warewulf-common
 BuildRequires: libselinux-devel libacl-devel libattr-devel
 BuildRequires: libuuid-devel device-mapper-devel xz-devel
-BuildRequires: autoconf automake
 BuildRequires: libtirpc-devel
 
 %if 0%{?_cross_compile}
@@ -63,7 +62,7 @@ Requires: %{name} = %{version}-%{release} %{name}-server-ipxe-%{_arch} = %{versi
 Requires: mod_perl httpd tftp-server dhcp policycoreutils-python
 
 %description server
-Warewulf >= 3 is a set of utilities designed to better enable
+Warewulf 3 is a set of utilities designed to better enable
 utilization and maintenance of clusters or groups of computers.  The
 provision module provides functionality for provisioning, configuring,
 and booting systems.
@@ -96,11 +95,12 @@ Warewulf bundled iPXE binaries for aarch64.
 %package gpl_sources
 Summary: This package contains the GPL sources used in Warewulf
 Group: Development/System
+License: GPL+
 Requires: %{name} = %{version}-%{release}
 BuildArch: noarch
 
 %description gpl_sources
-Warewulf >= 3 is a set of utilities designed to better enable
+Warewulf 3 is a set of utilities designed to better enable
 utilization and maintenance of clusters or groups of computers.  The
 provision module provides functionality for provisioning, configuring,
 and booting systems.

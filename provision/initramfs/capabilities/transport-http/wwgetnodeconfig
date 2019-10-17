@@ -9,9 +9,10 @@
 
 . /warewulf/transports/http/functions
 
+echo "== wwgetnodeconfig ==" >> /var/log/warewulf/provision/http.log
 while true; do
     for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
-        if wget -q -O - "http://$master/WW/nodeconfig?hwaddr=$WWINIT_HWADDR" 2>/dev/null; then
+        if wget -q -O - "http://$master/WW/nodeconfig?hwaddr=$WWINIT_HWADDR" 2>>/var/log/warewulf/provision/http.log; then
             exit 0
         fi
     done

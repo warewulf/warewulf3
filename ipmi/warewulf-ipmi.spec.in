@@ -44,6 +44,9 @@ Warewulf Provisioning initramfs IPMI capabilities for %{_arch}.
 
 %build
 %configure
+echo "================================================================"
+which ipmitool
+cat initramfs/Makefile
 %{__make} %{?mflags}
 
 

@@ -1,34 +1,30 @@
-#DESC: A clone of Red Hat Enterprise Linux 7
+#DESC: Red Hat Enterprise Linux 8
 
 # The general RHEL include has all of the necessary functions, but requires
 # some basic variables specific to each chroot type to be defined.
 
-# Check if we're building the chroot from RHEL/CentOS 8
-if [ $(awk -F= '/VERSION_ID/ {print $2}' < /etc/os-release) = '"8"' ]; then
-     PKG_MGR="dnf"
-     PLATFORMID="platform:el7"
-fi
-
-EXTRA_OPTS="--releasever=7"
+# Use DNF as the package manager
+PKG_MGR=dnf
+EXTRA_OPTS="--releasever=8" 
+PLATFORMID="platform:el8"
 
 . include-rhel
 
 # Define the location of the YUM repository
 if [ -z "$YUM_MIRROR" ]; then
     if [ -z "$YUM_MIRROR_BASE" ]; then
-        YUM_MIRROR_BASE="http://mirror.centos.org/centos-7"
+        YUM_MIRROR_BASE="http://mirror.centos.org/centos-8"
     fi
-    YUM_MIRROR="${YUM_MIRROR_BASE}/7/os/\$basearch/"
+    YUM_MIRROR="${YUM_MIRROR_BASE}/8/BaseOS/\$basearch/os","${YUM_MIRROR_BASE}/8/AppStream/\$basearch/os"
 fi
 
 # Install only what is necessary/specific for this distribution
 PKGLIST="basesystem bash chkconfig coreutils e2fsprogs ethtool
     filesystem findutils gawk grep initscripts iproute iputils
-    net-tools nfs-utils pam psmisc rdate rsync sed setup
-    shadow-utils rsyslog tcp_wrappers tzdata util-linux words
+    net-tools nfs-utils pam psmisc rsync sed setup
+    shadow-utils rsyslog tzdata util-linux words
     zlib tar less gzip which util-linux openssh-clients 
     openssh-server dhclient pciutils vim-minimal shadow-utils
-    strace cronie crontabs cpio wget centos-release"
-
+    strace cronie crontabs cpio wget redhat-release"
 
 # vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

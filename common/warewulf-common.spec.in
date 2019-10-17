@@ -8,11 +8,11 @@ License: US Dept. of Energy (BSD-like)
 Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
-Conflicts: warewulf <= 2.9
+Conflicts: warewulf < 3
 BuildArch: noarch
 BuildRoot: %{?_tmppath}/%{name}-%{version}-%{release}-root
 Requires: perl-DBD-MySQL perl-DBD-Pg perl-DBD-SQLite perl-JSON-PP
-%if %{?rhel}%{!?rhel:0} >= 7
+%if 0%{?rhel} >= 7
 Requires: mariadb
 %else
 Requires: mysql
@@ -29,7 +29,7 @@ command line interface.
 Summary: Warewulf - Common Module - Localdb
 Group: System Environment/Clustering
 Requires: %{name} = %{version}-%{release}
-%if %{?rhel}%{!?rhel:0} >= 7
+%if 0%{?rhel} >= 7
 Requires: mariadb-server
 %else
 Requires: mysql-server
@@ -68,7 +68,7 @@ fi
 
 %post localdb
 
-%if %{?rhel}%{!?rhel:0} >= 7
+%if 0%{?rhel} >= 7
 systemctl start mariadb >/dev/null 2>&1 || :
 systemctl enable mariadb >/dev/null 2>&1 || :
 %else

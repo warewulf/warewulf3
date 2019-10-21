@@ -12,13 +12,9 @@ if [ -n "$SET_X" ]; then
 fi
 
 # Lock so more than one wwgetfiles cannot be ran
-LOCKF=/tmp/.wwgetfile.lock
-if [ ! -f ${LOCKF} ]; then
-    touch ${LOCKF}
-else
-    echo "ERROR: wwgetfiles already running"
-    exit 1
-fi
+exec 9>/tmp/.wwgetfile.lock
+flock -n 9 || { echo "ERROR: wwgetfiles already running" ; exit 1; }
+echo $$ 1>&9
 
 if [ -f /warewulf/transports/http/functions ]; then
     . /warewulf/transports/http/functions
@@ -108,14 +104,10 @@ while true; do
                 else
                     echo "ERROR: Could not download $name"
                     rm -f $NEWROOT/$path.ww $NEWROOT/$path.ww$timestamp
-                    # Remove lock file
-                    rm -f ${LOCKF}
                     exit 2
                 fi
             done
             rm -f $TMPFILE
-            # Remove lock file
-            rm -f ${LOCKF}
             exit 0
         fi
         rm -f $TMPFILE
@@ -123,5 +115,4 @@ while true; do
     echo -n "." 1>&2
     throttled_sleep
 done
-
 

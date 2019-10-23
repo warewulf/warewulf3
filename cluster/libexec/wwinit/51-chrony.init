@@ -10,6 +10,7 @@
 #INIT: ALL
 #INIT: MASTER
 #INIT: PROVISION
+#INIT: TIME
 
 if [ -f "$WWFUNCTIONS" ]; then
     . $WWFUNCTIONS
@@ -106,7 +107,7 @@ EOF
 
 wwprint "Configured chrony service\n"
 
-wwservice_activate chrony
+wwservice_activate chronyd
 RETVAL=$?
 
 exit $RETVAL

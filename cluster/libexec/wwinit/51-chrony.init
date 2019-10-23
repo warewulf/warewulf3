@@ -53,7 +53,7 @@ NETMASK=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network
 
 # Create empty keyfile if it doesn't exist
 # There is no validation to determine if it's a valid keyfile
-if [ ! -f $KEY_FILE ]; then
+if [ ! -f "$KEY_FILE" ]; then
    KEY_FILE="/etc/chrony.keys"
    touch $KEY_FILE
 fi

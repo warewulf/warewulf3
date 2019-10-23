@@ -8,18 +8,19 @@ License: US Dept. of Energy (BSD-like)
 Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
-Conflicts: warewulf <= 2.9
+Conflicts: warewulf < 3
 BuildArch: noarch
 BuildRoot: %{?_tmppath}/%{name}-%{version}-%{release}-root
+BuildRequires: autoconf, automake
 Requires: perl-DBD-MySQL perl-DBD-Pg perl-DBD-SQLite perl-JSON-PP
-%if %{?rhel}%{!?rhel:0} >= 7
+%if 0%{?rhel} >= 7
 Requires: mariadb
 %else
 Requires: mysql
 %endif
 
 %description
-Warewulf >= 3 is a set of utilities designed to better enable
+Warewulf 3 is a set of utilities designed to better enable
 utilization and maintenance of clusters or groups of computers.
 
 This is the main package which includes the common libraries and
@@ -29,19 +30,20 @@ command line interface.
 Summary: Warewulf - Common Module - Localdb
 Group: System Environment/Clustering
 Requires: %{name} = %{version}-%{release}
-%if %{?rhel}%{!?rhel:0} >= 7
+%if 0%{?rhel} >= 7
 Requires: mariadb-server
 %else
 Requires: mysql-server
 %endif
 
 %description localdb
-Warewulf >= 3 is a set of utilities designed to better enable
-utilization and maintenance of clusters or groups of computers.  The
+Warewulf 3 is a set of utilities designed to better enable
+utilization and maintenance of clusters or groups of computers. The
 provision module provides functionality for provisioning, configuring,
 and booting systems.
 
-This package is a metapackage that installs a local MySQL or MariaDB instance. Only for installs that need a local database.
+This package is a metapackage that installs a local MySQL or MariaDB instance.
+Required only for installs that need a local database.
 
 %prep
 %setup -q
@@ -68,7 +70,7 @@ fi
 
 %post localdb
 
-%if %{?rhel}%{!?rhel:0} >= 7
+%if 0%{?rhel} >= 7
 systemctl start mariadb >/dev/null 2>&1 || :
 systemctl enable mariadb >/dev/null 2>&1 || :
 %else

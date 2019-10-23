@@ -12,13 +12,20 @@ Group: System Environment/Clustering
 URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
-Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
-BuildRequires: warewulf-common openssl-devel
 Conflicts: warewulf < 3
+Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
+
+%if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+BuildRequires: ipmitool
+Requires: ipmitool
+%define CONF_FLAGS "--with-local-ipmitool=yes"
+%endif
+
+BuildRequires: warewulf-common openssl-devel
 BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
 %description
-Warewulf >= 3 is a set of utilities designed to better enable
+Warewulf 3 is a set of utilities designed to better enable
 utilization and maintenance of clusters or groups of computers.
 
 This is the IPMI module package.  It contains Warewulf modules for
@@ -37,7 +44,7 @@ Warewulf Provisioning initramfs IPMI capabilities for %{_arch}.
 
 
 %build
-%configure
+%configure %{?CONF_FLAGS}
 %{__make} %{?mflags}
 
 
@@ -52,7 +59,9 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO
+%if 0%{?rhel} < 8 && 0%{?sle_version} < 150000
 %{_libexecdir}/warewulf/ipmitool
+%endif
 %{perl_vendorlib}/Warewulf/Ipmi.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/*
 

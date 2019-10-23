@@ -1,12 +1,29 @@
-
-REPO_NAME="os-base"
-YUM_CONF="/root/yum-ww.conf"
-YUM_CMD="yum -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR -y"
+if [ "$PKG_MGR" = "dnf" ]; then
+    YUM_CONF="/etc/dnf/dnf.conf"
+    YUM_CMD="dnf -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_OPTS" 
+    YUM_REPOCMD="dnf config-manager -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_OPTS"
+else
+    PKG_MGR="yum"    
+    YUM_CONF="/etc/yum.conf"
+    YUM_CMD="yum -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_OPTS"
+    YUM_REPOCMD="yum-config-manager -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_OPTS"
+fi
 
 distro_check() {
-    if ! rpm -q yum >/dev/null 2>&1 ; then
-        echo "ERROR: Could not query RPM for YUM"
+    if [ "$PKG_MGR" = "dnf" ]; then
+        if ! dnf --version >/dev/null 2>&1 ; then
+        echo "ERROR: dnf command not available"
         return 1
+        fi
+    else 
+        if ! yum --version >/dev/null 2>&1 ; then
+        echo "ERROR: yum command not available"
+        return 1
+        fi
+        if ! yum-config-manager --version >/dev/null 2>&1 ; then
+        echo "ERROR: yum-config-manager command not available"
+        return 1
+        fi
     fi
     return 0
 }
@@ -25,67 +42,58 @@ set_overlay() {
 }
 
 prechroot() {
-    if [ -n "$OS_MIRROR" ]; then
+    if [[ -n "$OS_MIRROR" && -z "$YUM_MIRROR" ]]; then
         YUM_MIRROR="$OS_MIRROR"
     fi
+
     if [[ -z "$YUM_MIRROR" && -z "$INSTALL_ISO" ]]; then
-        echo "ERROR: You must define the \$YUM_MIRROR variable in the template"
+        echo "ERROR: You must define the \$YUM_MIRROR or \$INSTALL_ISO variable"
         cleanup
         return 1
     fi
 
-    VERSION=`rpm -qf /etc/redhat-release  --qf '%{VERSION}\n'`
+    mkdir -p $CHROOTDIR/var/log
+    mkdir -p $CHROOTDIR/var/cache
 
-    mkdir -p $CHROOTDIR
-    mkdir -p $CHROOTDIR/etc
-
-    cp -rap /etc/yum.conf /etc/yum.repos.d $CHROOTDIR/etc
-    sed -i -e "s/\$releasever/$VERSION/g" `find $CHROOTDIR/etc/yum* -type f`
-
-    YUM_CONF_DIRNAME=`dirname $YUM_CONF`
-    mkdir -m 0755 -p $CHROOTDIR/$YUM_CONF_DIRNAME
-
-    > $CHROOTDIR/$YUM_CONF
-    echo "[main]" >> $CHROOTDIR/$YUM_CONF
-    echo 'cachedir=/var/cache/yum/$basearch/$releasever' >> $CHROOTDIR/$YUM_CONF
+    mkdir -m 0755 -p $CHROOTDIR/$(dirname $YUM_CONF)
+    
+    # Write a yum or dnf config file, with minor differences
+    echo "[main]" > $CHROOTDIR/$YUM_CONF
     echo "keepcache=0" >> $CHROOTDIR/$YUM_CONF
     echo "debuglevel=2" >> $CHROOTDIR/$YUM_CONF
-    echo "logfile=/var/log/yum.log" >> $CHROOTDIR/$YUM_CONF
-    echo "exactarch=1" >> $CHROOTDIR/$YUM_CONF
+    echo "logfile=/var/log/$PKG_MGR.log" >> $CHROOTDIR/$YUM_CONF
     echo "obsoletes=1" >> $CHROOTDIR/$YUM_CONF
     echo "gpgcheck=0" >> $CHROOTDIR/$YUM_CONF
     echo "plugins=1" >> $CHROOTDIR/$YUM_CONF
     echo "reposdir=0" >> $CHROOTDIR/$YUM_CONF
+    echo "reposdir=0" >> $CHROOTDIR/$YUM_CONF
+    if [ "$PKG_MGR" = "dnf" ]; then
+        echo "install_weak_deps=0" >> $CHROOTDIR/$YUM_CONF
+        echo "cachedir=/var/cache/dnf" >> $CHROOTDIR/$YUM_CONF
+        # New DNF requires the os-release file with platform ID
+        echo "PLATFORM_ID=\"$PLATFORMID\"" > $CHROOTDIR/etc/os-release
+    else
+        echo "exactarch=1" >> $CHROOTDIR/$YUM_CONF
+        echo "cachedir=/var/cache/yum/\$basearch/\$releasever" >> $CHROOTDIR/$YUM_CONF
+    fi
     echo "" >> $CHROOTDIR/$YUM_CONF
 
-    if [ -z "$INSTALL_ISO" ]; then
-        echo "[$REPO_NAME]" >> $CHROOTDIR/$YUM_CONF
-        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$YUM_CONF
-        echo "baseurl=$YUM_MIRROR" >> $CHROOTDIR/$YUM_CONF
-        echo "enabled=1" >> $CHROOTDIR/$YUM_CONF
-        echo "gpgcheck=0" >> $CHROOTDIR/$YUM_CONF
-    else
-        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
-            if [ -z "$INSTALLDIRS" ]; then
-                if [ -d $i/repodata ]; then
-                    # RHEL 6.x
-                    INSTALLDIRS="file://$i"
-                elif [ -d $i/Server/repodata ]; then
-                    # RHEL 5.x
-                    INSTALLDIRS="file://$i/Server"
-                fi
-            else
-                INSTALLDIRS="$INSTALLDIRS,file://$i"
-            fi
+    # Add all of the repos found on the ISO image
+    if [ -n "$INSTALL_ISO" ]; then
+        for i in $(find $MEDIA_MOUNTPATH -type d -name repodata); do
+             INSTALLDIRS="$INSTALLDIRS,file://$i"
         done
-        echo "[$REPO_NAME]" >> $CHROOTDIR/$YUM_CONF
-        echo 'name=Linux $releasever - $basearch' >> $CHROOTDIR/$YUM_CONF
-        echo "baseurl=$INSTALLDIRS" >> $CHROOTDIR/$YUM_CONF
-        echo "enabled=1" >> $CHROOTDIR/$YUM_CONF
-        echo "gpgcheck=0" >> $CHROOTDIR/$YUM_CONF
-
-        YUM_MIRROR=$INSTALLDIRS
+        YUM_MIRROR="$YUM_MIRROR,$INSTALLDIRS"
     fi
+
+    # Remove all existing repos in CHROOT; just a precaution
+    rm -f $CHROOTDIR/etc/yum.repos.d/*
+    
+    # Create new repos from comma-seperated list (using bash inline S&R)
+    for i in ${YUM_MIRROR//,/ }; do
+        $YUM_REPOCMD --add-repo $i 
+    done
+
     PKGR_CMD="$YUM_CMD install $PKGLIST"
     return 0
 }
@@ -95,14 +103,27 @@ postchroot() {
 
     # we only want to add this kludge to the file once. lets make sure an
     # improperly writen overlay template wont cause repeated file concatenation
-    if grep -q rename_device $CHROOTDIR/etc/sysconfig/network-scripts/network-functions && \
-       ! grep -q 'rename_device() { return 0; }' $CHROOTDIR/etc/sysconfig/network-scripts/network-functions; then
-        echo "" >> $CHROOTDIR/etc/sysconfig/network-scripts/network-functions
-        echo "# This is a kludge added by Warewulf so devices don't get renamed (broke things with IB)" >> $CHROOTDIR/etc/sysconfig/network-scripts/network-functions
-        echo "rename_device() { return 0; }" >> $CHROOTDIR/etc/sysconfig/network-scripts/network-functions
+    # network-functions is not present on RHEL 8
+    NETFILE=$CHROOTDIR/etc/sysconfig/network-scripts/network-functions
+    if [ -f $NETFILE ]; then
+        if grep -q 'rename_device' $NETFILE && ! grep -q 'rename_device() { return 0; }' $NETFILE; then
+            echo "" >> $NETFILE
+            echo "# This is a kludge added by Warewulf so devices don't get renamed (broke things with IB)" >> $NETFILE
+            echo "rename_device() { return 0; }" >> $NETFILE
+        fi
     fi
+
+    # Dracut on newer releases doesn't work within a chroot without sys/proc filesystems mounted.
+    # Post-install scripts on kernel-core RPM will fail
+    # Manually add a pointer to the Linux kernel to /boot
+    # This provides for initrd images to be created from the chroot.
+    for i in $(find $CHROOTDIR/lib/modules -path /*/vmlinuz -printf "%P\n" | cut -d / -f 1); do
+        if [ ! -f /$CHROOTDIR/boot/vmlinuz-$i ]; then
+            ln -s ../lib/modules/$i/vmlinuz $CHROOTDIR/boot/vmlinuz-$i
+        fi
+    done
+
     return 0
 }
-
 
 # vim:filetype=sh:syntax=sh:expandtab:ts=4:sw=4:

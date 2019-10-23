@@ -53,8 +53,8 @@ fi
 NETWORK=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network->new()->network(Warewulf::Config->new("provision.conf")->get("network device"));'`
 NETMASK=`perl -MWarewulf::Network -MWarewulf::Config -e 'print Warewulf::Network->new()->netmask(Warewulf::Config->new("provision.conf")->get("network device"));'`
 
-# Set defaults for empty values
-[ ! -f $KEY_FILE ] && KEY_FILE="#/etc/ntp/keys"
+# Set defaults for empty values or missing files
+[ ! -f "$KEY_FILE" ] && KEY_FILE="#/etc/ntp/keys"
 [ -z "$ntp_trustedkey" ] && ntp_trustedkey="#controlkey 8"
 [ -z "$ntp_controlkey" ] && ntp_controlkey="#trustedkey 4 8 42"
 [ -z "$ntp_requestkey" ] && ntp_requestkey="#requestkey 8"

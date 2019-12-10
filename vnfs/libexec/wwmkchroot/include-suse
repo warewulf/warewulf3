@@ -1,10 +1,26 @@
-ZYP_CMD="zypper --root $CHROOTDIR -n --gpg-auto-import-keys"
+#! /bin/bash
+
+# Include file for SUSE Linux distributions
+# Use this for SLE, OpenSUSE LEAP, and Tumbleweed
 
 distro_check() {
-    if ! rpm -q zypper >/dev/null 2>&1 ; then
-        echo "ERROR: Could not query RPM for Zypper"
+    if ! zypper --version >/dev/null 2>&1 ; then
+        echo "ERROR: zypper command not available"
         return 1
     fi
+
+    # Disable gpg checking
+    [ -n "$NOGPGCHECK" ] && EXTRA_ARGS="${EXTRA_ARGS} --no-gpg-checks"
+
+    # Set zypper excess vebosity
+    [ -n "$DEBUG" ] && EXTRA_ARGS="${EXTRA_ARGS} -vv"
+
+    # Make zypper quiet if verbose and debug are not set
+    [ -z "$VERBOSE" -a -z "$DEBUG" ] && EXTRA_ARGS="${EXTRA_ARGS} --quiet"
+
+    ZYP_CMD="zypper --root $CHROOTDIR -n --gpg-auto-import-keys ${EXTRA_ARGS} -c $CHROOTDIR/etc/zypp/zypp.conf"
+    [ -n "$DEBUG" ] && echo "ZYP_CMD = $ZYP_CMD" 
+
     return 0
 }
 
@@ -22,76 +38,87 @@ set_overlay() {
     elif [  -f "$CHROOTDIR/etc/SuSE-release" ]; then
         suse=1
     fi
-    if [ $no_suse -eq 1 ]; then
-        echo "ERROR: This must be a SuSE compatible chroot!"
+    if [ $suse -eq 0 ]; then
+        echo "ERROR: This must be a SUSE compatible chroot!"
         return 1
     fi
-    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses $PKGLIST"
+    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses --no-recommends $PKGLIST"
+    [ -n "$DEBUG" ] && echo "PKGR_CMD=$PKGR_CMD" 
     return 0
 }
 
 prechroot() {
-    if [ -n "$OS_MIRROR" ]; then
-        ZYP_MIRROR="$OS_MIRROR"
+    # Configure compute nodes to use the latest single kernel, unless overridden
+    [ -z "$KVERSION" ] && KVERSION="latest"
+
+    if [ -n "$OS_MIRROR" -a -z "$ZYPP_MIRROR" ]; then
+        ZYPP_MIRROR="$OS_MIRROR"
     fi
 
-    if [ -e "/etc/os-release" ]; then
-        VERSION=`rpm -qf /etc/os-release  --qf '%{VERSION}\n'`
-    else
-        VERSION=`rpm -qf /etc/SuSE-release  --qf '%{VERSION}\n'`
+    if [ -z "$ZYPP_MIRROR" -a -z "$INSTALL_ISO" ]; then
+        echo "ERROR: You must define the \$ZYPP_MIRROR or \$INSTALL_ISO variable"
+        cleanup
+        return 1
     fi
-    mkdir -p $CHROOTDIR
-    mkdir -p -m 755 $CHROOTDIR/etc
+
     mkdir -p -m 755 $CHROOTDIR/etc/zypp
     mkdir -p -m 755 $CHROOTDIR/dev
     rm -f $CHROOTDIR/dev/zero && mknod -m 666 $CHROOTDIR/dev/zero c 1 5
 
-    cp -rap /etc/zypp/zypper.conf $CHROOTDIR/etc
-    # Use repos of installed system
-    if [[ -z "$ZYP_MIRROR" && -z "$INSTALL_ISO" ]]; then
-        cp -rap /etc/zypp/repos.d $CHROOTDIR/etc/zypp
-        [ -d /etc/zypp/services.d ] && cp -rap /etc/zypp/services.d $CHROOTDIR/etc/zypp
-        [ -d /etc/zypp/credentials.d ] && cp -rap /etc/zypp/credentials.d $CHROOTDIR/etc/zypp
-    elif [ -n "$INSTALL_ISO" ]; then
-        # Use ISO
-        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
-            if [ -z "$INSTALLDIRS" ]; then
-                if [ -d $i/repodata ]; then
-                    # RHEL 6.x
-                    INSTALLDIRS="file://$i"
-                elif [ -d $i/Server/repodata ]; then
-                    # RHEL 5.x
-                    INSTALLDIRS="file://$i/Server"
-                fi
-            else
-                INSTALLDIRS="$INSTALLDIRS,file://$i"
-            fi
+    # Create new zypp.conf and zypper.conf files
+    echo "[main]" > $CHROOTDIR/etc/zypp/zypper.conf	
+    echo "[solver]" >> $CHROOTDIR/etc/zypp/zypper.conf
+    echo "installRecommends = no" >> $CHROOTDIR/etc/zypp/zypper.conf
+    echo "[commit]" >> $CHROOTDIR/etc/zypp/zypper.conf
+    echo "autoAgreeWithLicenses = yes" >> $CHROOTDIR/etc/zypp/zypper.conf
+    echo "[search]" >> $CHROOTDIR/etc/zypp/zypper.conf
+    echo "[color]" >> $CHROOTDIR/etc/zypp/zypper.conf
+    echo "[obs]" >> $CHROOTDIR/etc/zypp/zypper.conf
+    [ -n "$VERBOSE" ] && echo "Created zypper.conf"
+    [ -n "$DEBUG" ] && cat $CHROOTDIR/etc/zypp/zypper.conf
+    echo "[main]" > $CHROOTDIR/etc/zypp/zypp.conf
+    echo "solver.dupAllowVendorChange = false" >> $CHROOTDIR/etc/zypp/zypp.conf
+    echo "multiversion = provides:multiversion(kernel)" >> $CHROOTDIR/etc/zypp/zypp.conf
+    echo "multiversion.kernels = $KVERSION" >> $CHROOTDIR/etc/zypp/zypp.conf
+    [ -n "$VERBOSE" ] && echo "Created zypp.conf"
+    [ -n "$DEBUG" ] && cat z$CHROOTDIR/etc/zypp/zypp.conf
+
+    # Add all of the repos found on the ISO images
+
+    if [ -n "$INSTALL_ISO" ]; then
+        for i in $(find $MEDIA_MOUNTPATH -type d -name repodata -printf "%P "); do
+             [ -n "$VERBOSE" ] && echo "Found repodata at $i"
+             INSTALLDIRS="$INSTALLDIRS,file:///tmp/wwmkchroot.mount/$(dirname $i)"
         done
-        ZYP_MIRROR=$INSTALLDIRS
+        ZYPP_MIRROR="$ZYPP_MIRROR,$INSTALLDIRS"
+        [ -n "$DEBUG" ] && echo "ZYPP_MIRROR = $ZYPP_MIRROR"
     fi
 
-    if [ -n "${ZYP_MIRROR}" ]; then
+    # Remove all existing repos in CHROOT; just a precaution
+    rm -f $CHROOTDIR/etc/yum.repos.d/*
 
-        while `$ZYP_CMD -x lr | grep -q '</repo>'`; do
-            $ZYP_CMD rr 1
-        done
 
-        cnt=0
-        for i in `echo $ZYP_MIRROR | sed -e 's#,# #'`; do
-            $ZYP_CMD ar $i repo-$cnt
-	    let cnt++
-        done
+    # Create new repos from comma-seperated list (using bash inline S&R)
+    if [ "01" -eq "0$REPO_NOGPGCHECK" ]; then
+        GPGARG="-G"
+    else
+        GPGARG="-g"
     fi
+    [ -n "$DEBUG" ] && echo "GPGARG = $GPGARG"
+    cnt=0
+    # Bash pattern replace -- replace all commas with spaces
+    for i in ${ZYPP_MIRROR//,/ }; do
+        [ -n "$VERBOSE" ] && echo "Adding repo-$cnt: $i"
+        $ZYP_CMD ar $GPGARG $i repo-$cnt
+        let cnt++
+    done
 
-    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses $PKGLIST"
+    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses --no-recommends $PKGLIST"
 
     return 0
 }
 
 postchroot() {
-    for i in `echo $ZYP_MIRROR | sed -e 's#,# #'`; do
-        $ZYP_CMD rr $i
-    done
     touch $CHROOTDIR/fastboot
     return 0
 }

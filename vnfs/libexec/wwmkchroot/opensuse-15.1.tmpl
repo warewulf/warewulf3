@@ -1,12 +1,21 @@
+#DESC: OpenSUSE LEAP 15.1
 # The general SUSE include has all of the necessary functions, but requires
 # some basic variables specific to each chroot type to be defined.
+
 . include-suse
 
+# Uncomment and set to use a specific kernel version
+# KVERSION=latest
 
+# Uncomment to disable GPG checks on added repos
+# REPO_NOGPGHECK=1
 
-# Define the location of the YUM repository
-ZYP_MIRROR="http://download.opensuse.org/distribution/leap/15.1/repo/oss/,\
+# Comma-seperated location(s) of the YUM repositories
+ZYPP_MIRROR="http://download.opensuse.org/distribution/leap/15.1/repo/oss/,\
 http://download.opensuse.org/update/leap/15.1/oss/"
+# URLs for OpenSUSE LEAP 15.0
+#ZYPP_MIRROR="http://download.opensuse.org/distribution/leap/15.1/repo/oss/,\
+#http://download.opensuse.org/update/leap/15.0/oss/"
 
 # Install only what is necessary/specific for this distribution
 PKGLIST="systemd-sysvinit aaa_base bash dracut openSUSE-release coreutils \

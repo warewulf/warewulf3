@@ -1,13 +1,20 @@
-#DESC: SUSE Linux Enterprise 12
+#DESC: SUSE Linux Enterprise Server 12
+
+. include-suse
 
 # The general SUSE include has all of the necessary functions, but requires
 # some basic variables specific to each chroot type to be defined.
-. include-suse
 
+# Uncomment and set to use a specific kernel version
+# KVERSION=4.12.14-94.41.1
 
+# Uncomment to disable GPG checks on added repos
+# REPO_NOGPGHECK=1
 
-# Define the location of the Zypper repository
-ZYP_MIRROR="SUSE-url"
+# Define the location of SLES 12 installation ISOs
+INSTALL_ISO="SLES12-ISO1,SLES12-ISO2"
+# Define the location of Zypper repositories
+ZYPP_MIRROR="SLES12-url"
 
 # Install only what is necessary/specific for this distribution
 PKGLIST="systemd-sysvinit aaa_base bash dracut sles-release coreutils e2fsprogs ethtool \

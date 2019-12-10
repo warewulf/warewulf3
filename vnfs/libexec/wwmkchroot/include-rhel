@@ -1,12 +1,32 @@
+#!/bin/bash
+# Includes file for Red Hat and Fedora-based Linux distributions
+# RHEL, CentOS, Fedora, and Scientific Linux
+
+# Disable gpg checking
+[ -n "$NOGPGCHECK" ] && EXTRA_ARGS="${EXTRA_ARGS} --nogpgcheck"
+
+# Set YUM/DNF extra vebosity
+[ -n "$DEBUG" ] && EXTRA_ARGS="${EXTRA_ARGS} -v --debuglevel=5"
+
+# Make YUM/DNF quiet if verbose and debug are not set
+[ -z "$VERBOSE" -a -z "$DEBUG" ] && EXTRA_ARGS="${EXTRA_ARGS} -q"
+
+# Check if we're building the chroot from RHEL/CentOS 8
+if [ -z "$PKG_MGR" ]; then
+    if [ $(awk -F= '/VERSION_ID/ {print $2}' < /etc/os-release) = '"8"' ]; then
+        PKG_MGR="dnf"
+    fi
+fi
+
 if [ "$PKG_MGR" = "dnf" ]; then
     YUM_CONF="/etc/dnf/dnf.conf"
-    YUM_CMD="dnf -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_OPTS" 
-    YUM_REPOCMD="dnf config-manager -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_OPTS"
+    YUM_CMD="dnf -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_ARGS" 
+    YUM_REPOCMD="dnf config-manager -y -c $CHROOTDIR/$YUM_CONF --installroot $CHROOTDIR --setopt=reposdir=$CHROOTDIR/etc/yum.repos.d $EXTRA_ARGS"
 else
     PKG_MGR="yum"    
     YUM_CONF="/etc/yum.conf"
-    YUM_CMD="yum -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_OPTS"
-    YUM_REPOCMD="yum-config-manager -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_OPTS"
+    YUM_CMD="yum -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_ARGS"
+    YUM_REPOCMD="yum-config-manager -y -c $CHROOTDIR/$YUM_CONF --tolerant --installroot $CHROOTDIR $EXTRA_ARGS"
 fi
 
 distro_check() {
@@ -81,7 +101,7 @@ prechroot() {
     # Add all of the repos found on the ISO image
     if [ -n "$INSTALL_ISO" ]; then
         for i in $(find $MEDIA_MOUNTPATH -type d -name repodata); do
-             INSTALLDIRS="$INSTALLDIRS,file://$i"
+             INSTALLDIRS="$INSTALLDIRS,file://$(dirname $i)"
         done
         YUM_MIRROR="$YUM_MIRROR,$INSTALLDIRS"
     fi
@@ -90,8 +110,9 @@ prechroot() {
     rm -f $CHROOTDIR/etc/yum.repos.d/*
     
     # Create new repos from comma-seperated list (using bash inline S&R)
+    [ "0$REPO_NOGPGCECK" -ne "00" ] && REPO_NOGPGCHECK=1
     for i in ${YUM_MIRROR//,/ }; do
-        $YUM_REPOCMD --add-repo $i 
+        $YUM_REPOCMD --add-repo --setopt=gpgcheck=$REPO_NOGPGCHECK $i 
     done
 
     PKGR_CMD="$YUM_CMD install $PKGLIST"

@@ -4,7 +4,7 @@
 # Use this for SLE, OpenSUSE LEAP, and Tumbleweed
 
 distro_check() {
-    if ! zypper --version >/dev/null 2>&1 ; then
+    if ! zypper --version >$DEVNULL ; then
         echo "ERROR: zypper command not available"
         return 1
     fi

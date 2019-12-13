@@ -1,18 +1,23 @@
-
-APT_CONF="root/ww-apt.conf"
-DEB_SRCS="root/sources.list"
-DEB_ISOS="root/iso.list"
-APT_CMD="env DEBIAN_FRONTEND="noninteractive" apt-get -c $APT_CONF"
+#!/bin/bash
 
 distro_check() {
-    if ! [ -x "/usr/bin/dpkg" ] ; then
-        echo "ERROR: Could not locate dpkg"
+    if ! dpkg --version >$DEVNULL; then
+        echo "ERROR: Command dpkg not found"
         return 1
     fi
-    if ! dpkg -s debootstrap 2>&1 | grep Status | grep -v deinstall > /dev/null; then
-        echo "ERROR: Could not query dpkg for debootstrap"
+    if ! debootstrap --version >$DEVNULL; then
+        echo "ERROR: Command debootstrap not found"
         return 1
     fi
+
+    APT_CONF="/etc/apt/apt.conf"
+    DEB_SRCS="/etc/apt/sources.list"
+    DEB_ISOS="/etc/apt/iso.list"
+    APT_CMD="env DEBIAN_FRONTEND="noninteractive" apt-get -c $APT_CONF"
+
+    [ -z "$SUITE" ] && SUITE="cosmic"
+    [ -z "$ARCH" ] && ARCH="amd64"
+
     return 0
 }
 
@@ -50,25 +55,14 @@ prechroot() {
         cleanup
         return 1
     fi
-    if [ -z "$SUITE" ]; then
-        SUITE="cosmic"
-    fi
-    if [ -z "$ARCH" ]; then
-        ARCH="amd64"
-    fi
 
-    mkdir -p $CHROOTDIR/etc
-    cp -rap /etc/apt $CHROOTDIR/etc
 
-    DEB_SRCS_DIRNAME=`dirname $DEB_SRCS`
-    mkdir -m 0755 -p $CHROOTDIR/$DEB_SRCS_DIRNAME
+    mkdir -m 0755 -p $CHROOTDIR/etc/apt
 
-    > $CHROOTDIR/$APT_CONF
-    echo "APT{ Get{ Assume-Yes \"true\";" >> $CHROOTDIR/$APT_CONF
+    echo "APT{ Get{ Assume-Yes \"true\";" > $CHROOTDIR/$APT_CONF
     echo "AllowUnauthenticated \"true\"; }; };" >> $CHROOTDIR/$APT_CONF
 
-    > $CHROOTDIR/$DEB_SRCS
-    echo "deb $DEB_MIRROR ${SUITE} main restricted" >> $CHROOTDIR/$DEB_SRCS
+    echo "deb $DEB_MIRROR ${SUITE} main restricted" > $CHROOTDIR/$DEB_SRCS
     echo "deb $DEB_MIRROR ${SUITE}-updates main restricted" >> $CHROOTDIR/$DEB_SRCS
     echo "deb $DEB_MIRROR ${SUITE}-backports main restricted" >> $CHROOTDIR/$DEB_SRCS
     echo "deb http://security.ubuntu.com/ubuntu ${SUITE}-security main restricted" >> $CHROOTDIR/$DEB_SRCS
@@ -127,4 +121,4 @@ finalize() {
 }
 
 
-# vim: filetype=sh:syntax=sh:expandtab:ts=4:sw=4:
+# vim: filetype=bash:syntax=sh:expandtab:ts=4:sw=4:

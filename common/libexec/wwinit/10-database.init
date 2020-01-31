@@ -165,7 +165,7 @@ if [ "$DATASTORE" = "mysql" ]; then
         wwprint "Database version: UNDEF (need to create database)\n"
         perl -e 'use Warewulf::DataStore::SQL::MySQL;print Warewulf::DataStore::SQL::MySQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
         if [ $? -eq 0 ] && [ -s "${SCRIPT_TMPDIR}/schema" ]; then
-            wwprint "Creating database schema"
+            wwprint "Creating database schema\n"
             wwrun mysql $CLI_ARGS "$DBNAME" < "${SCRIPT_TMPDIR}/schema" || exit 255
         else
             wwprint "Unable to generate database schema from class Warewulf::DataStore::SQL::MySQL\n" RED
@@ -182,8 +182,18 @@ if [ "$DATASTORE" = "mysql" ]; then
         exit 255
     fi 
 
+    # Check for database user accounts; unset variables if accounts don't exist
+    if ! [[ "$(mysql $CLI_ARGS $DBNAME -NBe "SELECT User FROM mysql.user;")" =~ $DBUSER ]]; then
+        wwprint "Configured user does not exist in database\n" warn
+        unset DBUSER
+    fi
+    if ! [[ "$(mysql $CLI_ARGS $DBNAME -NBe "SELECT User FROM mysql.user;")" =~ $DBROOTUSER ]]; then
+        wwprint "DB root user does not exist in database\n" warn
+        unset DBROOTUSER
+    fi
+
     if [ -n "$DBUSER" ] && [ "$DBUSER" != "root" ]; then
-        wwprint "Updating database permissions for base user"
+        wwprint "Updating database permissions for base user\n"
         wwrun mysql $CLI_ARGS $DBNAME <<- END_OF_SQL
             GRANT SELECT on $DBNAME.* 
                 TO '$DBUSER'@'$DBCLIENT' IDENTIFIED BY '$DBPASS'
@@ -191,7 +201,7 @@ if [ "$DATASTORE" = "mysql" ]; then
     fi
 
     if [ -n "$DBROOTUSER" ] && [ "$DBROOTUSER" != "root" ]; then
-        wwprint "Updating database permissions for root user"
+        wwprint "Updating database permissions for root user\n"
         wwrun mysql $CLI_ARGS $DBNAME <<- END_OF_SQL
             GRANT SELECT, INSERT, UPDATE, DELETE on $DBNAME.* 
                 TO '$DBROOTUSER'@'$DBCLIENT' IDENTIFIED BY '$DBROOTPASS'
@@ -210,7 +220,7 @@ elif [ "$DATASTORE" = "postgresql" ]; then
     OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --command="SELECT value FROM meta WHERE name = 'dbvers'" 2>&1)"
     if [ $? -ne 0 ]; then
         if [[ $OUTPUT =~ database.*does\ not\ exist ]]; then
-            wwprint "Creating database $DBNAME"
+            wwprint "Creating database $DBNAME\n"
             OUTPUT="$(psql_do_cmd --command="CREATE DATABASE $DBNAME" 2>&1)"
             if [ $? -ne 0 ]; then
                 reply_error
@@ -229,7 +239,7 @@ elif [ "$DATASTORE" = "postgresql" ]; then
         wwprint "Database version: UNDEF (need to create database)\n"
         perl -e 'use Warewulf::DataStore::SQL::PostgreSQL;print Warewulf::DataStore::SQL::PostgreSQL->database_schema_string();' > "${SCRIPT_TMPDIR}/schema"
         if [ $? -eq 0 -a -f "${SCRIPT_TMPDIR}/schema" -a $(wc -l "${SCRIPT_TMPDIR}/schema") ]; then
-            wwprint "Creating database schema"
+            wwprint "Creating database schema\n"
             if [ $PSQL_USE_SUDO -ne 0 ]; then
                 #
                 # The database server user will need access to the file:
@@ -256,7 +266,7 @@ elif [ "$DATASTORE" = "postgresql" ]; then
     fi
 
     if [ -n "$DBUSER" ]; then
-        wwprint "Updating database permissions for $DBUSER user"
+        wwprint "Updating database permissions for $DBUSER user\n"
         OUTPUT="$(psql_do_cmd --dbname="$DBNAME" --command="GRANT SELECT ON binstore,binstore_id_seq,datastore,datastore_id_seq,lookup,lookup_id_seq,meta,meta_id_seq TO $DBUSER;" 2>&1)"
         if [ $? -eq 0 ]; then
             reply_success
@@ -288,7 +298,7 @@ elif [ "$DATASTORE" = "sqlite" ]; then
     fi
 
     if [ ! -f "$DBNAME" ]; then
-        wwprint "Creating database $DBNAME"
+        wwprint "Creating database $DBNAME\n"
         #
         # Get the database initialized by making an instance of the class:
         #
@@ -304,12 +314,12 @@ else
     wwprint "Skipping configuration of datastore driver: $DATASTORE\n"
 fi
 
-wwprint "Checking binstore kind"
+wwprint "Checking binstore kind\n"
 OUTPUT="$(perl -e 'use Warewulf::DataStore::SQL;$d=Warewulf::DataStore::SQL->new();print $d->{"BINSTORE_KIND"};')"
 if [ $? -eq 0 ]; then
     reply_success
     if [ "$OUTPUT" = "filesystem" ]; then
-        wwprint "Checking for binstore filesystem path"
+        wwprint "Checking for binstore filesystem path\n"
         OUTPUT="$(perl -e 'use Warewulf::DataStore::SQL;$d=Warewulf::DataStore::SQL->new();print $d->{"BINSTORE_FS_PATH"};')"
         if [ $? -eq 0 ]; then
             if [ ! -d "$OUTPUT" ]; then
@@ -318,7 +328,7 @@ if [ $? -eq 0 ]; then
                     reply_error
                 else
                     reply_success
-                    wwprint "Creating binstore directory $OUTPUT"
+                    wwprint "Creating binstore directory $OUTPUT\n"
                     mkdir -p "$OUTPUT"
                     if [ $? -eq 0 ]; then
                         reply_success

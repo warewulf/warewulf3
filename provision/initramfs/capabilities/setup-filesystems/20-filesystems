@@ -143,6 +143,7 @@ update_fstab_and_mount() {
   FIRST_DISK=1
   NEWROOT=${NEWROOT:=/newroot}
   TEMPDIR=${TEMPDIR:=/tmp}
+  WWSELECTDISKWAIT=${WWSELECTDISKWAIT:=5}
 
   IFS=","
 
@@ -168,6 +169,28 @@ update_fstab_and_mount() {
         SELECT_DISK=""
       fi
       SELECT_DISK=$(echo "${FSCMD}" | cut -f 2 -d' ')
+
+      SELECT_RETRY=0
+
+      if [ -z "${SELECT_DISK##*/dev/*}" ]; then
+        while [ ! -b "${SELECT_DISK}" ]; do
+          if [ "${SELECT_RETRY}" -lt "${WWSELECTDISKWAIT}" ]; then
+            if [ "${SELECT_RETRY}" -eq 0 ]; then
+              msg_gray "   * ${SELECT_DISK} not ready, retrying."
+            else
+              msg_gray "."
+            fi
+            SELECT_RETRY="$((SELECT_RETRY+1))"
+            sleep 1
+          else
+            wwlogger "Disk: ${SELECT_DISK} not found!"
+            exit 2
+          fi
+        done
+        if [ "${SELECT_RETRY}" -gt 0 ]; then
+          wwsuccess
+        fi
+      fi
     ;;
 
     fstab*)

@@ -5,7 +5,12 @@
 # Set default WW environment
 eval $(wwconfig -as)
 
+# Set temporary media mount directory within the node image;
+# directory is also be created on the host, with symlinks to
+# media within the node image (for node image bootstrap)
 MEDIA_TMP="/tmp/wwmkchroot.mount"
+
+# Set temporary mountpath within the chroot
 MEDIA_MOUNTPATH="${CHROOTDIR}${MEDIA_TMP}"
 
 export FUNCTIONS="sanity_check

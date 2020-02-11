@@ -1,12 +1,12 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
+%define wwstatedir @LOCAL_STATE_DIR@
 
-Summary: Warewulf VNFS Module
+Summary: Warewulf - Virtual Node File System support
 Name: warewulf-vnfs
 Version: @PACKAGE_VERSION@
 Release: %{_rel}%{?dist}
 License: US Dept. of Energy (BSD-like)
-Group: System Environment/Clustering
 URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
@@ -14,16 +14,17 @@ Requires: warewulf-common
 BuildRequires: warewulf-common
 Conflicts: warewulf < 3
 BuildArch: noarch
-BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
-# Previous version had an architecture in its release. This is necessary for
-# YUM to properly update a package of a different BuildArch...
 
 %description
-Warewulf 3 is a set of utilities designed to better enable
-utilization and maintenance of clusters or groups of computers.
+Warewulf is a operating system management toolkit designed to facilitate
+large scale deployments of systems on physical, virtual and cloud-based
+infrastructures. It facilitates elastic and large deployments consisting
+of groups of homogenous systems.
 
-This is the VNFS module which supports the creation and management of
-Virtual Node FileSystem objects.
+Warewulf utilizes a Virtual Node File System (VNFS) where each node can
+be managed using a chroot representing the root file system. The
+Warewulf VNFS package provides tools to create VNFS images for different
+node operating systems.
 
 
 %prep
@@ -39,13 +40,10 @@ Virtual Node FileSystem objects.
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
 
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-
 %files
 %defattr(-,root,root)
-%doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO LICENSE
+%doc AUTHORS ChangeLog INSTALL NEWS README TODO
+%license COPYING LICENSE
 %config(noreplace) %{_sysconfdir}/warewulf/vnfs.conf
 %config(noreplace) %{_sysconfdir}/warewulf/bootstrap.conf
 %{_libexecdir}/warewulf/*

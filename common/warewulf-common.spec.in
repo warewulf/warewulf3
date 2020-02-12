@@ -2,11 +2,11 @@
 # unexpected errors. This is easily overridden by setting the appropriate
 # macro (rhel, sle_version) on the rpmbuild command line.
 # For example, if using Fedora 20 to 27, "--define rhel 7"
-%if %{?rhel:1} && %{?rhel} < 7
-%{error: "Detected operating system RHEL %{rhel} is not supported."}
+%if 0%{?rhel:1} && 0%{?rhel} >= 7
+# RHEL >= 7.0 found; continue
 %else
-%if %{?sle_version:1} && %{?sle_version} < 120100
-%{error: "Detected operating system SLE %{sle_version} is not supported."}
+%if 0%{?sle_version:1} && 0%{?sle_version} >= 120100
+# SLES >= 12.1 found; continue
 %else
 %{error: "Detected operating system is not supported."}
 %endif # sle_version
@@ -14,7 +14,7 @@
 
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%define wwstatedir @LOCAL_STATE_DIR@
+%define wwstatedir /var/warewulf
 
 Name: warewulf-common
 Summary: Scalable systems management suite for high performance clusters
@@ -26,7 +26,7 @@ ExclusiveOS: linux
 Conflicts: warewulf < 3
 BuildArch: noarch
 BuildRequires: autoconf, automake
-Requires: perl(DBD::MySQL) perl(DBD::Pg) perl(DBD::SQLite) perl(JSON::PP)
+Requires: perl(DBD::mysql), perl(DBD::Pg), perl(DBD::SQLite), perl(JSON::PP)
 
 %if %{?rhel:1}
 %global sql_name mariadb
@@ -68,14 +68,11 @@ handlers and a basic command line interface.
 
 
 %post
-if [ $1 -eq 2 ] ; then
+# Canonicalize on upgrade, before old package is removed
+if [ $1 -gt 1 ] ; then
     %{_bindir}/wwsh object canonicalize -t node >/dev/null 2>&1 || :
     %{_bindir}/wwsh object canonicalize -t file >/dev/null 2>&1 || :
 fi
-%systemd_post %{daemon_name}.service
-
-%postun
-%systemd_postun_with_restart %{daemon_name}.service
 
 
 %files
@@ -98,8 +95,12 @@ fi
 # ====================
 %package localdb
 Summary: Warewulf - Install local database server
-Requires: %{name} = %{version}-%{release}
+%if 0%{?rhel} >= 8
+BuildRequires: systemd
+%endif
+%if 0%{?sle_version:1}
 BuildRequires: systemd-rpm-macros
+%endif
 Requires: %{sql_name}-server
 
 %description localdb
@@ -111,11 +112,27 @@ of groups of homogenous systems.
 This metapackage installs a local MySQL or MariaDB instance. It is not
 required for installs that will use an external database server.
 
-%post localdb
-%systemd_post %{daemon_name}.service
+By default, removing this package will not remove or disable the installed
+SQL server.
 
-%preun localdb
-%systemd_preun_with_restart %{daemon_name}.service
+%post localdb
+# Start services on install; otherwise restart after old package is removed.
+if [ $1 -eq 1 ] ; then
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%systemd_post %{daemon_name}.service
+%else
+/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null ||
+/usr/bin/systemctl --system restart %{daemon_name}.service  &> /dev/null || :
+%endif 
+fi
+
+%postun localdb
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%systemd_postun_with_restart %{daemon_name}.service
+%else
+/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null ||
+/usr/bin/systemctl --system restart %{daemon_name}.service  &> /dev/null || :
+%endif
 
 %files localdb
 %defattr(-, root, root)

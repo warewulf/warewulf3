@@ -1,6 +1,5 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%define wwstatedir @LOCAL_STATE_DIR@
 
 Summary: Warewulf - Virtual Node File System support
 Name: warewulf-vnfs
@@ -16,7 +15,7 @@ Conflicts: warewulf < 3
 BuildArch: noarch
 
 %description
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.

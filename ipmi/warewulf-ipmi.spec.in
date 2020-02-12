@@ -1,6 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%define wwstatedir @LOCAL_STATE_DIR@
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}/warewulf}}
 
 Summary: Warewulf - IPMI support
 Name: warewulf-ipmi
@@ -15,17 +15,19 @@ Requires: warewulf-common
 Requires: %{name}-initramfs-%{_arch} = %{version}-%{release}
 
 %if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+%global localipmi 1
 BuildRequires: ipmitool
 Requires: ipmitool
 %define CONF_FLAGS "--with-local-ipmitool=yes"
 %else
-Provides: ipmitool
+%global localipmi 0
+Provides: ipmitool = 1.8.18
 %endif
 
 BuildRequires: warewulf-common openssl-devel
 
 %description
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -35,11 +37,11 @@ cluster nodes.
 
 
 %prep
-%setup
+%setup -q
 
 
 %build
-%configure %{?CONF_FLAGS} --localstatedir=%{wwstatedir}
+%configure %{?CONF_FLAGS}
 %{__make} %{?mflags}
 
 
@@ -47,15 +49,11 @@ cluster nodes.
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
 
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-
 %files
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog INSTALL NEWS README TODO
 %license COPYING
-%if 0%{?rhel} < 8 && 0%{?sle_version} < 150000
+%if ! %{localipmi}
 %{_libexecdir}/warewulf/ipmitool
 %endif
 %{perl_vendorlib}/Warewulf/Ipmi.pm
@@ -70,7 +68,7 @@ Requires: warewulf-common
 Requires: warewulf-provision-initramfs-%{_arch}
 
 %description initramfs-%{_arch}
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -79,7 +77,7 @@ Warewulf IPMI-initramfs adds IPMI configuration to the %{_arch} cluster
 node boot image.
 
 %files initramfs-%{_arch}
-%{wwstatedir}/initramfs/%{_arch}/capabilities/setup-ipmi
+%{wwsrvdir}/initramfs/%{_arch}/capabilities/setup-ipmi
 
 
 # ====================

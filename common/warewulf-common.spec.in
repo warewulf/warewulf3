@@ -14,7 +14,6 @@
 
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%define wwstatedir /var/warewulf
 
 Name: warewulf-common
 Summary: Scalable systems management suite for high performance clusters
@@ -55,7 +54,7 @@ handlers and a basic command line interface.
 
 
 %build
-%configure --localstatedir=%{wwstatedir}
+%configure
 %{__make} %{?mflags}
 
 
@@ -121,7 +120,7 @@ if [ $1 -eq 1 ] ; then
 %if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_post %{daemon_name}.service
 %else
-/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null ||
+/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null || :
 /usr/bin/systemctl --system restart %{daemon_name}.service  &> /dev/null || :
 %endif 
 fi
@@ -130,7 +129,7 @@ fi
 %if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_postun_with_restart %{daemon_name}.service
 %else
-/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null ||
+/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null || :
 /usr/bin/systemctl --system restart %{daemon_name}.service  &> /dev/null || :
 %endif
 

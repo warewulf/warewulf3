@@ -1,7 +1,7 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
 %define _cross_compile 0%{?cross_compile}
-%define wwstatedir /var/warewulf
+%define wwsrvdir %{_localstatedir}/warewulf
 
 Name: warewulf-provision
 Summary: Warewulf - System provisioning core
@@ -18,8 +18,8 @@ BuildRequires: libselinux-devel libacl-devel libattr-devel
 BuildRequires: libuuid-devel device-mapper-devel xz-devel
 BuildRequires: libtirpc-devel
 
-%if 0%{?_cross_compile}
-%global CONF_CROSS --enable-cross-compile %{CONF_FLAGS}
+%if %{_cross_compile}
+%global CONF_FLAGS --enable-cross-compile %{?CONF_FLAGS}
 %if "%{_arch}" == "x86_64"
 BuildRequires: gcc-aarch64-linux-gnu
 %endif # x86_64
@@ -31,10 +31,12 @@ BuildRequires: gcc-x86_64-linux-gnu
 %if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
 BuildRequires: parted e2fsprogs libarchive
 Requires: parted autofs e2fsprogs libarchive
-%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe
+%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe %{?CONF_FLAGS}
 %else
 Requires: %{name}-gpl_source = %{version}-%{release}
-Provides: parted e2fsprogs libarchive
+Provides: parted = 3.2
+Provides: e2fsprogs = 1.42.12
+Provides: libarchive = 3.3.1
 %endif
 
 %description
@@ -51,10 +53,11 @@ administrate system provisioning.  To perform provisioning, the
 %prep
 %setup -q
 
-%build
 
-%configure %{?CONF_FLAGS} %{?CONF_CROSS} --localstatedir=%{wwstatedir}
+%build
+%configure %{?CONF_FLAGS}
 %{__make} %{?mflags}
+
 
 %install
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
@@ -104,7 +107,7 @@ This package includes tools and files to create an initramfs
 image and to provide boot capability for %{_arch} architecture.
 
 %files initramfs-%{_arch}
-%{_localstatedir}/warewulf/initramfs/%{_arch}
+%{wwsrvdir}/initramfs/%{_arch}
 
 
 # ====================
@@ -113,7 +116,12 @@ Summary: Warewulf - System provisioning server
 Requires: %{name} = %{version}-%{release}
 Requires: %{name}-server-ipxe-%{_arch} = %{version}-%{release}
 Requires: mod_perl httpd tftp-server dhcp
+%if 0%{?rhel} >= 8
+BuildRequires: systemd
+%endif
+%if 0%{?sle_version:1}
 BuildRequires: systemd-rpm-macros
+%endif
 %selinux_requires
 
 %description server
@@ -128,25 +136,41 @@ do not require this package.
 
 
 %post server
+# Update users and services on first time installation
+if [ $1 -eq 1 ] ; then
 usermod -a -G warewulf apache >/dev/null 2>&1 || :
+%{__mkdir_p} %{wwsrvdir}/ipxe %{wwsrvdir}/bootstrap 2>/dev/null || :
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_post httpd.service >/dev/null 2>&1 || :
 %systemd_post tftp-server.socket >/dev/null 2>&1 || :
+%else
+/usr/bin/systemctl --system enable httpd.service &> /dev/null || :
+/usr/bin/systemctl --system restart httpd.service  &> /dev/null || :
+/usr/bin/systemctl --system enable tftp-server.socket &> /dev/null || :
+/usr/bin/systemctl --system restart tftp-server.socket  &> /dev/null || :
+%endif
+fi
 
-%{__mkdir_p} %{_localstatedir}/warewulf/ipxe %{wwstatedir}/bootstrap 2>/dev/null || :
-/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwstatedir}/ipxe(/.*)?' 2>/dev/null || :
-/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwstatedir}/bootstrap(/.*)?' 2>/dev/null || :
-/sbin/restorecon -R %{wwstatedir} || :
+# Reset selinux context on any installation or update
+/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/ipxe(/.*)?' 2>/dev/null || :
+/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/bootstrap(/.*)?' 2>/dev/null || :
+/sbin/restorecon -R %{wwsrvdir} || :
 
 
 %postun server
+# Remove selinux context on package removal. Don't disable web or tftp services.
 if [ $1 -eq 0 ] ; then
-%systemd_preun httpd.service >/dev/null 2>&1 || :
-%systemd_preun tftp-server.socket >/dev/null 2>&1 || :
-semanage fcontext -d -t httpd_sys_content_t '%{wwstatedir}/ipxe(/.*)?' 2>/dev/null || :
-semanage fcontext -d -t httpd_sys_content_t '%{wwstatedir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
-/sbin/restorecon -R %{wwstatedir} || :
+semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/ipxe(/.*)?' 2>/dev/null || :
+semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
+/sbin/restorecon -R %{wwsrvdir} || :
 fi
-
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%systemd_postun_with_restart httpd.service >/dev/null 2>&1 || :
+%systemd_postun_with_restart tftp-server.socket >/dev/null 2>&1 || :
+%else
+/usr/bin/systemctl --system restart httpd.service  &> /dev/null || :
+/usr/bin/systemctl --system restart tftp-server.socket  &> /dev/null || :
+%endif
 
 %files server
 %defattr(-, root, root)
@@ -163,7 +187,7 @@ fi
 
 
 # ====================
-%if "%{_arch}" == "x86_64" || 0%{?_cross_compile}
+%if "%{_arch}" == "x86_64" || %{_cross_compile}
 %package server-ipxe-x86_64
 Summary: Warewulf - iPXE Bootloader for x86_64
 BuildArch: noarch
@@ -184,7 +208,7 @@ This package provides bundled iPXE binaries for x86_64.
 
 
 # ====================
-%if "%{_arch}" == "aarch64" || 0%{?_cross_compile}
+%if "%{_arch}" == "aarch64" || %{_cross_compile}
 %package server-ipxe-aarch64
 Summary: Warewulf - iPXE Bootloader for aarch64
 BuildArch: noarch

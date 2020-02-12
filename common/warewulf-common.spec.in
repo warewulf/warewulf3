@@ -38,7 +38,7 @@ Requires: perl(DBD::mysql), perl(DBD::Pg), perl(DBD::SQLite), perl(JSON::PP)
 Requires: %sql_name
 
 %description
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -103,7 +103,7 @@ BuildRequires: systemd-rpm-macros
 Requires: %{sql_name}-server
 
 %description localdb
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.

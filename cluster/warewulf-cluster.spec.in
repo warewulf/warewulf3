@@ -14,7 +14,7 @@ BuildRequires: warewulf-common
 Conflicts: warewulf < 3
 
 %description
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.

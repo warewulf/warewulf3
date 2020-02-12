@@ -1,6 +1,5 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%define _cross_compile 0%{?cross_compile}
 %define wwsrvdir %{_localstatedir}/warewulf
 
 Name: warewulf-provision
@@ -18,20 +17,22 @@ BuildRequires: libselinux-devel libacl-devel libattr-devel
 BuildRequires: libuuid-devel device-mapper-devel xz-devel
 BuildRequires: libtirpc-devel
 
-%if %{_cross_compile}
-%global CONF_FLAGS --enable-cross-compile %{?CONF_FLAGS}
+%if 0%{?cross_compile}
+%global CROSS_FLAG --enable-cross-compile
 %if "%{_arch}" == "x86_64"
 BuildRequires: gcc-aarch64-linux-gnu
 %endif # x86_64
 %if "%{_arch}" == "aarch64"
 BuildRequires: gcc-x86_64-linux-gnu
 %endif # aarch64
+%else
+%undefine CROSS_FLAG
 %endif # cross_compile
 
 %if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
 BuildRequires: parted e2fsprogs libarchive
 Requires: parted autofs e2fsprogs libarchive
-%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe %{?CONF_FLAGS}
+%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe
 %else
 Requires: %{name}-gpl_source = %{version}-%{release}
 Provides: parted = 3.2
@@ -40,7 +41,7 @@ Provides: libarchive = 3.3.1
 %endif
 
 %description
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -55,7 +56,7 @@ administrate system provisioning.  To perform provisioning, the
 
 
 %build
-%configure %{?CONF_FLAGS}
+%configure %{?CONF_FLAGS} %{?CROSS_FLAG}
 %{__make} %{?mflags}
 
 
@@ -98,7 +99,7 @@ BuildArch: noarch
 Requires: warewulf-common
 
 %description initramfs-%{_arch}
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -125,7 +126,7 @@ BuildRequires: systemd-rpm-macros
 %selinux_requires
 
 %description server
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -187,13 +188,13 @@ fi
 
 
 # ====================
-%if "%{_arch}" == "x86_64" || %{_cross_compile}
+%if "%{_arch}" == "x86_64" || 0%{?CROSS_FLAG:1}
 %package server-ipxe-x86_64
 Summary: Warewulf - iPXE Bootloader for x86_64
 BuildArch: noarch
 
 %description server-ipxe-x86_64
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -208,13 +209,13 @@ This package provides bundled iPXE binaries for x86_64.
 
 
 # ====================
-%if "%{_arch}" == "aarch64" || %{_cross_compile}
+%if "%{_arch}" == "aarch64" || 0%{?CROSS_FLAG:1}
 %package server-ipxe-aarch64
 Summary: Warewulf - iPXE Bootloader for aarch64
 BuildArch: noarch
 
 %description server-ipxe-aarch64
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
@@ -234,7 +235,7 @@ Requires: %{name} = %{version}-%{release}
 BuildArch: noarch
 
 %description gpl_sources
-Warewulf is a operating system management toolkit designed to facilitate
+Warewulf is an operating system management toolkit designed to facilitate
 large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.

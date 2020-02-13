@@ -59,7 +59,7 @@ Requires: libarchive.so.13()(64bit)
 %global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe
 %else
 %global localtools 0
-Requires: %{name}-gpl_source = %{version}-%{release}
+Requires: %{name}-gpl_sources = %{version}-%{release}
 Provides: parted = 3.2
 Provides: e2fsprogs = 1.42.12
 Provides: libarchive = 3.3.1

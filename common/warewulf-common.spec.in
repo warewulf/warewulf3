@@ -27,7 +27,7 @@ BuildArch: noarch
 BuildRequires: autoconf, automake
 Requires: perl(DBD::mysql), perl(DBD::Pg), perl(DBD::SQLite), perl(JSON::PP)
 
-%if %{?rhel:1}
+%if 0%{?rhel:1} || 0%{sle_version} > 150000
 %global sql_name mariadb
 %global daemon_name mariadb
 %else
@@ -91,6 +91,7 @@ fi
 %{_libexecdir}/warewulf/wwinit
 %{perl_vendorlib}/*
 
+
 # ====================
 %package localdb
 Summary: Warewulf - Install local database server
@@ -115,22 +116,24 @@ By default, removing this package will not remove or disable the installed
 SQL server.
 
 %post localdb
-# Start services on install; otherwise restart after old package is removed.
+# Start services on install.
+# For upgrades or removal, restart after the old package is removed.
 if [ $1 -eq 1 ] ; then
 %if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_post %{daemon_name}.service
 %else
-/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null || :
-/usr/bin/systemctl --system restart %{daemon_name}.service  &> /dev/null || :
-%endif 
+/usr/bin/systemctl --no-reload preset %{daemon_name}.service  &> /dev/null || :
+%endif
+
+/usr/bin/systemctl reenable %{daemon_name}.service &> /dev/null || :
+/usr/bin/systemctl restart %{daemon_name}.service  &> /dev/null || : 
 fi
 
 %postun localdb
 %if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_postun_with_restart %{daemon_name}.service
 %else
-/usr/bin/systemctl --system enable %{daemon_name}.service &> /dev/null || :
-/usr/bin/systemctl --system restart %{daemon_name}.service  &> /dev/null || :
+/usr/bin/systemctl try-restart %{daemon_name}.service  &> /dev/null || :
 %endif
 
 %files localdb

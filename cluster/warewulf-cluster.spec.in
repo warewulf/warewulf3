@@ -9,7 +9,7 @@ License: US Dept. of Energy (BSD-like)
 URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
-Requires: warewulf-common warewulf-provision
+Requires: warewulf-common, warewulf-provision
 BuildRequires: warewulf-common
 Conflicts: warewulf < 3
 

@@ -1,8 +1,8 @@
 # Terminate specfile builds on unrecognized or unsupported OS to avoid
 # unexpected errors. This is easily overridden by setting the appropriate
-# macro (rhel, sle_version) on the rpmbuild command line.
-# For example, if using Fedora 20 to 27, "--define rhel 7"
-%if 0%{?rhel:1} && 0%{?rhel} >= 7
+# macro (rhel_version, sle_version) on the rpmbuild command line.
+# For example, if using Fedora 20 to 27, "--define rhel_version 7"
+%if 0%{?rhel_version:1} && 0%{?rhel_version} >= 7
 # RHEL >= 7.0 found; continue
 %else
 %if 0%{?sle_version:1} && 0%{?sle_version} >= 120100
@@ -10,7 +10,12 @@
 %else
 %{error: "Detected operating system is not supported."}
 %endif # sle_version
-%endif # rhel
+%endif # rhel_version
+
+# Defining both would have unpredictable results.
+%if 0%{?rhel_version:1} && 0%{?sle_version:1}
+%{error: "Both rhel_version and sle_version macros defined. Only one is allowed."}
+%endif
 
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
@@ -27,12 +32,19 @@ BuildArch: noarch
 BuildRequires: autoconf, automake
 Requires: perl(DBD::mysql), perl(DBD::Pg), perl(DBD::SQLite), perl(JSON::PP)
 
-%if 0%{?rhel:1} || 0%{sle_version} > 150000
+%if 0%{?rhel_version:1} || 0%{sle_version} > 150000
 %global sql_name mariadb
 %global daemon_name mariadb
 %else
 %global sql_name mysql
 %global daemon_name mysqld
+%endif
+
+%if 0%{?rhel_version} >= 8
+BuildRequires: systemd
+%endif
+%if 0%{?sle_version:1}
+BuildRequires: systemd-rpm-macros
 %endif
 
 Requires: %sql_name
@@ -95,12 +107,6 @@ fi
 # ====================
 %package localdb
 Summary: Warewulf - Install local database server
-%if 0%{?rhel} >= 8
-BuildRequires: systemd
-%endif
-%if 0%{?sle_version:1}
-BuildRequires: systemd-rpm-macros
-%endif
 Requires: %{sql_name}-server
 
 %description localdb
@@ -119,7 +125,7 @@ SQL server.
 # Start services on install.
 # For upgrades or removal, restart after the old package is removed.
 if [ $1 -eq 1 ] ; then
-%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%if 0%{?sle_version:1} || 0%{?rhel_version} >= 8
 %systemd_post %{daemon_name}.service
 %else
 /usr/bin/systemctl --no-reload preset %{daemon_name}.service  &> /dev/null || :
@@ -130,7 +136,7 @@ if [ $1 -eq 1 ] ; then
 fi
 
 %postun localdb
-%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%if 0%{?sle_version:1} || 0%{?rhel_version} >= 8
 %systemd_postun_with_restart %{daemon_name}.service
 %else
 /usr/bin/systemctl try-restart %{daemon_name}.service  &> /dev/null || :

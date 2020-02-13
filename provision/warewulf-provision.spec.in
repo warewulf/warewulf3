@@ -13,10 +13,26 @@ Requires: warewulf-common
 Requires: %{name}-initramfs-%{_arch} = %{version}-%{release}
 Conflicts: warewulf < 3
 BuildRequires: warewulf-common
-BuildRequires: libselinux-devel libacl-devel libattr-devel
-BuildRequires: libuuid-devel device-mapper-devel xz-devel
+BuildRequires: libselinux-devel, libacl-devel, libattr-devel
+BuildRequires: libuuid-devel, device-mapper-devel, xz-devel
 BuildRequires: libtirpc-devel
 
+%if 0%{?rhel_version:1}
+%global httpsvc httpd
+%global httpgrp apache
+%global tftpsvc tftp-server
+%if %{rhel_version} >= 8
+BuildRequires: systemd
+%endif # rhel 8
+%else # sle_version
+BuildRequires: systemd-rpm-macros
+%global httpsvc apache2
+%global httpgrp www
+%global tftpsvc tftp
+%endif # rhel_version
+
+# If multiple architectures are needed, set
+# --define="cross_compile 1" as an rpmbuild option
 %if 0%{?cross_compile}
 %global CROSS_FLAG --enable-cross-compile
 %if "%{_arch}" == "x86_64"
@@ -29,10 +45,13 @@ BuildRequires: gcc-x86_64-linux-gnu
 %undefine CROSS_FLAG
 %endif # cross_compile
 
-%if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+# New RHEL and SLE include the required FS tools
+%if 0%{?rhel_version} >= 8 || 0%{?sle_version} >= 150000
 %global localtools 1
-BuildRequires: parted e2fsprogs libarchive
-Requires: parted autofs e2fsprogs libarchive
+BuildRequires: parted, e2fsprogs
+Requires: parted, autofs, e2fsprogs
+BuildRequires: libarchive.so.13()(64bit)
+Requires: libarchive.so.13()(64bit)
 %global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe
 %else
 %global localtools 0
@@ -40,6 +59,7 @@ Requires: %{name}-gpl_source = %{version}-%{release}
 Provides: parted = 3.2
 Provides: e2fsprogs = 1.42.12
 Provides: libarchive = 3.3.1
+Provides: libarchive.so.13()(64bit)
 %endif
 
 %description
@@ -118,14 +138,17 @@ image and to provide boot capability for %{_arch} architecture.
 Summary: Warewulf - System provisioning server
 Requires: %{name} = %{version}-%{release}
 Requires: %{name}-server-ipxe-%{_arch} = %{version}-%{release}
-Requires: mod_perl httpd tftp-server dhcp
-%if 0%{?rhel} >= 8
-BuildRequires: systemd
-%endif
-%if 0%{?sle_version:1}
-BuildRequires: systemd-rpm-macros
-%endif
-%selinux_requires
+Requires: %{httpsvc}, perl(Apache), %{tftpsvc}, dhcp
+
+%if 0%{?rhel_version} >= 8
+Requires(post): policycoreutils-python-utils
+%else # Not RHEL 8+
+%if 0%{sle_version} >= 150100
+Requires(post): policycoreutils
+%else # Not RHEL 8+ or SLE 15.1+
+Requires(post): policycoreutils-python
+%endif # sle_version
+%endif # rhel_version
 
 %description server
 Warewulf is an operating system management toolkit designed to facilitate
@@ -141,16 +164,16 @@ do not require this package.
 %post server
 # Update users and services on first time installation
 if [ $1 -eq 1 ] ; then
-usermod -a -G warewulf apache >/dev/null 2>&1 || :
+usermod -a -G warewulf %{httpgrp} >/dev/null 2>&1 || :
 %{__mkdir_p} %{wwsrvdir}/ipxe %{wwsrvdir}/bootstrap 2>/dev/null || :
-%if 0%{?sle_version:1} || 0%{?rhel} >= 8
-%systemd_post httpd.service >/dev/null 2>&1 || :
-%systemd_post tftp-server.socket >/dev/null 2>&1 || :
+%if 0%{?sle_version:1} || 0%{?rhel_version} >= 8
+%systemd_post %{httpdsvc}.service >/dev/null 2>&1 || :
+%systemd_post %{tftpsvc}.socket >/dev/null 2>&1 || :
 %else
-/usr/bin/systemctl --system enable httpd.service &> /dev/null || :
-/usr/bin/systemctl --system restart httpd.service  &> /dev/null || :
-/usr/bin/systemctl --system enable tftp-server.socket &> /dev/null || :
-/usr/bin/systemctl --system restart tftp-server.socket  &> /dev/null || :
+/usr/bin/systemctl --system enable %{httpdsvc}.service &> /dev/null || :
+/usr/bin/systemctl --system restart %{httpdsvc}.service  &> /dev/null || :
+/usr/bin/systemctl --system enable %{tftpsvc}.socket &> /dev/null || :
+/usr/bin/systemctl --system restart %{tftpsvc}.socket  &> /dev/null || :
 %endif
 fi
 
@@ -167,21 +190,21 @@ semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/ipxe(/.*)?' 2>/dev/null
 semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
 /sbin/restorecon -R %{wwsrvdir} || :
 fi
-%if 0%{?sle_version:1} || 0%{?rhel} >= 8
-%systemd_postun_with_restart httpd.service >/dev/null 2>&1 || :
-%systemd_postun_with_restart tftp-server.socket >/dev/null 2>&1 || :
+%if 0%{?sle_version:1} || 0%{?rhel_version} >= 8
+%systemd_postun_with_restart %{httpdsvc}.service >/dev/null 2>&1 || :
+%systemd_postun_with_restart %{tftpsvc}.socket >/dev/null 2>&1 || :
 %else
-/usr/bin/systemctl --system restart httpd.service  &> /dev/null || :
-/usr/bin/systemctl --system restart tftp-server.socket  &> /dev/null || :
+/usr/bin/systemctl --system restart %{httpdsvc}.service  &> /dev/null || :
+/usr/bin/systemctl --system restart %{tftpsvc}.socket  &> /dev/null || :
 %endif
 
 %files server
 %defattr(-, root, root)
 %config(noreplace) %{_sysconfdir}/warewulf/dhcpd-template.conf
 %config(noreplace) %{_sysconfdir}/warewulf/dnsmasq-template.conf
-%config(noreplace) %{_sysconfdir}/httpd/conf.d/warewulf-httpd.conf
+%config(noreplace) %{_sysconfdir}/%{httpsvc}/conf.d/warewulf-httpd.conf
 %{_bindir}/*
-%attr(0750, root, apache) %{_libexecdir}/warewulf/cgi-bin/
+%attr(0750, root, %{httpgrp}) %{_libexecdir}/warewulf/cgi-bin/
 %{perl_vendorlib}/Warewulf/Event/Bootstrap.pm
 %{perl_vendorlib}/Warewulf/Event/Dhcp.pm
 %{perl_vendorlib}/Warewulf/Event/Pxe.pm

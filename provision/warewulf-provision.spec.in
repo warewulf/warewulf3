@@ -17,19 +17,23 @@ BuildRequires: libselinux-devel, libacl-devel, libattr-devel
 BuildRequires: libuuid-devel, device-mapper-devel, xz-devel
 BuildRequires: libtirpc-devel
 
-%if 0%{?rhel_version:1}
+%if 0%{?rhel:1}
 %global httpsvc httpd
 %global httpgrp apache
 %global tftpsvc tftp-server
-%if %{rhel_version} >= 8
+%if %{rhel} >= 8
 BuildRequires: systemd
+%global dhcpsrv dhcp-server
+%else # rhel < 8
+%global dhcpsrv dhcp
 %endif # rhel 8
 %else # sle_version
 BuildRequires: systemd-rpm-macros
 %global httpsvc apache2
 %global httpgrp www
 %global tftpsvc tftp
-%endif # rhel_version
+%global dhcpsrv dhcp-server
+%endif # rhel
 
 # If multiple architectures are needed, set
 # --define="cross_compile 1" as an rpmbuild option
@@ -46,7 +50,7 @@ BuildRequires: gcc-x86_64-linux-gnu
 %endif # cross_compile
 
 # New RHEL and SLE include the required FS tools
-%if 0%{?rhel_version} >= 8 || 0%{?sle_version} >= 150000
+%if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
 %global localtools 1
 BuildRequires: parted, e2fsprogs
 Requires: parted, autofs, e2fsprogs
@@ -138,17 +142,17 @@ image and to provide boot capability for %{_arch} architecture.
 Summary: Warewulf - System provisioning server
 Requires: %{name} = %{version}-%{release}
 Requires: %{name}-server-ipxe-%{_arch} = %{version}-%{release}
-Requires: %{httpsvc}, perl(Apache), %{tftpsvc}, dhcp
+Requires: %{httpsvc}, perl(Apache), %{tftpsvc}, %{dhcpsrv}
 
-%if 0%{?rhel_version} >= 8
+%if 0%{?rhel} >= 8
 Requires(post): policycoreutils-python-utils
 %else # Not RHEL 8+
-%if 0%{sle_version} >= 150100
+%if 0%{?sle_version} >= 150100
 Requires(post): policycoreutils
 %else # Not RHEL 8+ or SLE 15.1+
 Requires(post): policycoreutils-python
 %endif # sle_version
-%endif # rhel_version
+%endif # rhel
 
 %description server
 Warewulf is an operating system management toolkit designed to facilitate
@@ -166,7 +170,7 @@ do not require this package.
 if [ $1 -eq 1 ] ; then
 usermod -a -G warewulf %{httpgrp} >/dev/null 2>&1 || :
 %{__mkdir_p} %{wwsrvdir}/ipxe %{wwsrvdir}/bootstrap 2>/dev/null || :
-%if 0%{?sle_version:1} || 0%{?rhel_version} >= 8
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_post %{httpdsvc}.service >/dev/null 2>&1 || :
 %systemd_post %{tftpsvc}.socket >/dev/null 2>&1 || :
 %else
@@ -190,7 +194,7 @@ semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/ipxe(/.*)?' 2>/dev/null
 semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
 /sbin/restorecon -R %{wwsrvdir} || :
 fi
-%if 0%{?sle_version:1} || 0%{?rhel_version} >= 8
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_postun_with_restart %{httpdsvc}.service >/dev/null 2>&1 || :
 %systemd_postun_with_restart %{tftpsvc}.socket >/dev/null 2>&1 || :
 %else

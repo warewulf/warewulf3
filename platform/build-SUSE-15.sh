@@ -1,6 +1,9 @@
 #!/bin/bash
 
-zypper install autoconf automake libacl-devel libattr-devel libuuid-devel nfs-kernel-server device-mapper-devel xz-devel apache2 apache2-mod_perl tftp dhcp-server xinetd tcpdump python3-policycoreutils util-linux mariadb perl-DBD-mysql libopenssl-devel wget gcc ipmitool ipxe-bootimgs python3 make libtirpc-devel parted autofs bzip2 ntp perl-CGI
+# For SLES-15, add the backport repo to zypper. Replace [-SPx] with the correct service pack
+# https://download.opensuse.org/repositories/openSUSE:/Backports:/SLE-15[-SPx]/standard
+
+zypper install autoconf automake libacl-devel libattr-devel libuuid-devel nfs-kernel-server device-mapper-devel xz-devel apache2 apache2-mod_perl xinetd tftp dhcp-server tcpdump python3-policycoreutils util-linux mariadb perl-DBD-mysql libopenssl-devel wget gcc ipmitool ipxe-bootimgs python3 make libtirpc-devel parted autofs bzip2 ntp perl-CGI
 
 if [ $? -eq 0 ]; then
     for SUBDIR in common cluster vnfs ipmi provision; do

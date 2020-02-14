@@ -5,8 +5,11 @@
 
 # Use DNF as the package manager
 PKG_MGR=dnf
-EXTRA_OPTS="--releasever=8" 
+EXTRA_ARGS="--releasever=8" 
 PLATFORMID="platform:el8"
+
+# Uncomment to disable GPG checks on added repos
+# REPO_NOGPGCHECK=1
 
 . include-rhel
 

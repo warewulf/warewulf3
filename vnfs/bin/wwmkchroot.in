@@ -19,6 +19,8 @@ usage() {
     echo
     echo "OPTIONS:"
     echo "    -d        Debug output"
+    echo "    -g        Disable install GPG checks"
+    echo "    -v        Verbose output"
     echo "    -h        Show usage"
     echo
     echo "TEMPLATE_NAME (select one of the following):"
@@ -38,23 +40,34 @@ usage() {
     echo
 }
 
+unset VERBOSE
+unset DEBUG
+unset NOGPGCHECK
+DEVNULL="/dev/null"
 
 ### Argument processing
-while getopts "a:dhv" opt; do
+while getopts ":dhvg" opt; do
     case $opt in
         d)
             VERBOSE=1
+            DEBUG=1
+            DEVNULL="/dev/stdout"
             set -x
         ;;
         v)
             VERBOSE=1
         ;;
+       \?)
+            printf "ERROR: $OPTARG not recognized.\n\n" 1>&2
+            usage
+            exit 1
+        ;;
         h)
             usage
             exit 0
         ;;
-        a)
-            var=$OPTARG
+        g)
+            NOGPGCHECK=1
         ;;
     esac
 done
@@ -67,43 +80,50 @@ export CHROOTDIR=$1
 shift
 
 if [ -z "$VNFSTEMPLATE" ]; then
+    printf "ERROR: Missing VNFS template name\n\n"
     usage
     exit 1
 fi
 
-#### Loading templates
-if [ -d "$libexecdir/warewulf/wwmkchroot" ]; then
-    pushd $libexecdir/warewulf/wwmkchroot >/dev/null
-    test -n "$VERBOSE" && echo "Loading general template functions"
-    if [ -f "./functions" ]; then
-        . "./functions"
-    else
-        echo "$0: Error: Can not find $libexecdir/warewulf/wwmkchroot/functions"
-        exit 1;
-    fi
-
-    test -n "$VERBOSE" && echo "Loading $VNFSTEMPLATE template"
-    if [ -f "$VNFSTEMPLATE.tmpl" ]; then
-        . "$VNFSTEMPLATE.tmpl"
-    else
-        echo "$0: Error: Can not find $libexecdir/warewulf/wwmkchroot/$VNFSTEMPLATE.tmpl"
-        exit 1
-    fi
-    popd >/dev/null
-else
+#### Check for template directory
+if ! [ -d "$libexecdir/warewulf/wwmkchroot" ]; then
     echo "ERROR: Template directory ($libexecdir/warewulf/wwmkchroot) does not exist!"
     exit 1
 fi
+
+pushd $libexecdir/warewulf/wwmkchroot >$DEVNULL
+
+#### Load functions
+test -n "$VERBOSE" && printf "\n==== Loading general template functions\n"
+if [ -f "./functions" ]; then
+    . "./functions"
+else
+    echo "ERROR: Can not find $libexecdir/warewulf/wwmkchroot/functions"
+    exit 1
+fi
+
+#### Load OS templates
+test -n "$VERBOSE" && printf "\n==== Loading template\n"
+if [ -f "$VNFSTEMPLATE.tmpl" ]; then
+    test -n "$VERBOSE" && echo "Using $libexecdir/warewulf/wwmkchroot/$VNFSTEMPLATE.tmpl"
+    . "$VNFSTEMPLATE.tmpl"
+else
+    echo "ERROR: Can not find $libexecdir/warewulf/wwmkchroot/$VNFSTEMPLATE.tmpl"
+    exit 1
+fi
+
+popd >$DEVNULL
 
 if [ -z "$CHROOTDIR" ]; then
     echo "ERROR: You must define the directory to build the chroot"
     usage
     exit 1
 fi
+
 #### Running template functions
-test -n "$VERBOSE" && echo "Starting template functions"
+test -n "$VERBOSE" && printf "\n==== Starting chroot build\n"
 for function in $FUNCTIONS; do
-    test -n "$VERBOSE" && echo "Running: $function"
+    test -n "$VERBOSE" && echo "== Running: $function"
     $function || exit 1
 done
 

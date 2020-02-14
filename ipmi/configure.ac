@@ -37,7 +37,7 @@ if test "${prefix}" = "$WAREWULF_PREFIX"; then
    AC_MSG_RESULT([identical (${prefix})])
 else
    AC_MSG_RESULT([MISMATCH (${prefix} vs. $WAREWULF_PREFIX), forcing install prefix on all paths])
-   force_prefix="${prefix}"
+   AC_PREFIX_DEFAULT([$WAREWULF_PREFIX])
 fi
 
 AC_MSG_CHECKING([for Warewulf's configuration for statedir])
@@ -45,7 +45,7 @@ eval `$WWCONFIGBIN -s statedir`
 if test -z "$WAREWULF_STATEDIR"; then
     AC_MSG_ERROR([Warewulf statedir not found])
 fi
-WAREWULF_STATEDIR="$force_prefix$WAREWULF_STATEDIR"
+WAREWULF_STATEDIR="$WAREWULF_STATEDIR"
 AC_MSG_RESULT($WAREWULF_STATEDIR)
 AC_SUBST(WAREWULF_STATEDIR)
 
@@ -54,7 +54,7 @@ eval `$WWCONFIGBIN -s libexecdir`
 if test -z "$WAREWULF_LIBEXECDIR"; then
     AC_MSG_ERROR([Warewulf libexecdir not found])
 fi
-WAREWULF_LIBEXECDIR="$force_prefix$WAREWULF_LIBEXECDIR"
+WAREWULF_LIBEXECDIR="$WAREWULF_LIBEXECDIR"
 AC_MSG_RESULT($WAREWULF_LIBEXECDIR)
 AC_SUBST(WAREWULF_LIBEXECDIR)
 

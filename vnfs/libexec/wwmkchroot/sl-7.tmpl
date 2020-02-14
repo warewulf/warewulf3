@@ -2,6 +2,14 @@
 
 # The general RHEL include has all of the necessary functions, but requires
 # some basic variables specific to each chroot type to be defined.
+# We have to tell YUM and DNF what's being installed
+
+EXTRA_ARGS="--releasever=7"
+PLATFORMID="platform:el7"
+
+# Uncomment to disable GPG checks on added repos
+# REPO_NOGPGCHECK=1
+
 . include-rhel
 
 # Define the location of the YUM repository

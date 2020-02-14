@@ -1,6 +1,17 @@
-eval `wwconfig -as`
+#!/bin/bash
 
-MEDIA_MOUNTPATH="$CHROOTDIR/tmp/wwmkchroot.mount"
+# Warewulf wwmkchroot general functions
+
+# Set default WW environment
+eval $(wwconfig -as)
+
+# Set temporary media mount directory within the node image;
+# directory is also be created on the host, with symlinks to
+# media within the node image (for node image bootstrap)
+MEDIA_TMP="/tmp/wwmkchroot.mount"
+
+# Set temporary mountpath within the chroot
+MEDIA_MOUNTPATH="${CHROOTDIR}${MEDIA_TMP}"
 
 export FUNCTIONS="sanity_check
                   distro_check
@@ -35,14 +46,16 @@ set_as_overlay() {
 
 sanity_check() {
     if [ ! -x $WAREWULF_PREFIX/bin/cluster-env ]; then
-        echo "warewulf-cluster package is recommended on nodes you are building VNFS images on.";
-        sleep 2;
+        echo "The \"warewulf-cluster\" package is recommended on nodes where you are building VNFS images."
+        sleep 2
     else
         $WAREWULF_PREFIX/bin/cluster-env;
     fi
     if [ -z "$PKGLIST" ]; then
-        echo "ERROR: You must define the \$PKGLIST variable in the template!"
+        echo "ERROR: You must define the \$PKGLIST variable in the template"
         return 1
+    else
+       test -n "$DEBUG" && echo "_PACKAGES_ $PKGLIST" | tr -s [:space:] "\n" | sort
     fi
     return 0
 }
@@ -52,24 +65,38 @@ distro_check() {
 }
 
 init() {
+    # Create the chroot directory
     if [ ! -d "$CHROOTDIR" ]; then
         if ! mkdir -p "$CHROOTDIR"; then
             echo "ERROR: Could not create directory $CHROOTDIR"
             exit 1
         fi
     fi
+    test -n "$VERBOSE" && echo "Installing into $(readlink -e $CHROOTDIR)"
+
+    # If ISOs are defined, mount them into the chroot temp directory
+    # Symlinks are added outside of the chroot for bootstrapping
     if [ -n "$INSTALL_ISO" ]; then
+        test -n "$DEBUG" && echo INSTALL_ISO=$INSTALL_ISO
         count=0
-        for i in `echo $INSTALL_ISO | sed -e 's/,/ /'`; do
+        mkdir -p $MEDIA_TMP
+        for i in $(echo $INSTALL_ISO | sed -e 's/,/ /'); do
             if [ -f "$i" ]; then
-                if ! grep -q "^$i" /proc/mounts; then
-                    mkdir -p $MEDIA_MOUNTPATH.$count
-                    if ! mount -o loop $i $MEDIA_MOUNTPATH.$count; then
-                        echo "ERROR: Could not mount: $INSTALL_ISO"
+                j=$(readlink -enq $i)
+                test -n "$VERBOSE" && echo Mounting $count:$j
+                if ! mount | grep -q "^$j"; then
+                    mkdir -p $MEDIA_MOUNTPATH/$count
+                    ln -sT $MEDIA_MOUNTPATH/$count $MEDIA_TMP/$count
+                    if ! mount -o loop $j $MEDIA_MOUNTPATH/$count; then
+                        echo "ERROR: Could not mount: $j"
                         cleanup
                         exit 1
+                    else
+                        test -n "$DEBUG" && grep "^$j" /proc/mounts
                     fi
-                    count=`expr $count + 1`
+                    count=$(expr $count + 1)
+                else
+                    test -n "$VERBOSE" && echo " - Already mounted"
                 fi
             else
                 echo "ERROR: Could not locate INSTALL_ISO: $INSTALL_ISO"
@@ -130,7 +157,7 @@ configure_rootacct() {
 }
 
 configure_fstab() {
-    WWIPADDR=`perl -e '
+    WWIPADDR=$(perl -e '
         use Warewulf::Network;
         use Warewulf::Config;
 
@@ -140,7 +167,7 @@ configure_fstab() {
         my $ipaddr = $netobj->ipaddr("$netdev");
 
         print "$ipaddr\n";
-    '`
+    ')
 
     echo "#GENERATED_ENTRIES#" > $CHROOTDIR/etc/fstab
     echo "tmpfs /dev/shm tmpfs defaults 0 0" >> $CHROOTDIR/etc/fstab
@@ -186,7 +213,7 @@ configure_sshkeys() {
 
     mkdir -m 0700 -p $CHROOTDIR/root/.ssh 2>/dev/null
     > $CHROOTDIR/root/.ssh/authorized_keys
-    for i in `ls /root/.ssh/*.pub 2>/dev/null`; do
+    for i in $(ls /root/.ssh/*.pub 2>/dev/null); do
         cat $i >> $CHROOTDIR/root/.ssh/authorized_keys
     done
     return 0
@@ -219,21 +246,27 @@ configure_timezone() {
 }
 
 configure_ntp() {
-    NETDEV=`grep "^network device =" $WAREWULF_SYSCONFDIR/warewulf/provision.conf | cut -d = -f 2`
+    NETDEV=$(grep "^network device =" $WAREWULF_SYSCONFDIR/warewulf/provision.conf | cut -d = -f 2)
     if [ -f "/etc/sysconfig/network-scripts/ifcfg-$NETDEV" ]; then
         . /etc/sysconfig/network-scripts/ifcfg-$NETDEV
         if [ -n "$IPADDR" -a "x$BOOTPROTO" == "xstatic" ]; then
-            echo "# Written by Warewulf:wwmkchroot" >> $CHROOTDIR/etc/ntp.conf
+            [ -n $VERBOSE ] && echo "Adding ntp and chrony configuration files to chroot"
+            echo "# Written by Warewulf:wwmkchroot" > $CHROOTDIR/etc/ntp.conf
+            echo "# Written by Warewulf:wwmkchroot" > $CHROOTDIR/etc/chrony.conf
+
             echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/ntp.conf
+            echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/chrony.conf
 
             echo "restrict default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
             echo "restrict -6 default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
-
             echo "restrict 127.0.0.1" >> $CHROOTDIR/etc/ntp.conf
             echo "restrict -6 ::1" >> $CHROOTDIR/etc/ntp.conf
 
             echo "server $IPADDR prefer" >> $CHROOTDIR/etc/ntp.conf
+            echo "server $IPADDR prefer" >> $CHROOTDIR/etc/chrony.conf
+
             echo "restrict $IPADDR mask 255.255.255.255 nomodify notrap noquery" >> $CHROOTDIR/etc/ntp.conf
+            echo "allow $IPADDR" >> $CHROOTDIR/etc/chrony.conf
         fi
     fi
     return 0
@@ -245,13 +278,20 @@ configure_services() {
 
 cleanup() {
     if [ -n "$INSTALL_ISO" ]; then
-        for i in `ls -d $MEDIA_MOUNTPATH.*`; do
-            if umount $i; then
-                rmdir $i
-            else
-                echo "ERROR: Could not unmount $i"
-            fi
-        done
+        if [ -n "$DEBUG" ]; then
+            echo "WARNING: Debug enabled; leaving media mounts in place!"
+        else
+            rm -f $MEDIA_TMP/*
+            rmdir $MEDIA_TMP
+            for i in $(ls -d $MEDIA_MOUNTPATH/*); do
+                if umount $i; then
+                    test -n "$VERBOSE" && echo "$i unmounted"
+                    rmdir $i
+                else
+                    echo "WARNING: Could not unmount $i"
+                fi
+            done
+        fi
     fi
     return 0
 }

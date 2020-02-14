@@ -256,10 +256,7 @@ exec()
         return();
     }
 
-    if (! $command) {
-        &eprint("You must provide a command!\n\n");
-        print $self->help();
-    } elsif ($command eq "set") {
+    if ($command eq "set") {
 
         if (! @ARGV) {
             &eprint("To make changes, you must provide a list of nodes to operate on.\n");

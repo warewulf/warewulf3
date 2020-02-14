@@ -19,11 +19,11 @@ if [ $_UID -lt "$_UID_MIN" -a $_UID -ne 0 ]; then
 fi
 
 
-if [ ! -f "$HOME/.ssh/config" -a ! -f "$HOME/.ssh/cluster" ]; then
+if [ ! -f "$HOME/.ssh/config" ] && [ ! -f "$HOME/.ssh/cluster" ]; then
     echo "Configuring SSH for cluster access"
     install -d -m 700 $HOME/.ssh
     ssh-keygen -t rsa -f $HOME/.ssh/cluster -N '' -C "Warewulf Cluster key" > /dev/null 2>&1
-    if [ -f $HOME/.ssh/authorized_keys -a ! -w $HOME/.ssh/authorized_keys ]; then
+    if [ -f $HOME/.ssh/authorized_keys ] && [ ! -w $HOME/.ssh/authorized_keys ]; then
       echo "[INFO] Making $HOME/.ssh/authorized_keys writable by user"
       touch $HOME/.ssh/authorized_keys
       chmod 0600 $HOME/.ssh/authorized_keys

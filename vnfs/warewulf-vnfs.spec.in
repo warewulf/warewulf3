@@ -2,10 +2,10 @@
 %define debug_package %{nil}
 %{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
-Summary: Warewulf - Virtual Node File System support
 Name: warewulf-vnfs
 Version: @PACKAGE_VERSION@
 Release: %{_rel}%{?dist}
+Summary: Warewulf - Virtual Node File System support
 License: US Dept. of Energy (BSD-like)
 URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz

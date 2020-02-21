@@ -3,10 +3,11 @@
 %{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
 Name: warewulf-provision
-Summary: Warewulf - System provisioning core
 Version: @PACKAGE_VERSION@
 Release: %{_rel}%{?dist}
+Summary: Warewulf - System provisioning core
 License: US Dept. of Energy (BSD-like) and BSD-3 Clause
+URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common

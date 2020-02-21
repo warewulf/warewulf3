@@ -134,7 +134,7 @@ This package includes tools and files to create an initramfs
 image and to provide boot capability for %{_arch} architecture.
 
 %files initramfs-%{_arch}
-%{wwsrvdir}/initramfs/%{_arch}
+%{wwsrvdir}/warewulf/initramfs/%{_arch}
 
 
 # ====================
@@ -169,7 +169,7 @@ do not require this package.
 # Update users and services on first time installation
 if [ $1 -eq 1 ] ; then
 usermod -a -G warewulf %{httpgrp} >/dev/null 2>&1 || :
-%{__mkdir_p} %{wwsrvdir}/ipxe %{wwsrvdir}/bootstrap 2>/dev/null || :
+%{__mkdir_p} %{wwsrvdir}/warewulf/ipxe %{wwsrvdir}/warewulf/bootstrap 2>/dev/null || :
 %if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_post %{httpdsvc}.service >/dev/null 2>&1 || :
 %systemd_post %{tftpsvc}.socket >/dev/null 2>&1 || :
@@ -184,7 +184,7 @@ fi
 # Reset selinux context on any installation or update
 /usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/warewulf/ipxe(/.*)?' 2>/dev/null || :
 /usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
-/sbin/restorecon -R %{wwsrvdir} || :
+/sbin/restorecon -R %{wwsrvdir}/warewulf || :
 
 
 %postun server

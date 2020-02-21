@@ -22,6 +22,7 @@
 
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
 Name: warewulf-common
 Summary: Scalable systems management suite for high performance clusters
@@ -69,7 +70,8 @@ handlers and a basic command line interface.
 
 
 %build
-%configure
+WAREWULF_STATEDIR=%{wwsrvdir}
+%configure --localstatedir=%{wwsrvdir}
 %{__make} %{?mflags}
 
 

@@ -1,5 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}
 
 Summary: Warewulf - HPC cluster configuration
 Name: warewulf-cluster
@@ -19,7 +20,7 @@ large scale deployments of systems on physical, virtual and cloud-based
 infrastructures. It facilitates elastic and large deployments consisting
 of groups of homogenous systems.
 
-Warewulf Cluster contains tools and libraries to facilitate the initial
+Warewulf Cluster contains tools and libraries to facilitate the
 configuration of a cluster and its nodes.
 
 
@@ -28,7 +29,7 @@ configuration of a cluster and its nodes.
 
 
 %build
-%configure
+%configure --localstatedir=%{wwsrvdir}
 %{__make} %{?mflags}
 
 
@@ -40,7 +41,7 @@ configuration of a cluster and its nodes.
 %defattr(-, root, root)
 %doc AUTHORS ChangeLog INSTALL NEWS README TODO
 %license LICENSE COPYING
-%{_sysconfdir}/profile.d/*
+{_sysconfdir}/profile.d/*
 %{_bindir}/*
 %{_libexecdir}/warewulf/wwinit/*
 %{perl_vendorlib}/Warewulf/Module/Cli/*

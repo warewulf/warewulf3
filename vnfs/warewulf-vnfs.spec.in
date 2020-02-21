@@ -1,5 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
 Summary: Warewulf - Virtual Node File System support
 Name: warewulf-vnfs
@@ -31,7 +32,7 @@ node operating systems.
 
 
 %build
-%configure
+%configure --localstatedir=%{wwsrvdir}
 %{__make} %{?mflags}
 
 

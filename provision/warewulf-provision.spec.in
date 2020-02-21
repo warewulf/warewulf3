@@ -1,6 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}/warewulf}}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
 Name: warewulf-provision
 Summary: Warewulf - System provisioning core
@@ -82,7 +82,7 @@ administrate system provisioning.  To perform provisioning, the
 
 
 %build
-%configure %{?CONF_FLAGS} %{?CROSS_FLAG}
+%configure --localstatedir=%{wwsrvdir} %{?CONF_FLAGS} %{?CROSS_FLAG}
 %{__make} %{?mflags}
 
 
@@ -182,17 +182,17 @@ usermod -a -G warewulf %{httpgrp} >/dev/null 2>&1 || :
 fi
 
 # Reset selinux context on any installation or update
-/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/ipxe(/.*)?' 2>/dev/null || :
-/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/bootstrap(/.*)?' 2>/dev/null || :
+/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/warewulf/ipxe(/.*)?' 2>/dev/null || :
+/usr/sbin/semanage fcontext -a -t httpd_sys_content_t '%{wwsrvdir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
 /sbin/restorecon -R %{wwsrvdir} || :
 
 
 %postun server
 # Remove selinux context on package removal. Don't disable web or tftp services.
 if [ $1 -eq 0 ] ; then
-semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/ipxe(/.*)?' 2>/dev/null || :
+semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/warewulf/ipxe(/.*)?' 2>/dev/null || :
 semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
-/sbin/restorecon -R %{wwsrvdir} || :
+/sbin/restorecon -R %{wwsrvdir}/warewulf || :
 fi
 %if 0%{?sle_version:1} || 0%{?rhel} >= 8
 %systemd_postun_with_restart %{httpdsvc}.service >/dev/null 2>&1 || :

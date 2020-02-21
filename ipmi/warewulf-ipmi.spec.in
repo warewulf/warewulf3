@@ -1,6 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}/warewulf}}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
 Summary: Warewulf - IPMI support
 Name: warewulf-ipmi
@@ -21,7 +21,6 @@ Requires: ipmitool
 %define CONF_FLAGS "--with-local-ipmitool=yes"
 %else
 %global localipmi 0
-Provides: ipmitool = 1.8.18
 %endif
 
 BuildRequires: warewulf-common openssl-devel
@@ -41,7 +40,7 @@ cluster nodes.
 
 
 %build
-%configure %{?CONF_FLAGS}
+%configure --localstatedir=%{wwsrvdir} %{?CONF_FLAGS}
 %{__make} %{?mflags}
 
 
@@ -77,7 +76,7 @@ Warewulf IPMI-initramfs adds IPMI configuration to the %{_arch} cluster
 node boot image.
 
 %files initramfs-%{_arch}
-%{wwsrvdir}/initramfs/%{_arch}/capabilities/setup-ipmi
+%{wwsrvdir}/warewulf/initramfs/%{_arch}/capabilities/setup-ipmi
 
 
 # ====================

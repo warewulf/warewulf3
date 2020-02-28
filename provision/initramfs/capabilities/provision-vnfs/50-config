@@ -39,5 +39,6 @@ if [ -z "${WWNOFSTABUPDATE}" ]; then
     else
         cp -f /tmp/fstab "${NEWROOT}/etc/fstab"
     fi
+    cp /tmp/fstab "${NEWROOT}/etc/fstab.ww.generated_entries"
 fi
 

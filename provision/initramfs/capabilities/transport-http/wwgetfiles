@@ -97,6 +97,9 @@ while true; do
                         else
                             chmod $mode "$NEWROOT/$path.ww$timestamp"
                         fi
+                        if [ -z "${WWNOFSTABUPDATE}" -a "$path" = "/etc/fstab" -a -f "$NEWROOT/etc/fstab.ww.generated_entries" ]; then
+                            sed -i "/#GENERATED_ENTRIES#/r $NEWROOT/etc/fstab.ww.generated_entries" "$NEWROOT/$path.ww$timestamp"
+                        fi
                         mv "$NEWROOT/$path.ww$timestamp" "$NEWROOT/$path"
                         chown $uid "$NEWROOT/$path"
                         chgrp $gid "$NEWROOT/$path"

@@ -36,3 +36,5 @@ provision/initramfs/capabilities/*/capability.cpio
 provision/initramfs/capabilities/*/rootfs/
 provision/initramfs/initramfs.cpio
 provision/initramfs/rootfs/
+vscode.code-workspace
+.vstags

@@ -291,6 +291,13 @@ exec()
 
             my $path = abs_path($path);
 
+            if ($path =~ /^(\/.+)$/) {
+                $path = $1;
+            } else {
+                &eprint("Import filename contains illegal characters.\n");
+                return undef;
+            }
+
             @statinfo = lstat($path);
             if (-e _) {
                 my ($mode, $uid, $gid) = @statinfo[(2, 4, 5)];

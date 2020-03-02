@@ -1,56 +1,78 @@
+# Terminate specfile builds on unrecognized or unsupported OS to avoid
+# unexpected errors. This is easily overridden by setting the appropriate
+# macro (rhel, sle_version) on the rpmbuild command line.
+# For example, if using Fedora 20 to 27, "--define rhel 7"
+%if 0%{!?rhel:1} && 0%{?rhel_version:1}
+%global rhel %{rhel_version}
+%endif
+%if 0%{?rhel:1} && 0%{?rhel} >= 7
+# RHEL >= 7.0 found; continue
+%else
+%if 0%{?sle_version:1} && 0%{?sle_version} >= 120100
+# SLES >= 12.1 found; continue
+%else
+%{error: "Detected operating system is not supported."}
+%endif # sle_version
+%endif # rhel
+
+# Defining both would have unpredictable results.
+%if 0%{?rhel:1} && 0%{?sle_version:1}
+%{error: "Both rhel and sle_version macros defined. Only one is allowed."}
+%endif
+
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
+%define debug_package %{nil}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
 Name: warewulf-common
-Summary: A suite of tools for clustering
 Version: @PACKAGE_VERSION@
 Release: %{_rel}%{?dist}
+Summary: Scalable systems management suite for high performance clusters
 License: US Dept. of Energy (BSD-like)
-Group: System Environment/Clustering
+URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Conflicts: warewulf < 3
 BuildArch: noarch
-BuildRoot: %{?_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: autoconf, automake
-Requires: perl-DBD-MySQL perl-DBD-Pg perl-DBD-SQLite perl-JSON-PP
-%if 0%{?rhel} >= 7
-Requires: mariadb
+Requires: perl(DBD::mysql), perl(DBD::Pg), perl(DBD::SQLite), perl(JSON::PP)
+
+%if 0%{?rhel:1} || 0%{?sle_version} > 150000
+%global sql_name mariadb
+%global daemon_name mariadb
 %else
-Requires: mysql
+%global sql_name mysql
+%global daemon_name mysqld
 %endif
+
+%if 0%{?rhel} >= 8
+BuildRequires: systemd
+%endif
+%if 0%{?sle_version:1}
+BuildRequires: systemd-rpm-macros
+%endif
+
+Requires: %sql_name
 
 %description
-Warewulf 3 is a set of utilities designed to better enable
-utilization and maintenance of clusters or groups of computers.
+Warewulf is an operating system management toolkit designed to facilitate
+large scale deployments of systems on physical, virtual and cloud-based
+infrastructures. It facilitates elastic and large deployments consisting
+of groups of homogenous systems.
 
-This is the main package which includes the common libraries and
-command line interface.
+Warewulf Common contains the core functionality of Warewulf. It provides
+the base libraries that are shared and utilized by the other Warewulf
+modules as well as the backend data store interface, event and trigger
+handlers and a basic command line interface.
 
-%package localdb
-Summary: Warewulf - Common Module - Localdb
-Group: System Environment/Clustering
-Requires: %{name} = %{version}-%{release}
-%if 0%{?rhel} >= 7
-Requires: mariadb-server
-%else
-Requires: mysql-server
-%endif
-
-%description localdb
-Warewulf 3 is a set of utilities designed to better enable
-utilization and maintenance of clusters or groups of computers. The
-provision module provides functionality for provisioning, configuring,
-and booting systems.
-
-This package is a metapackage that installs a local MySQL or MariaDB instance.
-Required only for installs that need a local database.
 
 %prep
 %setup -q
 
 
 %build
-%configure
+WAREWULF_STATEDIR=%{wwsrvdir}
+%configure --localstatedir=%{wwsrvdir}
 %{__make} %{?mflags}
 
 
@@ -59,33 +81,21 @@ Required only for installs that need a local database.
 
 
 %pre
-groupadd -r warewulf >/dev/null 2>&1 || :
+/usr/sbin/groupadd -r warewulf >/dev/null 2>&1 || :
 
 
 %post
-if [ $1 -eq 2 ] ; then
+# Canonicalize on upgrade, before old package is removed
+if [ $1 -gt 1 ] ; then
     %{_bindir}/wwsh object canonicalize -t node >/dev/null 2>&1 || :
     %{_bindir}/wwsh object canonicalize -t file >/dev/null 2>&1 || :
 fi
 
-%post localdb
-
-%if 0%{?rhel} >= 7
-systemctl start mariadb >/dev/null 2>&1 || :
-systemctl enable mariadb >/dev/null 2>&1 || :
-%else
-service mysqld start >/dev/null 2>&1 || :
-chkconfig mysqld on >/dev/null 2>&1 || :
-%endif
-
-
-%clean
-rm -rf $RPM_BUILD_ROOT
-
 
 %files
 %defattr(-, root, root)
-%doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO LICENSE
+%doc AUTHORS ChangeLog INSTALL NEWS README TODO
+%license COPYING LICENSE
 %attr(0755, root, warewulf) %dir %{_sysconfdir}/warewulf/
 %attr(0755, root, warewulf) %dir %{_sysconfdir}/warewulf/defaults/
 %attr(0444, root, warewulf) %{_libexecdir}/warewulf/wwinit/functions
@@ -99,7 +109,48 @@ rm -rf $RPM_BUILD_ROOT
 %{_libexecdir}/warewulf/wwinit
 %{perl_vendorlib}/*
 
+
+# ====================
+%package localdb
+Summary: Warewulf - Install local database server
+Requires: %{sql_name}-server
+
+%description localdb
+Warewulf is an operating system management toolkit designed to facilitate
+large scale deployments of systems on physical, virtual and cloud-based
+infrastructures. It facilitates elastic and large deployments consisting
+of groups of homogenous systems.
+
+This metapackage installs a local MySQL or MariaDB instance. It is not
+required for installs that will use an external database server.
+
+By default, removing this package will not remove or disable the installed
+SQL server.
+
+%post localdb
+# Start services on install.
+# For upgrades or removal, restart after the old package is removed.
+if [ $1 -eq 1 ] ; then
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%systemd_post %{daemon_name}.service
+%else
+/usr/bin/systemctl --no-reload preset %{daemon_name}.service  &> /dev/null || :
+%endif
+
+/usr/bin/systemctl reenable %{daemon_name}.service &> /dev/null || :
+/usr/bin/systemctl restart %{daemon_name}.service  &> /dev/null || : 
+fi
+
+%postun localdb
+%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%systemd_postun_with_restart %{daemon_name}.service
+%else
+/usr/bin/systemctl try-restart %{daemon_name}.service  &> /dev/null || :
+%endif
+
 %files localdb
 %defattr(-, root, root)
 
+
+# ====================
 %changelog

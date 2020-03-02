@@ -13,13 +13,12 @@ AC_SUBST(WWCONFIGBIN)
 
 AC_EXPAND_DIR(prefix, "${prefix}")
 WAREWULF_PREFIX=`$WWCONFIGBIN PREFIX`
-force_prefix=""
 AC_MSG_CHECKING([warewulf-common prefix vs. current prefix])
 if test "${prefix}" = "$WAREWULF_PREFIX"; then
    AC_MSG_RESULT([identical (${prefix})])
 else
    AC_MSG_RESULT([MISMATCH (${prefix} vs. $WAREWULF_PREFIX), forcing install prefix on all paths])
-   force_prefix="${prefix}"
+   AC_PREFIX_DEFAULT([$WAREWULF_PREFIX])
 fi
 
 AC_EXPAND_DIR(datadir, "${datadir}")
@@ -29,7 +28,7 @@ eval `$WWCONFIGBIN -s statedir`
 if test -z "$WAREWULF_STATEDIR"; then
     AC_MSG_ERROR([Warewulf statedir not found])
 fi
-WAREWULF_STATEDIR="$force_prefix$WAREWULF_STATEDIR"
+WAREWULF_STATEDIR="$WAREWULF_STATEDIR"
 AC_MSG_RESULT($WAREWULF_STATEDIR)
 AC_SUBST(WAREWULF_STATEDIR)
 
@@ -72,7 +71,7 @@ if test -n "$withval" -a "x$withval" != "xno" ; then
    PERL_VENDORLIB=$withval
 fi
 ])
-PERL_VENDORLIB="$force_prefix$PERL_VENDORLIB"
+PERL_VENDORLIB="$PERL_VENDORLIB"
 AC_MSG_RESULT($PERL_VENDORLIB)
 AC_SUBST(PERL_VENDORLIB)
 

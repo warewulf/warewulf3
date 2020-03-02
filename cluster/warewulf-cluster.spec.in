@@ -1,27 +1,27 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
-
 %define debug_package %{nil}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
-Summary: Tools used for clustering with Warewulf
 Name: warewulf-cluster
 Version: @PACKAGE_VERSION@
 Release: %{_rel}%{?dist}
+Summary: Warewulf - HPC cluster configuration
 License: US Dept. of Energy (BSD-like)
-Group: System Environment/Clustering
 URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
-Requires: warewulf-common warewulf-provision
+Requires: warewulf-common, warewulf-provision
 BuildRequires: warewulf-common
 Conflicts: warewulf < 3
-BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
 %description
-Warewulf 3 is a set of utilities designed to better enable
-utilization and maintenance of clusters or groups of computers.
+Warewulf is an operating system management toolkit designed to facilitate
+large scale deployments of systems on physical, virtual and cloud-based
+infrastructures. It facilitates elastic and large deployments consisting
+of groups of homogenous systems.
 
-This package contains tools to facilitate management of a Cluster
-with Warewulf.
+Warewulf Cluster contains tools and libraries to facilitate the
+configuration of a cluster and its nodes.
 
 
 %prep
@@ -29,7 +29,7 @@ with Warewulf.
 
 
 %build
-%configure
+%configure --localstatedir=%{wwsrvdir}
 %{__make} %{?mflags}
 
 
@@ -37,16 +37,14 @@ with Warewulf.
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
 
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-
 %files
 %defattr(-, root, root)
-%doc AUTHORS COPYING ChangeLog INSTALL LICENSE NEWS README TODO
+%doc AUTHORS ChangeLog INSTALL NEWS README TODO
+%license LICENSE COPYING
 %{_sysconfdir}/profile.d/*
 %{_bindir}/*
 %{_libexecdir}/warewulf/wwinit/*
 %{perl_vendorlib}/Warewulf/Module/Cli/*
+
 
 %changelog

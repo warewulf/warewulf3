@@ -1,50 +1,46 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
-
 %define debug_package %{nil}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
 
-Summary: IPMI Module for Warewulf
 Name: warewulf-ipmi
 Version: @PACKAGE_VERSION@
 Release: %{_rel}%{?dist}
-#Release: 1%{?dist}
+Summary: Warewulf - IPMI support
 License: US Dept. of Energy (BSD-like)
-Group: System Environment/Clustering
 URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Conflicts: warewulf < 3
-Requires: warewulf-common %{name}-initramfs-%{_arch} = %{version}-%{release}
+Requires: warewulf-common
+Requires: %{name}-initramfs-%{_arch} = %{version}-%{release}
 
 %if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+%global localipmi 1
 BuildRequires: ipmitool
 Requires: ipmitool
 %define CONF_FLAGS "--with-local-ipmitool=yes"
+%else
+%global localipmi 0
 %endif
 
 BuildRequires: warewulf-common openssl-devel
-BuildRoot: %{?_tmppath}%{!?_tmppath:/var/tmp}/%{name}-%{version}-%{release}-root
 
 %description
-Warewulf 3 is a set of utilities designed to better enable
-utilization and maintenance of clusters or groups of computers.
+Warewulf is an operating system management toolkit designed to facilitate
+large scale deployments of systems on physical, virtual and cloud-based
+infrastructures. It facilitates elastic and large deployments consisting
+of groups of homogenous systems.
 
-This is the IPMI module package.  It contains Warewulf modules for
-adding IPMI functionality.
-
-%package initramfs-%{_arch}
-Summary: Warewulf - IPMI Module - Initramfs IPMI Capabilities for %{_arch}
-Group: System Environment/Clustering
-BuildArch: noarch
-%description initramfs-%{_arch}
-Warewulf Provisioning initramfs IPMI capabilities for %{_arch}.
+Warewulf IPMI adds required tools and libraries to support IPMI on
+cluster nodes. 
 
 
 %prep
-%setup
+%setup -q
 
 
 %build
-%configure %{?CONF_FLAGS}
+%configure --localstatedir=%{wwsrvdir} %{?CONF_FLAGS}
 %{__make} %{?mflags}
 
 
@@ -52,20 +48,36 @@ Warewulf Provisioning initramfs IPMI capabilities for %{_arch}.
 %{__make} install DESTDIR=$RPM_BUILD_ROOT %{?mflags_install}
 
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-
 %files
 %defattr(-,root,root)
-%doc AUTHORS COPYING ChangeLog INSTALL NEWS README TODO
-%if 0%{?rhel} < 8 && 0%{?sle_version} < 150000
+%doc AUTHORS ChangeLog INSTALL NEWS README TODO
+%license COPYING
+%if ! %{localipmi}
 %{_libexecdir}/warewulf/ipmitool
 %endif
 %{perl_vendorlib}/Warewulf/Ipmi.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/*
 
-%files initramfs-%{_arch}
-%{_localstatedir}/warewulf/initramfs/%{_arch}/capabilities/setup-ipmi
 
+# ====================
+%package initramfs-%{_arch}
+Summary: Warewulf - Add IPMI to %{_arch} initramfs 
+BuildArch: noarch
+Requires: warewulf-common
+Requires: warewulf-provision-initramfs-%{_arch}
+
+%description initramfs-%{_arch}
+Warewulf is an operating system management toolkit designed to facilitate
+large scale deployments of systems on physical, virtual and cloud-based
+infrastructures. It facilitates elastic and large deployments consisting
+of groups of homogenous systems.
+
+Warewulf IPMI-initramfs adds IPMI configuration to the %{_arch} cluster
+node boot image.
+
+%files initramfs-%{_arch}
+%{wwsrvdir}/warewulf/initramfs/%{_arch}/capabilities/setup-ipmi
+
+
+# ====================
 %changelog

@@ -294,7 +294,7 @@ exec()
             if ($path =~ /^(\/.+)$/) {
                 $path = $1;
             } else {
-                &eprint("Import filename contains illegal characters.\n");
+                &eprint("Filename must be an absolute path.\n");
                 return undef;
             }
 

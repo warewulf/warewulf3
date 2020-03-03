@@ -110,9 +110,9 @@ prechroot() {
     rm -f $CHROOTDIR/etc/yum.repos.d/*
     
     # Create new repos from comma-seperated list (using bash inline S&R)
-    [ "0$REPO_NOGPGCECK" -ne "00" ] && REPO_NOGPGCHECK=1
+    if [ "0$NOGPGCHECK" -eq "00" ]; then REPO_NOGPGCHECK=0; else REPO_NOGPGCHECK=1; fi
     for i in ${YUM_MIRROR//,/ }; do
-        $YUM_REPOCMD --add-repo --setopt=gpgcheck=$REPO_NOGPGCHECK $i 
+        $YUM_REPOCMD --setopt=gpgcheck=$REPO_NOGPGCHECK --add-repo $i
     done
 
     PKGR_CMD="$YUM_CMD install $PKGLIST"

@@ -236,10 +236,15 @@ exec()
         'f|filesystem=s' => \$opt_filesystem,
     );
 
-    $command = shift(@ARGV);
+    $command = shift(@ARGV) || "help";
 
     if (! $db) {
         &eprint("Database object not avaialble!\n");
+        return();
+    }
+
+    if ($command eq "help") {
+        print $self->help();
         return();
     }
 
@@ -251,10 +256,7 @@ exec()
         return();
     }
 
-    if (! $command) {
-        &eprint("You must provide a command!\n\n");
-        print $self->help();
-    } elsif ($command eq "set") {
+    if ($command eq "set") {
 
         if (! @ARGV) {
             &eprint("To make changes, you must provide a list of nodes to operate on.\n");
@@ -856,9 +858,6 @@ exec()
                 &ellipsis(21, join(",", @files), "end")
             );
         }
-    } elsif ($command eq "help") {
-        print $self->help();
-
     } else {
         &eprint("Unknown command: $command\n\n");
         print $self->help();

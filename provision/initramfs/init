@@ -15,6 +15,7 @@ mkdir -p /dev
 mkdir -p /tmp
 mkdir -p /var
 mkdir -p /usr
+mkdir -p /var/log/warewulf/provision
 
 mount -t proc none /proc >/dev/null 2>&1
 mount -t sysfs none /sys >/dev/null 2>&1
@@ -461,7 +462,6 @@ else
 fi
 export WWINIT_HWADDR
 
-mkdir -p /var/log/warewulf
 msg_white "Starting syslogd: "
 if [ -n "$WWMASTER" ]; then
     if syslogd -O /var/log/warewulf/messages -R $WWMASTER -L; then
@@ -480,9 +480,7 @@ for i in /etc/warewulf/init/*; do
     fi
 done
 
-
 msg_white "Getting base node configuration: "
-
 if wwgetnodeconfig > /tmp/nodeconfig; then
     . /tmp/nodeconfig
     wwsuccess

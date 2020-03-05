@@ -181,31 +181,25 @@ if [ "$DATASTORE" = "mysql" ]; then
         wwprint "Database server undefined! Can't determine what database permissions should be for this client\n" RED
         exit 255
     fi 
-
-    # Check for database user accounts; unset variables if accounts don't exist
+echo $DBCLIENT
+    # Check for database user accounts; create accounts that don't exist
     if ! [[ "$(mysql $CLI_ARGS $DBNAME -NBe "SELECT User FROM mysql.user;")" =~ $DBUSER ]]; then
-        wwprint "Configured user does not exist in database\n" warn
-        unset DBUSER
+        wwprint "Configured user does not exist in database. Creating user.\n" warn
+        wwrun mysql $CLI_ARGS $DBNAME -e "CREATE USER IF NOT EXISTS '$DBUSER'@'$DBCLIENT' IDENTIFIED BY '$DBPASS'"
     fi
     if ! [[ "$(mysql $CLI_ARGS $DBNAME -NBe "SELECT User FROM mysql.user;")" =~ $DBROOTUSER ]]; then
-        wwprint "DB root user does not exist in database\n" warn
-        unset DBROOTUSER
+        wwprint "DB root user does not exist in database. Creating root user.\n" warn
+        wwrun mysql $CLI_ARGS $DBNAME -e "CREATE USER IF NOT EXISTS '$DBROOTUSER'@'$DBCLIENT' IDENTIFIED BY '$DBROOTPASS'"
     fi
 
     if [ -n "$DBUSER" ] && [ "$DBUSER" != "root" ]; then
         wwprint "Updating database permissions for base user\n"
-        wwrun mysql $CLI_ARGS $DBNAME <<- END_OF_SQL
-            GRANT SELECT on $DBNAME.* 
-                TO '$DBUSER'@'$DBCLIENT' IDENTIFIED BY '$DBPASS'
-	END_OF_SQL
+        wwrun mysql $CLI_ARGS $DBNAME -e "GRANT SELECT on $DBNAME.* TO '$DBUSER'@'$DBCLIENT'"
     fi
 
     if [ -n "$DBROOTUSER" ] && [ "$DBROOTUSER" != "root" ]; then
         wwprint "Updating database permissions for root user\n"
-        wwrun mysql $CLI_ARGS $DBNAME <<- END_OF_SQL
-            GRANT SELECT, INSERT, UPDATE, DELETE on $DBNAME.* 
-                TO '$DBROOTUSER'@'$DBCLIENT' IDENTIFIED BY '$DBROOTPASS'
-	END_OF_SQL
+        wwrun mysql $CLI_ARGS $DBNAME -e "GRANT SELECT, INSERT, UPDATE, DELETE on $DBNAME.* TO '$DBROOTUSER'@'$DBCLIENT'"
     fi
 elif [ "$DATASTORE" = "postgresql" ]; then
     if wwpackage_check postgresql-server; then

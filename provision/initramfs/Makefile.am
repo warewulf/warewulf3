@@ -26,6 +26,10 @@ PARTED_SOURCE = $(top_srcdir)/3rd_party/GPL/parted-$(PARTED_VERSION).tar.xz
 PARTED_DIR = parted-$(PARTED_VERSION)
 PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
 
+MDADM_VERSION = 4.1
+MDADM_SOURCE = $(top_srcdir)/3rd_party/GPL/mdadm-$(MDADM_VERSION).tar.xz
+MDADM_DIR = mdadm-$(MDADM_VERSION)
+
 e2fsprogs:
 	@ if [ ! -d "_work/$(E2FSPROGS_DIR)" ]; then \
 		echo "Preparing to build e2fsprogs" ;\
@@ -90,7 +94,23 @@ parted:
 		$(MAKE) -C _work/$(PARTED_DIR);\
 	fi
 
-rootfs: busybox e2fsprogs libarchive parted
+mdadm:
+	@ if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		echo "Detected local install of mdadm. Bypassing mdadm build process." ;\
+	else \
+		if [ ! -d "_work/$(MDADM_DIR)" ]; then \
+			echo "Preparing to build mdadm" ;\
+			mkdir -p _work/ ;\
+		echo In directory `pwd` ;\
+			tar Jxf $(MDADM_SOURCE) -C _work/ ;\
+		fi; \
+		if [ ! -f "_work/$(MDADM_DIR)/" ]; then \
+			echo "Building mdadm" ;\
+			$(MAKE) -C _work/$(MDADM_DIR) mdadm;\
+		fi \
+	fi
+
+rootfs: busybox e2fsprogs libarchive parted mdadm
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -108,6 +128,11 @@ rootfs: busybox e2fsprogs libarchive parted
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	cp -a _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar
 	$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install
+	if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		cp @local_mdadm_path@ rootfs/sbin/mdadm; \
+	else \
+		cp _work/$(MDADM_DIR)/mdadm rootfs/sbin/mdadm; \
+	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la

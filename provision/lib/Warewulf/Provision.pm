@@ -551,6 +551,12 @@ sub fs()
       "version" => 0,
       "mkfs" => 2,
       "fstab" => 6,
+      "raid0" => 2,
+      "raid1" => 2,
+      "raid4" => 2,
+      "raid5" => 2,
+      "raid6" => 2,
+      "raid10" => 2,
     );
 
     my $fs_cmds_dir = Warewulf::ACVars->get("SYSCONFDIR") . "/warewulf/filesystem/";

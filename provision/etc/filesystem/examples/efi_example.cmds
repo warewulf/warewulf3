@@ -19,4 +19,4 @@ mkfs 3 ext4 -L root
 # fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
 fstab 3 / ext4 defaults 0 0
 fstab 1 /boot/efi vfat defaults 0 0
-fstab 2 swap swap defaults 0
+fstab 2 swap swap defaults 0 0

@@ -23,4 +23,4 @@ mkfs p3 ext4 -L root
 # fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
 fstab p3 / ext4 defaults 0 0
 fstab p1 /boot/efi vfat defaults 0 0
-fstab p2 swap swap defaults 0
+fstab p2 swap swap defaults 0 0

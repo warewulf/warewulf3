@@ -271,7 +271,7 @@ dev_symlinks() {
       echo "grub-mkconfig failed."
       exit 2
     fi 
-    if chroot "${NEWROOT}" "${GRUBINSTALL}" "${BOOTLOADER}" >/dev/null; then
+    if chroot "${NEWROOT}" /bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" "${BOOTLOADER}" >/dev/null; then
        exit 0
     else
       echo "grub-install failed."

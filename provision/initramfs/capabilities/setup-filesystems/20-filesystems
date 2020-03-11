@@ -27,23 +27,23 @@ WWSELECTDISKWAIT=${WWSELECTDISKWAIT:=5}
 
 wait_for_disk() {
   local DISK="$1" 
-  local SELECT_RETRY=0
+  local RETRY=0
   if [ -z "${DISK##*/dev/*}" ]; then
     while [ ! -b "${DISK}" ]; do
-      if [ "${SELECT_RETRY}" -lt "${WWSELECTDISKWAIT}" ]; then
-        if [ "${SELECT_RETRY}" -eq 0 ]; then
-          msg_gray "   * ${SELECT_DISK} not ready, retrying."
+      if [ "${RETRY}" -lt "${WWSELECTDISKWAIT}" ]; then
+        if [ "${RETRY}" -eq 0 ]; then
+          msg_gray "   * ${DISK} not ready, retrying."
         else
           msg_gray "."
         fi
-        SELECT_RETRY="$((SELECT_RETRY+1))"
+        RETRY="$((RETRY+1))"
         sleep 1
       else
-        wwlogger "Disk: ${SELECT_DISK} not found!"
+        wwlogger "Disk: ${DISK} not found!"
         exit 2
       fi
     done
-    if [ "${SELECT_RETRY}" -gt 0 ]; then
+    if [ "${RETRY}" -gt 0 ]; then
       wwsuccess
     fi
   fi
@@ -187,7 +187,7 @@ run_mdadm() {
   done
 
   {
-    # This is ugly but it seems necessary
+    # This is ugly but mdadm always asks for confirmation if disks are not empty, so we need /usr/bin/yes
     (/usr/bin/yes || /bin/true) | /sbin/mdadm --create "/dev/md${NUMBER}" -f "--level=${LEVEL}" --raid-devices=${COUNT} ${DEVICES} >/dev/null 2>&1 && wwsuccess
   } || { 
     wwfailure

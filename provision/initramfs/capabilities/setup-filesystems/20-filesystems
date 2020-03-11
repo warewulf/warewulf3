@@ -255,7 +255,9 @@ update_fstab_and_mount() {
         SELECT_DISK=""
       fi
       SELECT_DISK=$(echo "${FSCMD}" | cut -f 2 -d' ')
-      wait_for_disk "${SELECT_DISK}"
+      if [ "${SELECT_DISK}" != "/dev/md" ]; then
+        wait_for_disk "${SELECT_DISK}"
+      fi
     ;;
 
     fstab*)

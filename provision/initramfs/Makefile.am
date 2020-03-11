@@ -112,15 +112,19 @@ parted:
 	fi
 
 mdadm:
-	@ if [ ! -d "_work/$(MDADM_DIR)" ]; then \
-		echo "Preparing to build mdadm" ;\
-		mkdir -p _work/ ;\
-        echo In directory `pwd` ;\
-		tar Jxf $(MDADM_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(MDADM_DIR)/" ]; then \
-		echo "Building mdadm" ;\
-		$(MAKE) -C _work/$(MDADM_DIR) mdadm;\
+	@ if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		echo "Detected local install of mdadm. Bypassing mdadm build process." ;\
+	else \
+		if [ ! -d "_work/$(MDADM_DIR)" ]; then \
+			echo "Preparing to build mdadm" ;\
+			mkdir -p _work/ ;\
+		echo In directory `pwd` ;\
+			tar Jxf $(MDADM_SOURCE) -C _work/ ;\
+		fi; \
+		if [ ! -f "_work/$(MDADM_DIR)/" ]; then \
+			echo "Building mdadm" ;\
+			$(MAKE) -C _work/$(MDADM_DIR) mdadm;\
+		fi \
 	fi
 
 rootfs: busybox e2fsprogs libarchive parted mdadm
@@ -166,7 +170,11 @@ rootfs: busybox e2fsprogs libarchive parted mdadm
 	else \
 		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \
 	fi
-	cp _work/$(MDADM_DIR)/mdadm rootfs/sbin/mdadm
+	if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		cp @local_mdadm_path@ rootfs/sbin/mdadm; \
+	else \
+		cp _work/$(MDADM_DIR)/mdadm rootfs/sbin/mdadm; \
+	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la

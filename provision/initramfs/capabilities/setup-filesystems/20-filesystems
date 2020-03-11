@@ -23,14 +23,14 @@ set -o pipefail
 # By default mount a tmpfs volumne for root
 WWFS=${WWFS:="select tmpfs,fstab "" / tmpfs rw:relatime:mode=555 0 0"}
 
-WWSELECTDISKWAIT=${WWSELECTDISKWAIT:=5}
+WWDISKWAIT=${WWDISKWAIT:=5}
 
 wait_for_disk() {
   local DISK="$1" 
   local RETRY=0
   if [ -z "${DISK##*/dev/*}" ]; then
     while [ ! -b "${DISK}" ]; do
-      if [ "${RETRY}" -lt "${WWSELECTDISKWAIT}" ]; then
+      if [ "${RETRY}" -lt "${WWDISKWAIT}" ]; then
         if [ "${RETRY}" -eq 0 ]; then
           msg_gray "   * ${DISK} not ready, retrying."
         else

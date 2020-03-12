@@ -179,7 +179,7 @@ run_mdadm() {
         if [ -x /usr/bin/udevadm ]; then
           /usr/bin/udevadm settle --timeout=15 --exit-if-exists="/dev/${DEV}"
         else
-          wait_for_disk "${DEV}"
+          wait_for_disk "/dev/${DEV}"
         fi
         DEVICES="$DEVICES /dev/${DEV}"
       ;;

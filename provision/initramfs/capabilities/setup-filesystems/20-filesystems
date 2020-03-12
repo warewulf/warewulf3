@@ -160,31 +160,34 @@ run_mdadm() {
     exit 2
   fi
 
-  msg_gray "   * creating raid${LEVEL} on /dev/md${NUMBER} for ${*}"
+  local MSG="   * creating raid${LEVEL} on /dev/md${NUMBER} for ${*}"
+  msg_gray "${MSG}"
+  local MSG_REPEAT=0
 
   for DEV in ${@:-}; do
     case "${DEV}" in
       missing|-)
         DEVICES="${DEVICES} missing"
       ;;
-      /dev/*)
+      *)
+        DEV="/dev/${DEV##*/dev/}"
         if [ -x /usr/bin/udevadm ]; then
           /usr/bin/udevadm settle --timeout=15 --exit-if-exists="${DEV}"
         else
-          wait_for_disk "${DEV}"
+          if [ ! -b "${DEV}" ]; then
+            wwrunning
+            wait_for_disk "${DEV}"
+            MSG_REPEAT=1
+          fi
         fi
         DEVICES="$DEVICES ${DEV}"
       ;;
-      *)
-        if [ -x /usr/bin/udevadm ]; then
-          /usr/bin/udevadm settle --timeout=15 --exit-if-exists="/dev/${DEV}"
-        else
-          wait_for_disk "/dev/${DEV}"
-        fi
-        DEVICES="$DEVICES /dev/${DEV}"
-      ;;
     esac
   done
+
+  if [ ${MSG_REPEAT} = 1 ]; then
+    msg_gray "${MSG}"
+  fi
 
   {
     # This is ugly but mdadm always asks for confirmation if disks are not empty, so we need /usr/bin/yes

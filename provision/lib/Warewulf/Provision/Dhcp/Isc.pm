@@ -152,6 +152,7 @@ persist()
     my $ipaddr = $config->get("ip address") // $netobj->ipaddr($devname);
     my $netmask = $config->get("ip netmask") // $netobj->netmask($devname);
     my $network = $config->get("ip network") // $netobj->network($devname);
+    my $dhcp_net = $config->get("dhcp network") || "flat";
     my $config_template;
     my $dhcpd_contents;
     my %seen;
@@ -281,7 +282,7 @@ persist()
                     next;
                 }
 
-                if ($node_testnetwork ne $network) {
+                if (($dhcp_net eq "flat") and ($node_testnetwork ne $network)) {
                     &iprint("Skipping DHCP config for $nodename-$devname (on a different network)\n");
                     $dhcpd_contents .= "   # Skipping $nodename-$devname: Not on boot network ($node_testnetwork)\n";
                     next;

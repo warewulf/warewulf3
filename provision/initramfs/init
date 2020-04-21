@@ -25,6 +25,9 @@ mount -t sysfs none /sys >/dev/null 2>&1
 NEWROOT=/newroot
 export NEWROOT
 
+# Make this... now.
+mkdir -p ${NEWROOT}
+
 # Old habits die hard.
 DESTDIR=$NEWROOT
 export DESTDIR

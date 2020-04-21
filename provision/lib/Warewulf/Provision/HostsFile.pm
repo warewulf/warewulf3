@@ -96,7 +96,7 @@ generate()
     my $master_ipaddr = $config->get("ip address") // $netobj->ipaddr($netdev);
     my $master_network = $config->get("ip network") // $netobj->network($netdev);
     my $master_netmask = $config->get("ip netmask") // $netobj->netmask($netdev);
-    my $dhcp_net = $config->get("dhcp network") || "flat";
+    my $dhcp_net = $config->get("dhcp network") || "direct";
 
     if (! $master_ipaddr or ! $master_netmask or ! $master_network) {
         &wprint("Could not generate hostfile, check 'network device' or 'ip address/netmask/network' configuration!\n");
@@ -159,7 +159,7 @@ generate()
             }
 
             &dprint("Checking to see if node is on same network as master: $node_testnetwork ?= $master_network\n");
-            if ($devcount == 1 or (($dhcp_net eq "flat") and ($node_testnetwork eq $master_network) and ! defined($default_name))) {
+            if ($devcount == 1 or (($dhcp_net eq "direct") and ($node_testnetwork eq $master_network) and ! defined($default_name))) {
                 &dprint("Using $nodename-$devname as default\n");
                 $default_name = 1;
                 $n->nodename($nodename);

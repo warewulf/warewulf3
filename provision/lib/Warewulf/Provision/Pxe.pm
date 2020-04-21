@@ -139,7 +139,7 @@ update()
     my $master_ipaddr = $config->get("ip address") // $netobj->ipaddr($devname);
     my $master_network = $config->get("ip network") // $netobj->network($devname);
     my $master_netmask = $config->get("ip netmask") // $netobj->netmask($devname);
-    my $dhcp_net = $config->get("dhcp network") || "flat";
+    my $dhcp_net = $config->get("dhcp network") || "direct";
 
     if (! $master_ipaddr) {
         &wprint("Could not generate PXE configurations, check 'network device' or 'ip address/netmask/network' configuration!\n");
@@ -239,7 +239,7 @@ update()
                 next;
             }
 
-            if (($dhcp_net eq "flat") and $node_ipaddr and $node_testnetwork ne $master_network) {
+            if (($dhcp_net eq "direct") and $node_ipaddr and $node_testnetwork ne $master_network) {
                 &iprint("Skipping PXE config for $nodename-$devname (on a different network)\n");
                 next;
             }

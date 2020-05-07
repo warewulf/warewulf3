@@ -112,6 +112,7 @@ fi
 %{perl_vendorlib}/Warewulf/DSO/*
 %{perl_vendorlib}/Warewulf/Provision
 %{perl_vendorlib}/Warewulf/Event/DynamicHosts.pm
+%{perl_vendorlib}/Warewulf/Event/Genders.pm
 %{perl_vendorlib}/Warewulf/Event/DefaultProvisionNode.pm
 %{perl_vendorlib}/Warewulf/Event/ProvisionFileDelete.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Bootstrap.pm

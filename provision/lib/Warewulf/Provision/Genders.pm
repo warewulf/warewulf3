@@ -116,7 +116,11 @@ generate()
         &dprint("Evaluating node: $nodename\n");
         $genders .= "\n# Node Entry for node: $name (ID=$nodeid)\n";
 
-        $genders .= $nodename . " " . join(',', @groups) . "\n";
+        if ($n->enabled()) {
+            $genders .= $nodename . " " . join(',', @groups) . "\n";
+        } else {
+            $genders .= "# DISABLED " . $nodename . " " . join(',', @groups) . "\n";
+        }
     }
 
     return($genders);

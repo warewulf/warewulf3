@@ -18,7 +18,7 @@ jobs:
                  perl-Compress-Raw-Bzip2 perl-Compress-Raw-Zlib perl-DBD-MySQL perl-DBI \
                  perl-Digest perl-Digest-MD5 perl-IO-Compress perl-Net-Daemon \
                  perl-PlRPC perl-Sys-Syslog perl-Test-Simple xz-devel libtirpc-devel \
-                 perl-JSON-PP
+                 perl-JSON-PP libblkid libblkid-devel
           name: "Install Build Dependencies"
       -
         run:
@@ -113,7 +113,7 @@ jobs:
                  perl-DBD-MySQL perl-DBI perl-Digest perl-Digest-MD5 perl-IO-Compress \
                  perl-Sys-Syslog perl-Test-Simple xz-devel ipmitool parted autofs \
                  e2fsprogs libarchive perl-Test-Harness perl-JSON-PP bsdtar which \
-                 libtirpc-devel
+                 libtirpc-devel libblkid libblkid-devel
           name: "Install Build Dependencies"
       -
         run:

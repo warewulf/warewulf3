@@ -17,8 +17,8 @@ E2FSPROGS_DIR = e2fsprogs-$(E2FSPROGS_VERSION)
 E2FSPROGS_CONFIGARGS = --disable-testio-debug --disable-debugfs --disable-imager --disable-resizer  --disable-defrag --disable-fsck --disable-tls --disable-uuidd --disable-nls --disable-profile
 
 XFSPROGS_VERSION = 4.5.0
-XFSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/xfsprogs-$(XFSPROGS_VERSION).tar.gz
-XFSPROGS_DIR = xfsprogs-$(XFSPROGS_VERSION)
+XFSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/xfsprogs-dev-$(XFSPROGS_VERSION).tar.gz
+XFSPROGS_DIR = xfsprogs-dev-$(XFSPROGS_VERSION)
 XFSROGS_CONFIGARGS =  --disable-libtool-lock
 
 LIBARCHIVE_VERSION = 3.3.1

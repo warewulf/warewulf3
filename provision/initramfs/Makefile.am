@@ -54,21 +54,25 @@ e2fsprogs:
 	fi
 
 xfsprogs:
-	@ if [ ! -d "_work/$(XFSPROGS_DIR)" ]; then \
-		echo "Preparing to build xfsprogs" ;\
-		mkdir -p _work/ ;\
-		tar xzf $(XFSPROGS_SOURCE) -C _work/ ;\
-	fi
-	@ if [ ! -f "_work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs" ]; then \
-		echo "Building xfsprogs" ;\
-		if [ -f "/usr/lib/rpm/config.guess" ]; then \
-			cp /usr/lib/rpm/config.guess _work/$(XFSPROGS_DIR)/config;\
-		fi; \
-		if [ -f "/usr/lib/rpm/config.sub" ]; then \
-                        cp /usr/lib/rpm/config.sub _work/$(XFSPROGS_DIR)/config;\
-		fi; \
-		(cd _work/$(XFSPROGS_DIR)/; ./configure $(XFSPROGS_CONFIGARGS)) ;\
-                $(MAKE) -C _work/$(XFSPROGS_DIR);\
+	@ if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
+                echo "Detected local install of xfsprogs. Bypassing xfsprogs build process." ;\
+	else \
+		if [ ! -d "_work/$(XFSPROGS_DIR)" ]; then \
+			echo "Preparing to build xfsprogs" ;\
+			mkdir -p _work/ ;\
+			tar xzf $(XFSPROGS_SOURCE) -C _work/ ;\
+		fi ;\
+		@ if [ ! -f "_work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs" ]; then \
+			echo "Building xfsprogs" ;\
+			if [ -f "/usr/lib/rpm/config.guess" ]; then \
+				cp /usr/lib/rpm/config.guess _work/$(XFSPROGS_DIR)/config;\
+			fi; \
+			if [ -f "/usr/lib/rpm/config.sub" ]; then \
+                	        cp /usr/lib/rpm/config.sub _work/$(XFSPROGS_DIR)/config;\
+			fi; \
+			(cd _work/$(XFSPROGS_DIR)/; ./configure $(XFSPROGS_CONFIGARGS)) ;\
+                	$(MAKE) -C _work/$(XFSPROGS_DIR);\
+		fi ;\
 	fi
 
 busybox:
@@ -160,7 +164,11 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted
 		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
 	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
-	cp -av _work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs rootfs/sbin/mkfs.xfs
+	if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
+		cp -av "@local_xfsprogs_path@" rootfs/sbin/mkfs.xfs ; \
+        else \
+                cp -av _work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs rootfs/sbin/mkfs.xfs ; \
+        fi
 	if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
 		cp -av "@local_libarchive_path@" rootfs/bin/bsdtar; \
 	else \

@@ -62,7 +62,7 @@ xfsprogs:
 			mkdir -p _work/ ;\
 			tar xzf $(XFSPROGS_SOURCE) -C _work/ ;\
 		fi ;\
-		@ if [ ! -f "_work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs" ]; then \
+		if [ ! -f "_work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs" ]; then \
 			echo "Building xfsprogs" ;\
 			if [ -f "/usr/lib/rpm/config.guess" ]; then \
 				cp /usr/lib/rpm/config.guess _work/$(XFSPROGS_DIR)/config;\

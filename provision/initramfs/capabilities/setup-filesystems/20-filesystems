@@ -93,6 +93,14 @@ run_mkfs() {
         exit 2
       }
     ;;
+    xfs)
+      {
+        /sbin/mkfs.xfs -q -f ${OPTS} "${DEV}" >/dev/null 2>&1 && wwsuccess
+      } || {
+        wwfailure
+        exit 2
+      }
+    ;;
     vfat)
       {
         /sbin/mkfs.vfat ${OPTS} "${DEV}" >/dev/null 2>&1 && wwsuccess

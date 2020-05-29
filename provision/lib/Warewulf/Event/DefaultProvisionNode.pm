@@ -64,6 +64,9 @@ default_provision_node()
             if (! $obj->fileids()) {
                 $obj->fileids(@fileids);
             } else {
+                # Remove any files referenced in defaults/provision.conf first
+                # incase we're a cloned node
+                $obj->fileiddel(@fileids);
                 $obj->fileidadd(@fileids);
             }
         }

@@ -18,7 +18,7 @@ use Warewulf::Network;
 use Warewulf::DataStore;
 use Warewulf::Provision::Tftp;
 use File::Basename;
-use File::Path;
+use File::Path qw(make_path);
 use POSIX qw(uname);
 
 our @ISA = ('Warewulf::Object');
@@ -94,8 +94,11 @@ setup()
                 if (-f "$datadir/warewulf/ipxe/$f") {
                     &iprint("Copying $f to the tftp root\n");
                     my $dirname = dirname("$tftpdir/warewulf/ipxe/$f");
-                    mkpath($dirname);
+                    make_path($dirname, {
+                        chmod => 0755,
+                    });
                     system("cp $datadir/warewulf/ipxe/$f $tftpdir/warewulf/ipxe/$f");
+                    chmod(0644, "$tftpdir/warewulf/ipxe/$f");
                 } elsif ($arch eq "x86_64") {
                     &eprint("Could not locate Warewulf's internal $datadir/warewulf/ipxe/$f! Things might be broken!\n");
                 }
@@ -106,8 +109,11 @@ setup()
                 if (-f "$datadir/warewulf/ipxe/$f") {
                     &iprint("Copying $f to the tftp root\n");
                     my $dirname = dirname("$tftpdir/warewulf/ipxe/$f");
-                    mkpath($dirname);
+                    make_path($dirname, {
+                        chmod => 0755,
+                    });
                     system("cp $datadir/warewulf/ipxe/$f $tftpdir/warewulf/ipxe/$f");
+                    chmod(0644, "$tftpdir/warewulf/ipxe/$f");
                 } elsif ($arch eq "aarch64") {
                     &eprint("Could not locate Warewulf's internal $datadir/warewulf/ipxe/$f! Things might be broken!\n");
                 }
@@ -155,7 +161,9 @@ update()
 
     if (! -d "$statedir/warewulf/ipxe/cfg") {
         &iprint("Creating ipxe configuration directory: $statedir/warewulf/ipxe/cfg");
-        mkpath("$statedir/warewulf/ipxe/cfg");
+        make_path("$statedir/warewulf/ipxe/cfg", {
+            chmod => 0755,
+        });
     }
 
     foreach my $nodeobj (@nodeobjs) {
@@ -323,6 +331,7 @@ update()
                     if (! close IPXE) {
                         &eprint("Could not write iPXE configuration file: $!\n");
                     }
+		    chmod(0644, "$statedir/warewulf/ipxe/cfg/$config");
                 } else {
                     &eprint("Node: $nodename-$devname: Bad characters in hwaddr: '$hwaddr'\n");
                 }
@@ -372,6 +381,9 @@ delete()
                 &iprint("Deleting PXE configuration for $nodename/$config\n");
                 if (-f "$statedir/warewulf/ipxe/cfg/$config") {
                     unlink("$statedir/warewulf/ipxe/cfg/$config");
+                }
+                if (! chmod 0644, "$statedir/warewulf/ipxe/cfg/$config") {
+                    &eprint("Could not chmod Pxelinux configuration file: $!\n");
                 }
             } else {
                 &eprint("Bad characters in hwaddr: $hwaddr\n");

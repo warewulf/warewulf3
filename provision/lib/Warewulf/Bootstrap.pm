@@ -15,7 +15,7 @@ use Warewulf::Logger;
 use Warewulf::DataStore;
 use Warewulf::Util;
 use File::Basename;
-use File::Path;
+use File::Path qw(make_path);
 use Digest::MD5 qw(md5_hex);
 use POSIX qw(uname);
 
@@ -211,6 +211,9 @@ bootstrap_export()
 
             if (! -d $dirname) {
                 mkpath($dirname);
+                make_path($dirname, {
+                    chmod => 0755,
+                });
             }
         }
 
@@ -350,7 +353,9 @@ build_local_bootstrap()
             }
 
             mkpath($tmpdir);
-            mkpath($bootstrapdir);
+            make_path($bootstrapdir, {
+                chmod => 0755,
+            });
             chdir($tmpdir);
 
             &dprint("Opening gunzip/cpio pipe\n");
@@ -381,10 +386,13 @@ build_local_bootstrap()
             system("cd $tmpdir/initramfs; find . | cpio -o --quiet -H newc -F $bootstrapdir/initfs");
             &nprint("Compressing the initramfs\n");
             system("gzip -f -9 $bootstrapdir/initfs");
+            chmod(0644, "$bootstrapdir/initfs.gz");
             &nprint("Locating the kernel object\n");
             system("cp $tmpdir/kernel $bootstrapdir/kernel");
+            chmod(0644, "$bootstrapdir/kernel");
             system("rm -rf $tmpdir");
             open(COOKIE, "> $bootstrapdir/cookie");
+            chmod(0644, "$bootstrapdir/cookie");
             print COOKIE $self->checksum();
             close COOKIE;
             &nprint("Bootstrap image '$bootstrap_name' is ready\n");

@@ -124,8 +124,8 @@ postchroot() {
 
     # If /etc/os-release.rpmnew exists, make it the real /etc/os-release
     if [ -f $CHROOTDIR/etc/os-release.rpmnew ]; then
-        mv /etc/os-release /etc/os-release.warewulf
-        mv /etc/os-release.rpmnew /etc/os-release
+        mv $CHROOTDIR/etc/os-release $CHROOTDIR/etc/os-release.warewulf
+        mv $CHROOTDIR/etc/os-release.rpmnew $CHROOTDIR/etc/os-release
     fi
 
     # we only want to add this kludge to the file once. lets make sure an

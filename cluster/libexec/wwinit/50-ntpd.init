@@ -20,6 +20,8 @@ fi
 
 wwreqroot
 
+wwpackage_check ntp ntpd
+
 if [ ! -f "/etc/ntp.conf" ]; then
     wwprint "Is NTP installed? /etc/ntp.conf is not present!\n" error
     return 1

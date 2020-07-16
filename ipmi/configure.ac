@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT(warewulf-ipmi, 3.7, warewulf-devel@lbl.gov)
+AC_INIT(warewulf-ipmi, 3.7.1, warewulf-devel@lbl.gov)
 AC_CONFIG_SRCDIR([.])
 
 AC_PROG_INSTALL

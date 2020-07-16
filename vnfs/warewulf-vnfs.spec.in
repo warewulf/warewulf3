@@ -4,7 +4,7 @@
 Summary: Warewulf VNFS Module
 Name: warewulf-vnfs
 Version: @PACKAGE_VERSION@
-Release: %{_rel}%{?dist}
+Release: 1%{?dist}
 License: US Dept. of Energy (BSD-like)
 Group: System Environment/Clustering
 URL: http://warewulf.lbl.gov/

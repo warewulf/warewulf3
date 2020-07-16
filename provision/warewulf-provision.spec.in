@@ -4,7 +4,7 @@
 Name: warewulf-provision
 Summary: Warewulf - Provisioning Module
 Version: @PACKAGE_VERSION@
-Release: %{_rel}%{?dist}
+Release: 1%{?dist}
 #Release: 1.%{?_dist}
 License: US Dept. of Energy (BSD-like)
 Group: System Environment/Clustering

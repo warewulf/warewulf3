@@ -3,7 +3,7 @@
 Name: warewulf-common
 Summary: A suite of tools for clustering
 Version: @PACKAGE_VERSION@
-Release: %{_rel}%{?dist}
+Release: 1%{?dist}
 License: US Dept. of Energy (BSD-like)
 Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz

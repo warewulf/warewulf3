@@ -217,11 +217,15 @@ wwservice_activate() {
         wwprint "You will need to manually enable and (re)start: $@\n" warn
     fi
     for SERVICE in "$@"; do
-        if [ -e "/etc/xinetd.d/$SERVICE" ]; then
-            wwprint "Activating xinetd service: $1\n"
-            wwrun sed -ie 's@\(disable\s*=\s*\)\S*@\1no@' /etc/xinetd.d/$SERVICE
-            wwservice_activate xinetd
-            return 0
+        if test -x "/bin/systemctl"; then
+            if systemctl list-unit-files --type=service | egrep -q "^$SERVICE\."; then
+                wwprint "Activating Systemd service: $1\n"
+                if wwrun /bin/systemctl -q enable $SERVICE; then
+                    if wwrun /bin/systemctl -q restart $SERVICE; then
+                        return 0
+                    fi
+                fi
+            fi
         elif [ -x "/etc/rc.d/init.d/$SERVICE" ]; then
             wwprint "Activating system service: $1\n"
             if [ -x "/sbin/chkconfig" ]; then
@@ -235,13 +239,11 @@ wwservice_activate() {
             if wwrun /etc/init.d/$SERVICE restart; then
                 return 0
             fi
-        elif test -x "/bin/systemctl" && systemctl list-unit-files --type=service | egrep -q "^$SERVICE.service"; then
-            wwprint "Activating Systemd service: $1\n"
-            if wwrun /bin/systemctl -q enable $SERVICE.service; then
-                if wwrun /bin/systemctl -q restart $SERVICE.service; then
-                    return 0
-                fi
-            fi
+        elif [ -e "/etc/xinetd.d/$SERVICE" ]; then
+            wwprint "Activating xinetd service: $1\n"
+            wwrun sed -ie 's@\(disable\s*=\s*\)\S*@\1no@' /etc/xinetd.d/$SERVICE
+            wwservice_activate xinetd
+            return 0
         fi
     done
 

@@ -35,3 +35,4 @@ chroot $NEWROOT /bin/mount -t tmpfs none /dev/shm
 chroot $NEWROOT /bin/mount -t proc none /proc
 chroot $NEWROOT /bin/mount -t sysfs none /sys
 
+exit 0

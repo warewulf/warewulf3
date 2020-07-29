@@ -10,7 +10,8 @@ must be respected and followed when redistributing Warewulf packages.
 
 The Warewulf developers on behalf of Lawrence Berkeley National Laboratory
 have contacted the upstream maintainers of these projects and notified them
-of our intentions.
+of our intentions. The Warewulf project will include binaries along with 
+the sources where necessary as explained above for the projects listed below.
 
 
 Signed-off-by:

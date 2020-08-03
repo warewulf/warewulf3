@@ -16,6 +16,11 @@ E2FSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/e2fsprogs-$(E2FSPROGS_VERSION).ta
 E2FSPROGS_DIR = e2fsprogs-$(E2FSPROGS_VERSION)
 E2FSPROGS_CONFIGARGS = --disable-testio-debug --disable-debugfs --disable-imager --disable-resizer  --disable-defrag --disable-fsck --disable-tls --disable-uuidd --disable-nls --disable-profile
 
+XFSPROGS_VERSION = 5.0.0
+XFSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/xfsprogs-$(XFSPROGS_VERSION).tar.xz
+XFSPROGS_DIR = xfsprogs-$(XFSPROGS_VERSION)
+XFSROGS_CONFIGARGS =  --disable-libtool-lock
+
 LIBARCHIVE_VERSION = 3.3.1
 LIBARCHIVE_SOURCE = $(top_srcdir)/3rd_party/BSD/libarchive-$(LIBARCHIVE_VERSION).tar.gz
 LIBARCHIVE_DIR = libarchive-$(LIBARCHIVE_VERSION)
@@ -48,6 +53,27 @@ e2fsprogs:
 		fi ;\
 	fi
 
+xfsprogs:
+	@ if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
+                echo "Detected local install of xfsprogs. Bypassing xfsprogs build process." ;\
+	else \
+		if [ ! -d "_work/$(XFSPROGS_DIR)" ]; then \
+			echo "Preparing to build xfsprogs" ;\
+			mkdir -p _work/ ;\
+			tar xJf $(XFSPROGS_SOURCE) -C _work/ ;\
+		fi ;\
+		if [ ! -f "_work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs" ]; then \
+			echo "Building xfsprogs" ;\
+			if [ -f "/usr/lib/rpm/config.guess" ]; then \
+				cp /usr/lib/rpm/config.guess _work/$(XFSPROGS_DIR)/config;\
+			fi; \
+			if [ -f "/usr/lib/rpm/config.sub" ]; then \
+                	        cp /usr/lib/rpm/config.sub _work/$(XFSPROGS_DIR)/config;\
+			fi; \
+			(cd _work/$(XFSPROGS_DIR)/; ./configure $(XFSPROGS_CONFIGARGS)) ;\
+                	$(MAKE) -C _work/$(XFSPROGS_DIR);\
+		fi ;\
+	fi
 
 busybox:
 	@ if [ -n "@local_busybox_path@" -a -f "@local_busybox_path@" -a \
@@ -107,7 +133,7 @@ parted:
 		fi \
 	fi
 
-rootfs: busybox e2fsprogs libarchive parted
+rootfs: busybox e2fsprogs xfsprogs libarchive parted
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -138,6 +164,11 @@ rootfs: busybox e2fsprogs libarchive parted
 		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
 	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
+	if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
+		cp -av "@local_xfsprogs_path@" rootfs/sbin/mkfs.xfs ; \
+        else \
+                cp -av _work/$(XFSPROGS_DIR)/mkfs/mkfs.xfs rootfs/sbin/mkfs.xfs ; \
+        fi
 	if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
 		cp -av "@local_libarchive_path@" rootfs/bin/bsdtar; \
 	else \

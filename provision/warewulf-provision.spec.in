@@ -17,6 +17,7 @@ BuildRequires: warewulf-common
 BuildRequires: libselinux-devel, libacl-devel, libattr-devel
 BuildRequires: libuuid-devel, xz-devel
 BuildRequires: libtirpc-devel
+BuildRequires: bsdtar
 
 %if 0%{?rhel:1}
 %global httpsvc httpd

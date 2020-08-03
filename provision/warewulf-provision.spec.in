@@ -15,7 +15,7 @@ Requires: %{name}-initramfs-%{_arch} = %{version}-%{release}
 Conflicts: warewulf < 3
 BuildRequires: warewulf-common
 BuildRequires: libselinux-devel, libacl-devel, libattr-devel
-BuildRequires: libuuid-devel, device-mapper-devel, xz-devel
+BuildRequires: libuuid-devel, xz-devel
 BuildRequires: libtirpc-devel
 
 %if 0%{?rhel:1}

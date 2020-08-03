@@ -48,6 +48,10 @@ e2fsprogs:
 		fi ;\
 	fi
 
+xfsprogs:
+	@ if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
+                echo "Detected local install of xfsprogs. Bypassing xfsprogs build process." ;\
+	fi
 
 busybox:
 	@ if [ -n "@local_busybox_path@" -a -f "@local_busybox_path@" -a \
@@ -107,7 +111,7 @@ parted:
 		fi \
 	fi
 
-rootfs: busybox e2fsprogs libarchive parted
+rootfs: busybox e2fsprogs xfsprogs libarchive parted
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -138,6 +142,9 @@ rootfs: busybox e2fsprogs libarchive parted
 		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
 	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
+	if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
+		cp -av "@local_xfsprogs_path@" rootfs/sbin/mkfs.xfs ; \
+        fi
 	if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
 		cp -av "@local_libarchive_path@" rootfs/bin/bsdtar; \
 	else \

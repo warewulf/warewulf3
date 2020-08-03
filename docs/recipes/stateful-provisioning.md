@@ -29,7 +29,7 @@ filesystems=mountpoint=/:dev=sda1:type=ext4:size=20480  # specify the filesystem
 
 (Note that these variables do not appear in <tt>node print</tt> . To view the current values, type <tt>object print nodename -p :all</tt>)
 
-Currently supported filesystems are ext2, ext3, ext4, vfat, swap and
+Currently supported filesystems are ext2, ext3, ext4, xfs, vfat, swap and
 tmpfs. When not set, <tt>filesystems=mountpoint=/:type=tmpfs</tt>. The
 <tt>filesystems</tt> variable can be used to set up more complex
 partitioning schemes as well.

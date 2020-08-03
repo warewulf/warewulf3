@@ -158,6 +158,7 @@ FIND_LOCAL(ipxe_snp_arm64, ${datadir}/ipxe/snp-arm64.efi)
 FIND_LOCAL(libarchive, bsdtar)
 FIND_LOCAL(parted, parted)
 FIND_LOCAL(partprobe, partprobe)
+FIND_LOCAL(xfsprogs, mkfs.xfs)
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])

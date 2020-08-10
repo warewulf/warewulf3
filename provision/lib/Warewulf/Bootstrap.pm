@@ -210,7 +210,6 @@ bootstrap_export()
             my $dirname = dirname($file);
 
             if (! -d $dirname) {
-                mkpath($dirname);
                 make_path($dirname, {
                     chmod => 0755,
                 });
@@ -352,7 +351,7 @@ build_local_bootstrap()
                 }
             }
 
-            mkpath($tmpdir);
+            make_path($tmpdir);
             make_path($bootstrapdir, {
                 chmod => 0755,
             });

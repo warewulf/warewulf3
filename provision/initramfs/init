@@ -591,6 +591,10 @@ if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
         sleep 1
     done
     clear
+
+    mount --move /proc "$NEWROOT/proc"
+    mount --move /sys "$NEWROOT/sys"
+    mount --move /dev "$NEWROOT/dev"
     exec switch_root $NEWROOT /sbin/init
 fi
 

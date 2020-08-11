@@ -1,4 +1,4 @@
-METHODSCRIPTS = 30-getvnfs 50-config 60-runtimesupport 70-devtree 70-kernelmodules
+METHODSCRIPTS = 30-getvnfs 50-config 60-runtimesupport 70-kernelmodules
 
 MAINTAINERCLEANFILES = Makefile.in
 

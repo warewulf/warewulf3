@@ -17,6 +17,7 @@ mkdir -p /var
 mkdir -p /usr
 mkdir -p /var/log/warewulf/provision
 
+mount -t devtmpfs devtmpfs /dev 
 mount -t proc none /proc >/dev/null 2>&1
 mount -t sysfs none /sys >/dev/null 2>&1
 
@@ -46,13 +47,6 @@ if [ -n "$WWHOSTNAME" ]; then
     wwsuccess
 fi
 
-# Try to mount devtmpfs first, if it fails use mdev to populate /dev
-if ! mount -t devtmpfs devtmpfs /dev >/dev/null 2>&1; then
-    if [ -x "/sbin/mdev" ]; then
-        echo /sbin/mdev > /proc/sys/kernel/hotplug
-        /sbin/mdev -s
-    fi
-fi
 
 if [ -f "/etc/wwmodprobe" ]; then
     msg_white  "Loading drivers: "

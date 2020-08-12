@@ -54,15 +54,16 @@ BuildRequires: gcc-x86_64-linux-gnu
 # New RHEL and SLE include the required FS tools
 %if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
 %global localtools 1
-BuildRequires: parted, e2fsprogs
-Requires: parted, autofs, e2fsprogs
+BuildRequires: parted, e2fsprogs, mdadm
+Requires: parted, autofs, e2fsprogs, mdadm
 BuildRequires: libarchive.so.13()(64bit)
 Requires: libarchive.so.13()(64bit)
-%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe
+%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe --with-local-mdadm
 %else
 %global localtools 0
 Requires: %{name}-gpl_sources = %{version}-%{release}
 Provides: parted = 3.2
+Provides: mdadm = 4.1
 Provides: e2fsprogs = 1.42.12
 Provides: libarchive = 3.3.1
 Provides: libarchive.so.13()(64bit)

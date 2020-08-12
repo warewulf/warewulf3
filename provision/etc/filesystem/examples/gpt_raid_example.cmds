@@ -1,0 +1,29 @@
+# RAID5 Example
+
+# Parted specific commands
+select /dev/sda
+mklabel gpt
+mkpart primary 0% 100%
+set 1 raid on
+
+select /dev/sdb
+mklabel gpt
+mkpart primary 0% 100%
+set 1 raid on
+
+select /dev/sdc
+mklabel gpt
+mkpart primary 0% 100%
+set 1 raid on
+
+# Create RAID5 on /dev/md0: raidX NUMBER PARTITIONS...
+raid5 0 sda1 sdb1 sdc1
+
+# the above command also selects /dev/md, so filesystems can be created:
+# select /dev/md
+
+# Create filesystem on /dev/md0
+mkfs 0 ext4 -L root
+
+# fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
+fstab 0 / ext4 defaults 0 0

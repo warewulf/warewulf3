@@ -609,7 +609,7 @@ exec()
         }
 
         if ($opt_console) {
-            if ($opt_console =~ /^(tty[S0-9]+\,[0-9]+)/ || $opt_console =~ /^(UNDEF)$/) {
+            if ($opt_console =~ /^((tty|lp)[A-Z]*[0-9]+(,[0-9]{4,6}([noe]([0-9]r?)?)?)?)/ || $opt_console =~ /^(UNDEF)$/) {
                 $opt_console = $1;
 
                 foreach my $obj ($objSet->get_list()) {

@@ -1,0 +1,43 @@
+#!/bin/sh
+##
+## Copyright (c) 2001-2003 Gregory M. Kurtzer
+##
+## Copyright (c) 2003-2013, The Regents of the University of California,
+## through Lawrence Berkeley National Laboratory (subject to receipt of any
+## required approvals from the U.S. Dept. of Energy).  All rights reserved.
+##
+
+#INIT: ALL
+#INIT: MASTER
+#INIT: IPTABLES
+
+if [ -f "$WWFUNCTIONS" ]; then
+    . $WWFUNCTIONS
+else
+    echo "ERROR: could not load warewulf functions!"
+    exit 255
+fi
+
+wwreqroot
+
+if [ -x "/bin/systemctl" ]; then
+    wwrun systemctl disable firewalld
+    wwrun systemctl stop firewalld
+    exit 0
+fi
+
+if [ -x "/etc/init.d/firewalld" ]; then
+    wwrun chkconfig wwfirstboot off
+    wwrun service stop wwfirstboot
+    exit 0
+fi
+
+if [ -x "/etc/init.d/iptables" ]; then
+    wwrun chkconfig iptables off
+    wwrun service stop iptables
+    exit 0
+fi
+
+wwprint "Could not disable firewall\n" warn
+
+exit 1

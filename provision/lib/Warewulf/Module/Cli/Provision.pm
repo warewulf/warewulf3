@@ -101,7 +101,7 @@ help()
     $h .= "         --kargs         Define the kernel arguments (assumes \"net.ifnames=0 biosdevname=0 quiet\" if UNDEF)\n";
     $h .= "         --pxeloader     Define a custom PXE loader image to use\n";
     $h .= "         --ipxeurl       Define a custom iPXE configuration URL to use\n";
-    $h .= "         --selinux       Boot node with SELinux support? (valid options are: UNDEF,\n";
+    $h .= "         --selinux       Boot node with SELinux support? (valid options are: DISABLED,\n";
     $h .= "                         ENABLED, and ENFORCED)\n";
     $h .= "     -f, --filesystem    Specify a filesystem command file\n";
     $h .= "         --bootloader    Disk to install bootloader to (STATEFUL)\n";

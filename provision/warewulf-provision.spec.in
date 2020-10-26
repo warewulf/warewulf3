@@ -1,12 +1,10 @@
-%{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
 %define _cross_compile 0%{?cross_compile}
 
 Name: warewulf-provision
 Summary: Warewulf - Provisioning Module
 Version: @PACKAGE_VERSION@
-Release: %{_rel}%{?dist}
-#Release: 1.%{?_dist}
+Release: 1%{?dist}
 License: US Dept. of Energy (BSD-like)
 Group: System Environment/Clustering
 Source: %{name}-%{version}.tar.gz

@@ -98,9 +98,10 @@ help()
     $h .= "         --postnetdown   Shutdown the network after provisioning (boolean)\n";
     $h .= "         --bootlocal     Boot the node from the local disk (\"exit\" or \"normal\")\n";
     $h .= "         --console       Set a specific console for the kernel command line\n";
-    $h .= "         --kargs         Define the kernel arguments (assumes \"net.ifnames=0 biosdevname=0 quiet\" if UNDEF)\n";
+    $h .= "         --kargs         Define the kernel arguments (assumes \"net.ifnames=0\n";
+    $h .= "                         biosdevname=0 quiet\" if UNDEF)\n";
     $h .= "         --pxelinux      Define a custom PXELINUX/boot image to use\n";
-    $h .= "         --selinux       Boot node with SELinux support? (valid options are: UNDEF,\n";
+    $h .= "         --selinux       Boot node with SELinux support? (valid options are: DISABLED,\n";
     $h .= "                         ENABLED, and ENFORCED)\n";
     $h .= "     -f, --filesystem    Specify a filesystem command file\n";
     $h .= "         --bootloader    Disk to install bootloader to (STATEFUL)\n";

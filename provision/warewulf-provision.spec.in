@@ -46,6 +46,7 @@ Summary: Warewulf - Provisioning Module - Server
 Group: System Environment/Clustering
 Requires: %{name} = %{version}-%{release}
 Requires: mod_perl httpd tftp-server dhcp policycoreutils-python
+Requires: tcpdump
 
 %description server
 Warewulf >= 3 is a set of utilities designed to better enable

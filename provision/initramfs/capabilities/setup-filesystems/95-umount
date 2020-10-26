@@ -33,3 +33,4 @@ fi
     fi
 done
 
+exit 0

@@ -222,6 +222,23 @@ ipmi_autoconfig()
     return $self->get($key);
 }
 
+=item ipmi_target($string)
+
+Set IPMI target (-t <target>).  This paramter is usually used by IPMI
+chassis that control multiple systems.  In most implementations this option
+is not necessary.  Target should be in hex form (e.g. 0x04), or 'UNDEF' to
+disable.
+
+=cut
+
+sub
+ipmi_target()
+{
+    $self = shift;
+
+    return $self->prop("ipmi_target", qr/^(0x[0-9a-fA-F][0-9a-fA-F])$/, @_);
+}
+
 
 =item ipmi_command($action)
 
@@ -255,6 +272,7 @@ ipmi_command()
     my $username = $self->ipmi_username();
     my $password = $self->ipmi_password();
     my $proto = $self->ipmi_proto();
+    my $target = $self->ipmi_target() || "UNDEF";
     my $name = $self->name() || "UNDEF";
     my $libexecdir = Warewulf::ACVars->libexecdir();
     my $ret;
@@ -266,6 +284,9 @@ ipmi_command()
     }
     if ($ipaddr and $username and $password and $proto) {
         $ret .= "-I $proto -U $username -P $password -H $ipaddr ";
+        if ($target ne "UNDEF") {
+            $ret .= "-t $target ";
+        }
         if ($action eq "poweron" ) {
             $ret .= "chassis power on";
         } elsif ( $action eq "poweroff" ) {

@@ -11,6 +11,7 @@ URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common, warewulf-provision
+Requires: nfs-utils
 BuildRequires: warewulf-common
 Conflicts: warewulf < 3
 

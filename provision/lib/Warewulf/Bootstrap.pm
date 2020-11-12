@@ -304,6 +304,44 @@ build_local_bootstrap()
 {
     my ($self) = @_;
 
+    my $config = Warewulf::Config->new("provision.conf");
+    # Get our gzip command
+    my $gzip_cmd = $config->get("gzip command") || "gzip -9";
+    my ($gzip_bin, $gzip_opts) = split(/\s+/, $gzip_cmd, 2);
+    if (! $gzip_opts) {
+        # Nothing was passed to the command in the config file
+        $gzip_opts = "";
+    }
+    if (-x $gzip_bin) {
+        &dprint("Using given full path to gzip ($gzip_bin)\n");
+    } else {
+        &dprint("Looking for gzip program in PATH\n");
+        my $found;
+        foreach my $p (split(":", $ENV{"PATH"})) {
+            &dprint("Looking for gzip at '$p/$gzip_bin'\n");
+            if (-x "$p/$gzip_bin") {
+                &dprint("Found full path to gzip ($gzip_bin)\n");
+                $gzip_bin = "$p/$gzip_bin";
+                $found = 1;
+                last;
+            }
+        }
+        if (! $found) {
+            &eprint("gzip program '$gzip_bin' not found!\n");
+            return();
+        }
+    }
+
+    if ($gzip_bin =~ /^([a-zA-Z0-9\-_\/\.]+)$/) {
+        $gzip_bin = $1;
+    } else {
+        &eprint("gzip command contains illegal characters!\n");
+        return();
+    }
+
+    &iprint("Using gzip command: '$gzip_bin $gzip_opts'\n");
+
+
     if ($self) {
         my $bootstrap_name = $self->name();
         my $bootstrap_id = $self->id();
@@ -358,7 +396,7 @@ build_local_bootstrap()
             chdir($tmpdir);
 
             &dprint("Opening gunzip/cpio pipe\n");
-            open(CPIO, "| gunzip | cpio -id --quiet");
+            open(CPIO, "| $gzip_bin -d | cpio -id --quiet");
             while(my $buffer = $binstore->get_chunk()) {
                 &dprint("Chunking into gunzip/cpio pipe\n");
                 print CPIO $buffer;
@@ -384,7 +422,7 @@ build_local_bootstrap()
 
             system("cd $tmpdir/initramfs; find . | cpio -o --quiet -H newc -F $bootstrapdir/initfs");
             &nprint("Compressing the initramfs\n");
-            system("gzip -f -9 $bootstrapdir/initfs");
+            system("$gzip_bin $gzip_opts -f $bootstrapdir/initfs");
             chmod(0644, "$bootstrapdir/initfs.gz");
             &nprint("Locating the kernel object\n");
             system("cp $tmpdir/kernel $bootstrapdir/kernel");

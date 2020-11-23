@@ -548,6 +548,9 @@ if [ -x "$NEWROOT/sbin/init" -o -h "$NEWROOT/sbin/init" ]; then
         wwfailure
     fi
 
+    # Cleanup /dev/log from devtmpfs
+    rm -f /dev/log >/dev/null 2>&1 || true
+
     if [ -n "$WWPOSTNETDOWN" ]; then
         NETDEV=`cat /tmp/wwdev`
         if [ -f "/tmp/ifcfg-$WWNETDEV" ]; then

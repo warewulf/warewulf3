@@ -103,7 +103,7 @@ jobs:
           command: |
               set -o xtrace
               dnf -y install dnf-plugins-core
-              dnf -y config-manager --set-enabled PowerTools
+              dnf -y config-manager --set-enabled powertools
               dnf -y install \
                  https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
               rpmkeys --import /etc/pki/rpm-gpg/RPM-GPG-KEY-*

@@ -319,12 +319,50 @@ if ($config->get("modprobe")) {
     close MODCONFFILE;
 }
 
+my $vnfs_config = Warewulf::Config->new("vnfs.conf");
+# Get our gzip command
+my $gzip_cmd = $vnfs_config->get("gzip command") || "gzip -9";
+my ($gzip_bin, $gzip_opts) = split(/\s+/, $gzip_cmd, 2);
+if (! $gzip_opts) {
+    # Nothing was passed to the command in the config file
+    $gzip_opts = "";
+}
+if (-x $gzip_bin) {
+    &dprint("Using given full path to gzip ($gzip_bin)\n");
+} else {
+    &dprint("Looking for gzip program in PATH\n");
+    my $found;
+    foreach my $p (split(":", $ENV{"PATH"})) {
+        &dprint("Looking for gzip at '$p/$gzip_bin'\n");
+        if (-x "$p/$gzip_bin") {
+            &dprint("Found full path to gzip ($gzip_bin)\n");
+            $gzip_bin = "$p/$gzip_bin";
+            $found = 1;
+            last;
+        }
+    }
+    if (! $found) {
+        &eprint("gzip program '$gzip_bin' not found!\n");
+        return();
+    }
+}
+
+if ($gzip_bin =~ /^([a-zA-Z0-9\-_\/\.]+)$/) {
+    $gzip_bin = $1;
+} else {
+    &eprint("gzip command contains illegal characters!\n");
+    return();
+}
+
+&iprint("Using gzip command: '$gzip_bin $gzip_opts'\n");
+
+
 # Attempt to gunzip the kernel, aarch64 kernels are compressed and iPXE can't boot gzip compressed kernels.
 # Note, if the kernel isn't a gzip, IO::Uncompress::Gunzip makes a direct copy of the file.
 gunzip "$opt_chroot/boot/vmlinuz-$opt_kversion" => "$tmpdir/kernel" or die "gunzip of kernel failed: $GunzipError\n";
 
 &nprint("Building and compressing bootstrap\n");
-system("(cd $tmpdir; find . | cpio -o --quiet -H newc ) | gzip -c9 > $output");
+system("(cd $tmpdir; find . | cpio -o --quiet -H newc ) | $gzip_bin $gzip_opts > $output");
 system("rm -rf $tmpdir");
 
 if ($opt_output) {

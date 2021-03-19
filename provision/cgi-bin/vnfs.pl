@@ -49,19 +49,30 @@ unlock
 
 if ($q->param('hwaddr')) {
     my $hwaddr = $q->param('hwaddr');
+    my $remote_addr = $q->remote_addr();
+
     my $node;
+    my $ipaddr;
+
     if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
         my $hwaddr = $1;
         my $nodeSet = $db->get_objects("node", "_hwaddr", $hwaddr);
 
+        
         foreach my $tnode ($nodeSet->get_list()) {
             if (! $tnode->enabled()) {
                 next;
             }
+            foreach my $tipaddr ($tnode->ipaddr_list()) {
+                if ($tipaddr eq $remote_addr) {
+                    $ipaddr = $tipaddr;
+                    last;
+                }
+            }
             $node = $tnode;
         }
 
-        if ($node) {
+        if ($node && $ipaddr) {
             my ($node_name) = $node->name();
             my ($vnfsid) = $node->vnfsid();
             if ($vnfsid) {
@@ -152,17 +163,20 @@ if ($q->param('hwaddr')) {
                 &eprint("$node_name has no VNFS set\n");
                 $q->header( -status => '404 Not Found' );
             }
+        } elsif ($node && !$ipaddr) {
+            &eprint("VNFS request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
+            $q->header( -status => '401 Unauthorized' );
         } else {
             &eprint("VNFS request for an unknown node (HWADDR: $hwaddr)\n");
             $q->header( -status => '404 Not Found' );
         }
     } else {
-        &eprint("VNFS request for a bad hwaddr\n");
-        $q->header( -status => '404 Not Found' );
+        &eprint("VNFS request for a invalid HWADDR\n");
+        $q->header( -status => '400 Bad Request' );
     }
 } else {
-    &eprint("VNFS request without a hwaddr\n");
-    $q->header( -status => '404 Not Found' );
+    &eprint("VNFS request without a HWADDR\n");
+    $q->header( -status => '400 Bad Request' );
 }
 
 # vim: filetype=perl:syntax=perl:expandtab:ts=4:sw=4:

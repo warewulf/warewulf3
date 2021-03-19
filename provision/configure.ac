@@ -231,6 +231,7 @@ AC_OUTPUT(
    3rd_party/Makefile
    3rd_party/GPL/Makefile
    3rd_party/BSD/Makefile
+   3rd_party/MIT/Makefile
    bin/Makefile
    cgi-bin/Makefile
    etc/Makefile

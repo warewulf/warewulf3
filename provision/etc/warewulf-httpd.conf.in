@@ -26,8 +26,9 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     PerlResponseHandler ModPerl::Registry
     PerlOptions +ParseHeaders
     Options +ExecCGI
-    RewriteCond %{REMOTE_PORT} -gt 1024
-    RewriteRule ^ - [L,R=404]
+    RewriteEngine On
+    RewriteCond %{REMOTE_PORT} "-ge 1024"
+    RewriteRule ^ - [L,R=401]
     <IfVersion >= 2.4>
         Require all granted
     </IfVersion>
@@ -36,8 +37,9 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 <Directory @fulldatadir@/warewulf/www>
     Options Indexes MultiViews
     AllowOverride None
-    RewriteCond %{REMOTE_PORT} -gt 1024
-    RewriteRule ^ - [L,R=404]
+    RewriteEngine On
+    RewriteCond %{REMOTE_PORT} "-ge 1024"
+    RewriteRule ^ - [L,R=401]
     <IfVersion < 2.4>
         Order allow,deny
         Allow from all
@@ -49,8 +51,9 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 
 <Directory /var/tmp/warewulf_cache>
     AllowOverride None
-    RewriteCond %{REMOTE_PORT} -gt 1024
-    RewriteRule ^ - [L,R=404]
+    RewriteEngine On
+    RewriteCond %{REMOTE_PORT} "-ge 1024"
+    RewriteRule ^ - [L,R=401]
     <IfVersion < 2.4>
         Order allow,deny
         Allow from all

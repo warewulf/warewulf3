@@ -68,7 +68,7 @@ while true; do
                 if [ ! -d "$NEWROOT/$basedir" ]; then
                     mkdir -p "$NEWROOT/$basedir"
                 fi
-                if curl -s -o "$NEWROOT/$path.ww$timestamp" "http://$master/WW/file?hwaddr=$WWINIT_HWADDR&fileid=$id"; then
+                if curl --local-port 100-1023 -s -o "$NEWROOT/$path.ww$timestamp" "http://$master/WW/file?hwaddr=$WWINIT_HWADDR&fileid=$id"; then
                     if [ "$ftype" = "l" ]; then
                         ln -s -f `cat "$NEWROOT/$path.ww$timestamp"` "$NEWROOT/$path"
                         rm -f "$NEWROOT/$path.ww$timestamp"

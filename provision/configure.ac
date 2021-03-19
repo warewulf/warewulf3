@@ -159,6 +159,7 @@ FIND_LOCAL(libarchive, bsdtar)
 FIND_LOCAL(parted, parted)
 FIND_LOCAL(partprobe, partprobe)
 FIND_LOCAL(xfsprogs, mkfs.xfs)
+FIND_LOCAL(curl, curl)
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])

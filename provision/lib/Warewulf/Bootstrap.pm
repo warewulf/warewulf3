@@ -305,6 +305,8 @@ build_local_bootstrap()
     my ($self) = @_;
 
     my $config = Warewulf::Config->new("provision.conf");
+    my $cacert = $config->get("cacert") || "/etc/pki/tls/certs/ca-bundle.crt";
+
     # Get our gzip command
     my $gzip_cmd = $config->get("gzip command") || "gzip -9";
     my ($gzip_bin, $gzip_opts) = split(/\s+/, $gzip_cmd, 2);
@@ -419,6 +421,13 @@ build_local_bootstrap()
                 return();
             }
 
+            if (-f "$cacert") {
+                &dprint("Including configured cacert file\n");
+                system("cp $cacert $tmpdir/initramfs/etc/ca-bundle.crt");
+            } else {
+                &eprint("Could not locate the configured cacert file\n");
+                return();            
+            }
 
             system("cd $tmpdir/initramfs; find . | cpio -o --quiet -H newc -F $bootstrapdir/initfs");
             &nprint("Compressing the initramfs\n");

@@ -24,7 +24,7 @@ LIBARCHIVE_CONFIGARGS = --enable-bsdtar=static --disable-bsdcpio --enable-xattr 
 PARTED_VERSION = 3.2
 PARTED_SOURCE = $(top_srcdir)/3rd_party/GPL/parted-$(PARTED_VERSION).tar.xz
 PARTED_DIR = parted-$(PARTED_VERSION)
-PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
+PARTED_CONFIGARGS = --prefix=/ --libdir=/lib64 --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
 
 CURL_VERSION = 7.75.0
 CURL_SOURCE = $(top_srcdir)/3rd_party/MIT/curl-$(CURL_VERSION).tar.gz

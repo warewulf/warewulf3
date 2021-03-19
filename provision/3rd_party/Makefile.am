@@ -1,4 +1,4 @@
-SUBDIRS = GPL BSD
+SUBDIRS = GPL BSD MIT
 
 IPXETARGETS = bin-i386-pcbios/undionly.kpxe bin-x86_64-efi/snp.efi bin-i386-efi/snp.efi bin-arm64-efi/snp.efi
 

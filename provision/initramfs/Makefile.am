@@ -26,6 +26,11 @@ PARTED_SOURCE = $(top_srcdir)/3rd_party/GPL/parted-$(PARTED_VERSION).tar.xz
 PARTED_DIR = parted-$(PARTED_VERSION)
 PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
 
+CURL_VERSION = 7.75.0
+CURL_SOURCE = $(top_srcdir)/3rd_party/MIT/curl-$(CURL_VERSION).tar.xz
+CURL_DIR = curl-$(CURL_VERSION)
+CURL_CONFIGARGS = --prefix=/usr --with-ssl --with-ca-bundle=/etc/ca-bundle.crt
+
 e2fsprogs:
 	@ if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
 		echo "Detected local install of e2fsprogs. Bypassing e2fsprogs build process." ;\
@@ -111,7 +116,24 @@ parted:
 		fi \
 	fi
 
-rootfs: busybox e2fsprogs xfsprogs libarchive parted
+curl:
+	@ if [ -n "@local_curl_path@" -a -f "@local_curl_path@" ]; then \
+		echo "Detected local install of curl. Bypassing curl build process." ;\
+	else \
+		if [ ! -d "_work/$(CURL_DIR)" ]; then \
+			echo "Preparing to build curl" ;\
+			mkdir -p _work/ ;\
+		echo In directory `pwd` ;\
+			tar zxf $(CURL_SOURCE) -C _work/ ;\
+		fi; \
+		if [ ! -f "_work/$(CURL_DIR)/" ]; then \
+			echo "Building curl" ;\
+			(cd _work/$(CURL_DIR)/; ./configure) ;\
+			$(MAKE) -C _work/$(CURL_DIR);\
+		fi \
+	fi
+
+rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -156,6 +178,11 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted
 		cp -av "@local_partprobe_path@" rootfs/usr/sbin/partprobe; \
 	else \
 		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \
+	fi
+	if [ -n "@local_curl_path@" -a -f "@local_curl_path@" ]; then \
+		cp -av "@local_curl_path@" rootfs/bin/curl; \
+	else \
+		cp -av _work/$(CURL_DIR)/src/curl rootfs/bin/curl; \
 	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done

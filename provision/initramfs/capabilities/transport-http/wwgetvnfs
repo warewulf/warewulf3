@@ -49,7 +49,7 @@ while true; do
         wwlogger "vnfs ${WWVNFS_NAME}, ${WWVNFSID}, ${WWVNFS_CHECKSUM:-undef}"
         msg_gray "   * fetching ${WWVNFS_NAME} (ID:${WWVNFSID})"
 
-        curl --local-port 100-1023 -L -s -o /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >>/var/log/warewulf/provision/http.log 2>&1
+        curl --fail --local-port 100-1023 -L -s -o /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >>/var/log/warewulf/provision/http.log 2>&1
         CURLEXIT=$?
 
         if [ "${CURLEXIT}" -eq 0 ]; then

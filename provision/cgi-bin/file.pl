@@ -41,7 +41,9 @@ my $tmpdir = "/tmp/warewulf";
 my $hwaddr = $q->param('hwaddr');
 my $fileid = $q->param('fileid');
 my $timestamp = $q->param('timestamp');
+my $remote_addr = $q->remote_addr();
 my $node;
+my $ipaddr;
 
 if (! -d $tmpdir) {
     mkpath($tmpdir);
@@ -56,10 +58,17 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
         if (! $tnode->enabled()) {
             next;
         }
+        foreach my $tipaddr ($tnode->ipaddr_list()) {
+            if ($tipaddr eq $remote_addr) {
+                $ipaddr = $tipaddr;
+                last;
+            }
+        }
+
         $node = $tnode;
     }
 
-    if ($node) {
+    if ($node && $ipaddr) {
         my $nodeName = $node->name();
 
         if (! $fileid) {
@@ -203,20 +212,23 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
                             print $send_buffer;
                         }
                     } else {
-                        &eprint("FileID ($fileid) cached file checksum does not match bin store, unlinking...\n");
+                        &eprint("File request for FILEID ($fileid) cached file checksum does not match bin store, unlinking...\n");
+                        $q->header( -status => '500 Internal Server Error' );
                         $q->print("Content-Type: application/octet-stream\r\n");
                         $q->print("Status: 500\r\n");
                         $q->print("\r\n");
                         unlink($cachefile);
                     }
                 } else {
-                    &wprint("ObjectID ($fileid) is not of type 'Warewulf::File' (requested by: $nodeName/$hwaddr)\n");
+                    &wprint("File request for FILEID ($fileid) is not of type 'Warewulf::File' (requested by: $nodeName/$hwaddr)\n");
+                    $q->header( -status => '400 Bad Request' );
                     $q->print("Content-Type: application/octet-stream\r\n");
                     $q->print("Status: 400\r\n");
                     $q->print("\r\n");
                 }
             } else {
-                &wprint("FILEID ($fileid) does not exist (requested by: $nodeName/$hwaddr)\n");
+                &wprint("File request for FILEID ($fileid) does not exist (requested by: $nodeName/$hwaddr)\n");
+                $q->header( -status => '400 Bad Request' );
                 $q->print("Content-Type: application/octet-stream\r\n");
                 $q->print("Status: 400\r\n");
                 $q->print("\r\n");
@@ -224,20 +236,29 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
         } else {
             # A file ID was given, but its an invalid ID. This needs to error out client so that
             # the client doesn't overwrite the target file.
-            &wprint("FILEID ($fileid) contains invalid characters (requested by: $nodeName/$hwaddr)\n");
+            &wprint("File request FILEID ($fileid) contains invalid characters (requested by: $nodeName/$hwaddr)\n");
+            $q->header( -status => '400 Bad Request' );
             $q->print("Content-Type: application/octet-stream\r\n");
-            $q->print("Status: 404\r\n");
+            $q->print("Status: 400\r\n");
             $q->print("\r\n");
         }
+    } elsif ($node && !$ipaddr) {
+        &eprint("file request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
+        $q->header( -status => '401 Unauthorized' );
+        $q->print("Content-Type: application/octet-stream\r\n");
+        $q->print("Status: 401\r\n");
+        $q->print("\r\n");
     } else {
-        &wprint("HWADDR ($hwaddr) is undefined\n");
+        &wprint("File request for HWADDR ($hwaddr) is not found\n");
+        $q->header( -status => '404 Not Found' );
         $q->print("Content-Type: application/octet-stream\r\n");
         $q->print("Status: 404\r\n");
         $q->print("\r\n");
     }
 } else {
-    &wprint("HWADDR ($hwaddr) contains invalid characters\n");
+    &wprint("File request HWADDR ($hwaddr) contains invalid characters\n");
+    $q->header( -status => '400 Bad Request' );
     $q->print("Content-Type: application/octet-stream\r\n");
-    $q->print("Status: 404\r\n");
+    $q->print("Status: 400\r\n");
     $q->print("\r\n");
 }

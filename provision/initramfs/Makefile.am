@@ -29,8 +29,6 @@ PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-
 CURL_VERSION = 7.75.0
 CURL_SOURCE = $(top_srcdir)/3rd_party/MIT/curl-$(CURL_VERSION).tar.gz
 CURL_DIR = curl-$(CURL_VERSION)
-CURL_CFLAGS = -Os -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables -flto
-CURL_LDFLAGS = -Wl,-s -Wl,-Bsymbolic -Wl,--gc-sections
 CURL_CONFIGARGS = --prefix=/usr --disable-shared --enable-static --without-ssl --without-gnutls --without-wolfssl --without-bearssl --with-mbedtls --with-ca-bundle=/etc/ca-bundle.crt --disable-ares --disable-cookies --disable-crypto-auth --disable-ipv6 --disable-manual --disable-proxy --disable-unix-sockets --disable-verbose --disable-versioned-symbols --enable-hidden-symbols --without-libidn --without-librtmp --without-zlib --disable-alt-svc --disable-hsts --disable-tls-srp --disable-ldap --disable-ldaps --disable-imap --disable-mqtt --disable-pop3 --disable-rtsp --disable-smtp --disable-gopher --disable-telnet --disable-tftp --disable-ftp --disable-libcurl-option
 
 e2fsprogs:
@@ -130,7 +128,7 @@ curl:
 		fi; \
 		if [ ! -f "_work/$(CURL_DIR)/" ]; then \
 			echo "Building curl" ;\
-			(cd _work/$(CURL_DIR)/; ./configure LDFLAGS="$(CURL_LDFLAGS)" CFLAGS="$(CURL_CFLAGS)" $(CURL_CONFIGARGS));\
+			(cd _work/$(CURL_DIR)/; ./configure $(CURL_CONFIGARGS));\
 			$(MAKE) -C _work/$(CURL_DIR);\
 		fi \
 	fi

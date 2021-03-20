@@ -16,6 +16,7 @@ mkdir -p /tmp
 mkdir -p /var
 mkdir -p /usr
 mkdir -p /var/log/warewulf/provision
+chmod 0640 /var/log/warewulf/provision
 
 mount -t devtmpfs devtmpfs /dev 
 mount -t proc none /proc >/dev/null 2>&1
@@ -462,6 +463,7 @@ export WWINIT_HWADDR
 msg_white "Starting syslogd: "
 if [ -n "$WWMASTER" ]; then
     if syslogd -O /var/log/warewulf/messages -R $WWMASTER -L; then
+        chmod 640 /var/log/warewulf/messages
         wwsuccess
     else
         wwfailure

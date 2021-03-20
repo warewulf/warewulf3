@@ -9,9 +9,9 @@
 
 
 . /etc/functions
+umask 027
 
-
-if [ -z "$TRANSPORT" ]; then
+if [ -z "$WWTRANSPORT" ]; then
     WWTRANSPORT="http"
 fi
 

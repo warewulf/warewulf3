@@ -11,6 +11,8 @@ if [ -n "$SET_X" ]; then
     set -x
 fi
 
+HTTP=${WWHTTP:-http}
+
 # Lock so more than one wwgetfiles cannot be ran
 exec 9>/tmp/.wwgetfile.lock
 flock -n 9 || { echo "ERROR: wwgetfiles already running" ; exit 1; }
@@ -53,7 +55,7 @@ echo "== wwgetfiles ==" >> /var/log/warewulf/provision/http.log
 while true; do
     for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
         TMPFILE=`mktemp`
-        if curl --fail --local-port 100-1023 -s -o "$TMPFILE" "http://$master/WW/file?hwaddr=$WWINIT_HWADDR&timestamp=$TIMESTAMP" 2>>/var/log/warewulf/provision/http.log; then
+        if curl --fail --local-port 100-1023 -s -o "$TMPFILE" "$HTTP://$master/WW/file?hwaddr=$WWINIT_HWADDR&timestamp=$TIMESTAMP" 2>>/var/log/warewulf/provision/http.log; then
             cat $TMPFILE | while read id name uid gid mode timestamp path; do
                 basedir=`dirname $path`
                 case "$mode" in
@@ -68,7 +70,7 @@ while true; do
                 if [ ! -d "$NEWROOT/$basedir" ]; then
                     mkdir -p "$NEWROOT/$basedir"
                 fi
-                if curl --fail --local-port 100-1023 -s -o "$NEWROOT/$path.ww$timestamp" "http://$master/WW/file?hwaddr=$WWINIT_HWADDR&fileid=$id"; then
+                if curl --fail --local-port 100-1023 -s -o "$NEWROOT/$path.ww$timestamp" "$HTTP://$master/WW/file?hwaddr=$WWINIT_HWADDR&fileid=$id"; then
                     if [ "$ftype" = "l" ]; then
                         ln -s -f `cat "$NEWROOT/$path.ww$timestamp"` "$NEWROOT/$path"
                         rm -f "$NEWROOT/$path.ww$timestamp"

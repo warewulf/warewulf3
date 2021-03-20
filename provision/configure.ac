@@ -248,6 +248,7 @@ AC_OUTPUT(
    initramfs/capabilities/provision-selinux/Makefile
    initramfs/capabilities/setup-filesystems/Makefile
    initramfs/capabilities/transport-http/Makefile
+   initramfs/capabilities/transport-https/Makefile
    share/Makefile
    lib/Makefile
    lib/Warewulf/Makefile

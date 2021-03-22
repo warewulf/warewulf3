@@ -162,6 +162,25 @@ console()
     return $self->prop("console", qr/^([a-zA-Z0-9\,]+)$/, @_);
 }
 
+=item transport($string)
+
+Set or return the transport string to use for the kernel command line and iPXE Config
+
+=cut
+
+sub
+transport()
+{
+    my $self = shift;
+    my @val = @_;
+
+    if (defined($_[0]) && $_[0] eq "UNDEF") {
+        @val = undef;
+    }
+
+    return $self->prop("transport", qr/^(http[s]?)$/, @val);
+}
+
 =item kargs()
 
 Set or return the list of kernel arguments. If an array element

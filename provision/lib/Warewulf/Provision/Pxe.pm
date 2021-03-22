@@ -146,6 +146,7 @@ update()
     my $master_network = $config->get("ip network") // $netobj->network($devname);
     my $master_netmask = $config->get("ip netmask") // $netobj->netmask($devname);
     my $dhcp_net = $config->get("dhcp network") || "direct";
+    my $default_transport = $config->get("default transport") || "http";
 
     if (! $master_ipaddr) {
         &wprint("Could not generate PXE configurations, check 'network device' or 'ip address/netmask/network' configuration!\n");
@@ -172,6 +173,7 @@ update()
         my $bootstrapid = $nodeobj->get("bootstrapid");
         my $db_id = $nodeobj->id();
         my $console = $nodeobj->console();
+        my $transport = $nodeobj->transport() || $default_transport;
         my @kargs = $nodeobj->kargs();
         my $bootlocal = $nodeobj->bootlocal();
         my @masters = $nodeobj->get("master");
@@ -288,9 +290,9 @@ update()
                         print IPXE "sanboot --no-describe --drive 0x80\n";
                     } else {
                         print IPXE "echo Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
-                        print IPXE "set base http://$master_ipaddr/WW/bootstrap\n";
+                        print IPXE "set base $transport://$master_ipaddr/WW/bootstrap\n";
                         print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
-                        print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname ";
+                        print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
                         print IPXE join(" ", @kargs) . " ";
                         if ($console) {
                             print IPXE "console=tty0 console=$console ";

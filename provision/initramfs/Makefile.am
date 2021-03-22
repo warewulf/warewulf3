@@ -185,6 +185,7 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
 		cp -av _work/$(CURL_DIR)/src/curl rootfs/bin/curl; \
 	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
+	cp -L --parents /lib*/libnss_dns* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la
 	rm -rf rootfs/usr/share rootfs/usr/include rootfs/usr/lib/pkgconfig

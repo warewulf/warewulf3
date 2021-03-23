@@ -311,9 +311,9 @@ update()
                     } else {
                         print IPXE "echo Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
                         if (defined($use_hostnames) && $use_hostnames eq "yes" && defined($master_hostname)) {
-                            print IPXE "set base $transport://$master_hostname/WW/bootstrap\n";
+                            print IPXE "set base http://$master_hostname/WW/bootstrap\n";
                         } else {
-                            print IPXE "set base $transport://$master_ipaddr/WW/bootstrap\n";
+                            print IPXE "set base http://$master_ipaddr/WW/bootstrap\n";
                         }
                         print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
                         print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";

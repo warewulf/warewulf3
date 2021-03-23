@@ -477,6 +477,16 @@ else
     wwskipped
 fi
 
+msg_white "Syncing ntpd: "
+if [ -n "$WWNTP" ]; then
+    if ntpd -n -q -p "${WWNTP}" >/var/log/warewulf/ntpd 2>&1; then
+        wwsuccess
+    else
+        wwfailure
+    fi
+else
+    wwskipped
+fi
 
 for i in /etc/warewulf/init/*; do
     if [ -x "$i" -a -f "$i" ]; then

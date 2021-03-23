@@ -16,7 +16,8 @@ prep:
 		echo "Extracting IPXE" ;\
 		mkdir -p _work/ ;\
 		tar -xJf $(IPXE_SOURCE) -C _work/ ;\
-                echo '#define DOWNLOAD_PROTO_HTTPS' >> "_work/$(IPXE_DIR)/src/config/local/general.h" ;\
+		echo '#define DOWNLOAD_PROTO_HTTPS' >> "_work/$(IPXE_DIR)/src/config/local/general.h" ;\
+		echo '#define NTP_CMD' >> "_work/$(IPXE_DIR)/src/config/local/general.h" ;\
 	fi
 
 bin-i386-pcbios/undionly.kpxe: prep

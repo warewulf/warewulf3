@@ -37,6 +37,9 @@ export WWGATEWAY
 WWDNS=`sed -e '/ wwdns=/!d;s/.*wwdns=\([^ ]*\).*/\1/' /proc/cmdline`
 export WWDNS
 
+WWNTP=`sed -e '/ wwntp=/!d;s/.*wwntp=\([^ ]*\).*/\1/' /proc/cmdline`
+export WWNTP
+
 WWNETDEV=`sed -e '/ wwnetdev=/!d;s/.*wwnetdev=\([^ ]*\).*/\1/' /proc/cmdline`
 export WWNETDEV
 

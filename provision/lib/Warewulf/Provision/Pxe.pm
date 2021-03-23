@@ -331,6 +331,10 @@ update()
                                 print IPXE "wwmaster=$master_ipaddr ";
                             }
                         }
+                        # Pass iPXE's dns setting from DHCP if use hostnames is enabled
+                        if (defined($use_hostnames) && $use_hostnames eq "yes") {
+                            print IPXE "wwdns=\${dns} ";
+                        }
                         if ($devname and $node_ipaddr and $node_netmask) {
                             print IPXE "wwipaddr=$node_ipaddr wwnetmask=$node_netmask wwnetdev=$devname wwhwaddr=$hwaddr ";
                         } else {

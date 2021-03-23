@@ -384,6 +384,11 @@ else
     wwfailure
 fi
 
+# If WWDNS was found on the cmdline, populate /etc/resolv.conf
+if [ -n "$WWDNS" ]; then
+    echo "nameserver $WWDNS" > /etc/resolv.conf
+fi
+
 # First try to setup bonding if requested
 if [ -n "$WWBONDDEVS" ]; then
     if bondup $WWNETDEV $WWBONDDEVS $WWHWADDR; then

@@ -256,6 +256,7 @@ persist()
             $httpd_contents .= "# VNFS $vnfs_name, ID: $vnfs_id\n";
             $httpd_contents .= "<Directory /var/tmp/warewulf_cache/$vnfs_name>\n";
             $httpd_contents .= "    AllowOverride None\n";
+            $httpd_contents .= "    AuthMerging And\n";
             $httpd_contents .= "    <RequireAny>\n";
             foreach (@{$vnfs{$vnfs_id}}) {
                 &dprint("Adding \"Require ip $_\" for $vnfs_name\n");
@@ -275,6 +276,7 @@ persist()
             $httpd_contents .= "# BOOTSTRAP $bootstrap_name, ID: $bootstrap_id\n";
             $httpd_contents .= "<Directory $statedir/warewulf/bootstrap/$bootstrap_arch/$bootstrap_id>\n";
             $httpd_contents .= "    AllowOverride None\n";
+            $httpd_contents .= "    AuthMerging And\n";
             $httpd_contents .= "    <RequireAny>\n";
             foreach (@{$bootstrap{$bootstrap_id}}) {
                 &dprint("Adding \"Require ip $_\" for $bootstrap_name\n");

@@ -40,6 +40,9 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     RewriteEngine On
     RewriteCond %{REMOTE_PORT} "-ge 1024"
     RewriteRule ^ - [L,R=403]
+    # Any Require statements here are logical And'ed to the Require statements 
+    # in warewulf-generated.conf due to 'AuthMerging And' being set.
+    Require all granted
 </Directory>
 
 <Directory @WAREWULF_STATEDIR@/warewulf/ipxe>
@@ -49,4 +52,7 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 
 <Directory @WAREWULF_STATEDIR@/warewulf/bootstrap>
     AllowOverride None
+    # Any Require statements here are logical And'ed to the Require statements 
+    # in warewulf-generated.conf due to 'AuthMerging And' being set.
+    Require all granted
 </Directory>

@@ -179,12 +179,16 @@ persist()
             &dprint("Node $hostname disabled. Skipping.\n");
             next;
         }
-        if (! $vnfs_id || ! bootstrap_ip) {
-            &dprint("No VNFS or BOOTSTRAP ID associated with this node object object: $hostname/$nodename:$n. Skipping.\n");
+        if (! $vnfs_id) {
+            &dprint("No VNFS associated with this node object: $hostname/$nodename:$n. Skipping.\n");
+            next;
+        }
+        if (! $bootstrap_id) {
+            &dprint("No BOOTSTRAP associated with this node object: $hostname/$nodename:$n. Skipping.\n");
             next;
         }
         if (! $db_id) {
-            &eprint("No DB ID associated with this node object object: $hostname/$nodename:$n\n");
+            &eprint("No DB ID associated with this node object: $hostname/$nodename:$n\n");
             next;
         }
 
@@ -228,8 +232,8 @@ persist()
 
                 if ($nodename and $node_ipaddr) {
                     &dprint("Adding a entry for: $nodename-$devname for VNFS ID $vnfs_id with IP $node_ipaddr\n");
-
                     push @{ $vnfs{"$vnfs_id"} }, "$node_ipaddr";
+                    &dprint("Adding a entry for: $nodename-$devname for BOOTSTRAP ID $bootstrap_id with IP $node_ipaddr\n");
                     push @{ $bootstrap{"$bootstrap_id"} }, "$node_ipaddr";
                     $seen{"NODESTRING"}{"$nodename-$devname"} = "$nodename-$devname";
                     $seen{"IPADDR"}{"$node_ipaddr"} = "$nodename-$devname";
@@ -250,7 +254,7 @@ persist()
         if ($vnfs_obj) {
             my $vnfs_name = $vnfs_obj->name();
             $httpd_contents .= "# VNFS $vnfs_name, ID: $vnfs_id\n";
-            $httpd_contents .= "<Directory /tmp/warewulf_cache/$vnfs_name>\n";
+            $httpd_contents .= "<Directory /var/tmp/warewulf_cache/$vnfs_name>\n";
             $httpd_contents .= "    AllowOverride None\n";
             $httpd_contents .= "    <RequireAny>\n";
             foreach (@{$vnfs{$vnfs_id}}) {
@@ -265,9 +269,9 @@ persist()
 
     foreach my $bootstrap_id (keys %bootstrap) {
         my $bootstrap_obj = $datastore->get_objects("bootstrap", "_id", $bootstrap_id)->get_object(0);
-        my $bootstrap_name = $bootstrap_obj->name();
-        my $bootstrap_arch = $bootstrap_obj->arch();
         if ($bootstrap_obj) {
+            my $bootstrap_name = $bootstrap_obj->name();
+            my $bootstrap_arch = $bootstrap_obj->arch();
             $httpd_contents .= "# BOOTSTRAP $bootstrap_name, ID: $bootstrap_id\n";
             $httpd_contents .= "<Directory $statedir/warewulf/bootstrap/$bootstrap_arch/$bootstrap_id>\n";
             $httpd_contents .= "    AllowOverride None\n";
@@ -279,6 +283,8 @@ persist()
             $httpd_contents .= "    </RequireAny>\n";
             $httpd_contents .= "</Directory>\n";
             $httpd_contents .= "\n";
+        } else {
+            &dprint("Could not find Bootstrap object for ID $bootstrap_id\n");
         }
     }
 

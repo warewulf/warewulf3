@@ -1,15 +1,9 @@
 <IfModule !perl_module>
     LoadModule perl_module @apache_moddir@/mod_perl.so
 </IfModule>
-<IfModule !version_module>
-    LoadModule version_module @apache_moddir@/mod_version.so
-</IfModule>
 PerlSwitches -w
 PerlSwitches -T
 PerlSwitches -I/var/www/stage/cgi-bin
-
-# This is disabled as RHEL6 perl_mod seems to be missing this support
-#PerlPreConnectionHandler Apache2::Reload
 
 Alias /WW/static @fulldatadir@/warewulf/www
 Alias /WW/vnfs_cache /var/tmp/warewulf_cache
@@ -28,10 +22,8 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     Options +ExecCGI
     RewriteEngine On
     RewriteCond %{REMOTE_PORT} "-ge 1024"
-    RewriteRule ^ - [L,R=401]
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    RewriteRule ^ - [L,R=403]
+    Require all granted
 </Directory>
 
 <Directory @fulldatadir@/warewulf/www>
@@ -39,48 +31,22 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     AllowOverride None
     RewriteEngine On
     RewriteCond %{REMOTE_PORT} "-ge 1024"
-    RewriteRule ^ - [L,R=401]
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    RewriteRule ^ - [L,R=403]
+    Require all granted
 </Directory>
 
 <Directory /var/tmp/warewulf_cache>
     AllowOverride None
     RewriteEngine On
     RewriteCond %{REMOTE_PORT} "-ge 1024"
-    RewriteRule ^ - [L,R=401]
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    RewriteRule ^ - [L,R=403]
 </Directory>
 
 <Directory @WAREWULF_STATEDIR@/warewulf/ipxe>
     AllowOverride None
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    Require all granted
 </Directory>
 
 <Directory @WAREWULF_STATEDIR@/warewulf/bootstrap>
     AllowOverride None
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
 </Directory>

@@ -258,4 +258,5 @@ AC_OUTPUT(
    lib/Warewulf/Module/Cli/Makefile
    lib/Warewulf/Provision/Makefile
    lib/Warewulf/Provision/Dhcp/Makefile
+   lib/Warewulf/Provision/Http/Makefile
 )

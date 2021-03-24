@@ -244,9 +244,9 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
         }
     } elsif ($node && !$ipaddr) {
         &eprint("file request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
-        $q->header( -status => '401 Unauthorized' );
+        $q->header( -status => '403 Forbidden' );
         $q->print("Content-Type: application/octet-stream\r\n");
-        $q->print("Status: 401\r\n");
+        $q->print("Status: 403\r\n");
         $q->print("\r\n");
     } else {
         &wprint("File request for HWADDR ($hwaddr) is not found\n");

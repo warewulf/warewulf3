@@ -165,7 +165,7 @@ if ($q->param('hwaddr')) {
             }
         } elsif ($node && !$ipaddr) {
             &eprint("VNFS request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
-            $q->header( -status => '401 Unauthorized' );
+            $q->header( -status => '403 Forbidden' );
         } else {
             &eprint("VNFS request for an unknown node (HWADDR: $hwaddr)\n");
             $q->header( -status => '404 Not Found' );

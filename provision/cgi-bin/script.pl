@@ -64,7 +64,7 @@ if ($type =~ /^([a-zA-Z0-9\-\._]+)$/) {
             }
         } elsif ($node && !$ipaddr) {
             &eprint("Script request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
-            $q->header( -status => '401 Unauthorized' );
+            $q->header( -status => '403 Forbidden' );
         } else {
             &eprint("Script request for HWADDR ($hwaddr) that does not exist\n");
             $q->header( -status => '404 Not Found' );

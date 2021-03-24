@@ -65,7 +65,7 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
 
     if (! $ipaddr) {
         &eprint("Nodeconfig request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
-        $q->header( -status => '401 Unauthorized' );
+        $q->header( -status => '403 Forbidden' );
         exit;
     }
 

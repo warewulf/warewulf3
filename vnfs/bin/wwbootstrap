@@ -20,6 +20,8 @@ use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 
 &set_log_level("NOTICE");
 
+&dprint("Sanitizing the PATH environment variable\n");
+delete @ENV{'PATH', 'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 $ENV{"PATH"} = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
 
 my $randstring = &rand_string("12");

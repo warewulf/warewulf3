@@ -280,6 +280,7 @@ foreach my $dir (split(":", $ENV{"PATH"})) {
 }
 
 &dprint("Sanitizing the PATH environment variable\n");
+delete @ENV{'PATH', 'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 $ENV{"PATH"} = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
 
 

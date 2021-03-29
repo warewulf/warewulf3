@@ -23,6 +23,7 @@ use Warewulf::Provision;
 my $db = Warewulf::DataStore->new();
 my $q = CGI->new();
 my $hwaddr = $q->param('hwaddr');
+my $remote_addr = $q->remote_addr();
 
 print $q->header();
 
@@ -37,11 +38,19 @@ if (! $db) {
 if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
     my $hwaddr = $1;
     my $node;
+    my $ipaddr;
+    
     my $nodeSet = $db->get_objects("node", "_hwaddr", $hwaddr);
 
     foreach my $tnode ($nodeSet->get_list()) {
         if (! $tnode->enabled()) {
             next;
+        }
+        foreach my $tipaddr ($tnode->ipaddr_list()) {
+            if ($tipaddr eq $remote_addr) {
+                $ipaddr = $tipaddr;
+                last;
+            }
         }
         $node = $tnode;
     }
@@ -49,7 +58,14 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
     my %nhash;
 
     if (! $node) {
-        &eprint("Node with hardware address \"$hwaddr\" does not exist!");
+        &eprint("Nodeconfig for HWADDR ($hwaddr) does not exist\n");
+        $q->header( -status => '404 Not Found' );
+        exit;
+    }
+
+    if (! $ipaddr) {
+        &eprint("Nodeconfig request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
+        $q->header( -status => '403 Forbidden' );
         exit;
     }
 
@@ -109,5 +125,8 @@ if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
             print "WWVNFS_CHECKSUM=\"$vnfs_checksum\"\nexport WWVNFS_CHECKSUM\n";
         }
     }
+} else {
+        &eprint("Nodeconfig request for an invalid HWADDR\n");
+        $q->header( -status => '400 Bad Request' );
 }
 

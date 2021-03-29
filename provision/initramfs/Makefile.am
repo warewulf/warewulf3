@@ -24,7 +24,12 @@ LIBARCHIVE_CONFIGARGS = --enable-bsdtar=static --disable-bsdcpio --enable-xattr 
 PARTED_VERSION = 3.2
 PARTED_SOURCE = $(top_srcdir)/3rd_party/GPL/parted-$(PARTED_VERSION).tar.xz
 PARTED_DIR = parted-$(PARTED_VERSION)
-PARTED_CONFIGARGS = --prefix=/usr --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
+PARTED_CONFIGARGS = --prefix=/ --libdir=/lib64 --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
+
+CURL_VERSION = 7.75.0
+CURL_SOURCE = $(top_srcdir)/3rd_party/MIT/curl-$(CURL_VERSION).tar.gz
+CURL_DIR = curl-$(CURL_VERSION)
+CURL_CONFIGARGS = --prefix=/usr --disable-shared --enable-static --without-ssl --without-gnutls --without-wolfssl --without-bearssl --with-mbedtls --with-ca-bundle=/etc/ca-bundle.crt --disable-ares --disable-cookies --disable-crypto-auth --disable-ipv6 --disable-manual --disable-proxy --disable-unix-sockets --disable-verbose --disable-versioned-symbols --enable-hidden-symbols --without-libidn --without-librtmp --without-zlib --disable-alt-svc --disable-hsts --disable-tls-srp --disable-ldap --disable-ldaps --disable-imap --disable-mqtt --disable-pop3 --disable-rtsp --disable-smtp --disable-gopher --disable-telnet --disable-tftp --disable-ftp --disable-libcurl-option
 
 e2fsprogs:
 	@ if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
@@ -111,7 +116,24 @@ parted:
 		fi \
 	fi
 
-rootfs: busybox e2fsprogs xfsprogs libarchive parted
+curl:
+	@ if [ -n "@local_curl_path@" -a -f "@local_curl_path@" ]; then \
+		echo "Detected local install of curl. Bypassing curl build process." ;\
+	else \
+		if [ ! -d "_work/$(CURL_DIR)" ]; then \
+			echo "Preparing to build curl" ;\
+			mkdir -p _work/ ;\
+		echo In directory `pwd` ;\
+			tar zxf $(CURL_SOURCE) -C _work/ ;\
+		fi; \
+		if [ ! -f "_work/$(CURL_DIR)/" ]; then \
+			echo "Building curl" ;\
+			(cd _work/$(CURL_DIR)/; ./configure $(CURL_CONFIGARGS));\
+			$(MAKE) -C _work/$(CURL_DIR);\
+		fi \
+	fi
+
+rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -157,7 +179,13 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted
 	else \
 		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \
 	fi
+	if [ -n "@local_curl_path@" -a -f "@local_curl_path@" ]; then \
+		cp -av "@local_curl_path@" rootfs/bin/curl; \
+	else \
+		cp -av _work/$(CURL_DIR)/src/curl rootfs/bin/curl; \
+	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
+	cp -L --parents /lib*/libnss_dns* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la
 	rm -rf rootfs/usr/share rootfs/usr/include rootfs/usr/lib/pkgconfig

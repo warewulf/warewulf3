@@ -16,7 +16,7 @@ Conflicts: warewulf < 3
 BuildRequires: warewulf-common
 BuildRequires: libselinux-devel, libacl-devel, libattr-devel
 BuildRequires: libuuid-devel, device-mapper-devel, xz-devel
-BuildRequires: libtirpc-devel
+BuildRequires: libtirpc-devel, mbedtls-devel
 
 %if 0%{?rhel:1}
 %global httpsvc httpd
@@ -114,6 +114,7 @@ fi
 %{perl_vendorlib}/Warewulf/Provision
 %{perl_vendorlib}/Warewulf/Event/DynamicHosts.pm
 %{perl_vendorlib}/Warewulf/Event/Genders.pm
+%{perl_vendorlib}/Warewulf/Event/Http.pm
 %{perl_vendorlib}/Warewulf/Event/DefaultProvisionNode.pm
 %{perl_vendorlib}/Warewulf/Event/ProvisionFileDelete.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Bootstrap.pm

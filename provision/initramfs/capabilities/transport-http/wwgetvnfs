@@ -14,6 +14,7 @@ fi
 [ -f /etc/functions ] && . /etc/functions
 [ -f /warewulf/transports/http/functions ] && . /warewulf/transports/http/functions
 
+HTTP=${WWHTTP:-http}
 VALIDATE_VNFS="${WWVALIDATE_VNFS:-0}"
 
 cd "${NEWROOT:-/}"
@@ -49,10 +50,10 @@ while true; do
         wwlogger "vnfs ${WWVNFS_NAME}, ${WWVNFSID}, ${WWVNFS_CHECKSUM:-undef}"
         msg_gray "   * fetching ${WWVNFS_NAME} (ID:${WWVNFSID})"
 
-        wget -q -O /tmp/vnfs-download "http://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >>/var/log/warewulf/provision/http.log 2>&1
-        WGETEXIT=$?
+        curl --fail --local-port 100-1023 -L -s -o /tmp/vnfs-download "$HTTP://$master/WW/vnfs?hwaddr=$WWINIT_HWADDR" >>/var/log/warewulf/provision/http.log 2>&1
+        CURLEXIT=$?
 
-        if [ "${WGETEXIT}" -eq 0 ]; then
+        if [ "${CURLEXIT}" -eq 0 ]; then
             wwsuccess
 
             if [ -n "${TEE_PID:-}" ]; then

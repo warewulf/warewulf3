@@ -20,6 +20,7 @@ use Warewulf::Provision::Tftp;
 use File::Basename;
 use File::Path qw(make_path);
 use POSIX qw(uname);
+use Socket;
 
 our @ISA = ('Warewulf::Object');
 
@@ -145,12 +146,16 @@ update()
     my $master_ipaddr = $config->get("ip address") // $netobj->ipaddr($devname);
     my $master_network = $config->get("ip network") // $netobj->network($devname);
     my $master_netmask = $config->get("ip netmask") // $netobj->netmask($devname);
+    my $use_hostnames = $config->get("use hostnames");
     my $dhcp_net = $config->get("dhcp network") || "direct";
+    my $default_transport = $config->get("default transport") || "http";
 
     if (! $master_ipaddr) {
         &wprint("Could not generate PXE configurations, check 'network device' or 'ip address/netmask/network' configuration!\n");
         return undef;
     }
+
+    my $master_hostname = gethostbyaddr(inet_aton($master_ipaddr), AF_INET);
 
     &dprint("Updating PXE configuration files now\n");
 
@@ -172,6 +177,7 @@ update()
         my $bootstrapid = $nodeobj->get("bootstrapid");
         my $db_id = $nodeobj->id();
         my $console = $nodeobj->console();
+        my $transport = $nodeobj->transport() || $default_transport;
         my @kargs = $nodeobj->kargs();
         my $bootlocal = $nodeobj->bootlocal();
         my @masters = $nodeobj->get("master");
@@ -226,6 +232,22 @@ update()
             next;
         }
 
+        # Iterate through the master IPs and attempt to resolve their hostnames
+        # if enabled todo so.
+        my @masters_hostnames;
+        if (scalar(@masters) > 0 && defined($use_hostnames) && $use_hostnames eq "yes") {
+            foreach my $ip (@masters) {
+            my $hostname = gethostbyaddr(inet_aton($ip), AF_INET);
+                if ($hostname) {
+                    push(@masters_hostnames, $hostname)
+                } else {
+                    push(@masters_hostnames, $ip)
+                }
+            }
+        }
+        if (scalar(@masters_hostnames) > 0) {
+            @masters = @masters_hostnames;
+        }
 
         foreach my $devname (sort($nodeobj->netdevs_list())) {
             my @hwaddrs = $nodeobj->hwaddr($devname);
@@ -288,9 +310,13 @@ update()
                         print IPXE "sanboot --no-describe --drive 0x80\n";
                     } else {
                         print IPXE "echo Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
-                        print IPXE "set base http://$master_ipaddr/WW/bootstrap\n";
+                        if (defined($use_hostnames) && $use_hostnames eq "yes" && defined($master_hostname)) {
+                            print IPXE "set base http://$master_hostname/WW/bootstrap\n";
+                        } else {
+                            print IPXE "set base http://$master_ipaddr/WW/bootstrap\n";
+                        }
                         print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
-                        print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname ";
+                        print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
                         print IPXE join(" ", @kargs) . " ";
                         if ($console) {
                             print IPXE "console=tty0 console=$console ";
@@ -299,7 +325,15 @@ update()
                             my $master = join(",", @masters);
                             print IPXE "wwmaster=$master ";
                         } else {
-                            print IPXE "wwmaster=$master_ipaddr ";
+                            if (defined($use_hostnames) && $use_hostnames eq "yes" && defined($master_hostname)) {
+                                print IPXE "wwmaster=$master_hostname ";
+                            } else {
+                                print IPXE "wwmaster=$master_ipaddr ";
+                            }
+                        }
+                        # Pass iPXE's dns setting from DHCP if use hostnames is enabled
+                        if (defined($use_hostnames) && $use_hostnames eq "yes") {
+                            print IPXE "wwdns=\${dns} ";
                         }
                         if ($devname and $node_ipaddr and $node_netmask) {
                             print IPXE "wwipaddr=$node_ipaddr wwnetmask=$node_netmask wwnetdev=$devname wwhwaddr=$hwaddr ";

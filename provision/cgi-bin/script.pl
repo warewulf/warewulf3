@@ -24,22 +24,32 @@ print $q->header();
 
 my $hwaddr = $q->param('hwaddr');
 my $type = $q->param('type');
+my $remote_addr = $q->remote_addr();
+
 
 if ($type =~ /^([a-zA-Z0-9\-\._]+)$/) {
     my $scriptname = $1 . "script";
     if ($hwaddr =~ /^([a-zA-Z0-9:]+)$/) {
         $hwaddr = $1;
- 
+        
         my $node; 
+        my $ipaddr;
+
         my $nodeSet = $db->get_objects("node", "_hwaddr", $hwaddr);
         foreach my $tnode ($nodeSet->get_list()) {
             if (! $tnode->enabled()) {
                 next;
             }
+            foreach my $tipaddr ($tnode->ipaddr_list()) {
+                if ($tipaddr eq $remote_addr) {
+                    $ipaddr = $tipaddr;
+                    last;
+                }
+            }
             $node = $tnode;
         }
- 
-        if ($node) {
+
+        if ($node && $ipaddr) {
             foreach my $script ($node->get("$scriptname")) {
                 if (! $script) {
                     next;
@@ -52,6 +62,18 @@ if ($type =~ /^([a-zA-Z0-9\-\._]+)$/) {
                     }
                 }
             }
+        } elsif ($node && !$ipaddr) {
+            &eprint("Script request for HWADDR ($hwaddr) from an unauthorized IP ($remote_addr)\n");
+            $q->header( -status => '403 Forbidden' );
+        } else {
+            &eprint("Script request for HWADDR ($hwaddr) that does not exist\n");
+            $q->header( -status => '404 Not Found' );
         }
+    } else {
+        &eprint("Script request for an invalid HWADDR\n");
+        $q->header( -status => '400 Bad Request' );
     }
+} else {
+    &eprint("Script request for an invalid TYPE\n");
+    $q->header( -status => '400 Bad Request' );
 }

@@ -1,3 +1,3 @@
-SUBDIRS = provision-adhoc provision-files provision-vnfs setup-filesystems provision-selinux transport-http
+SUBDIRS = provision-adhoc provision-files provision-vnfs setup-filesystems provision-selinux transport-http transport-https
 MAINTAINERCLEANFILES = Makefile.in
 

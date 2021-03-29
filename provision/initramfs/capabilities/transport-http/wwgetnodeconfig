@@ -9,10 +9,12 @@
 
 . /warewulf/transports/http/functions
 
+HTTP=${WWHTTP:-http}
+
 echo "== wwgetnodeconfig ==" >> /var/log/warewulf/provision/http.log
 while true; do
     for master in `echo $WWMASTER | sed -e 's/,/ /g'`; do
-        if wget -q -O - "http://$master/WW/nodeconfig?hwaddr=$WWINIT_HWADDR" 2>>/var/log/warewulf/provision/http.log; then
+        if curl --fail --local-port 100-1023 -s "$HTTP://$master/WW/nodeconfig?hwaddr=$WWINIT_HWADDR" 2>>/var/log/warewulf/provision/http.log; then
             exit 0
         fi
     done

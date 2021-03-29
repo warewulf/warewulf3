@@ -159,6 +159,7 @@ FIND_LOCAL(libarchive, bsdtar)
 FIND_LOCAL(parted, parted)
 FIND_LOCAL(partprobe, partprobe)
 FIND_LOCAL(xfsprogs, mkfs.xfs)
+FIND_LOCAL(curl, curl)
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])
@@ -230,6 +231,7 @@ AC_OUTPUT(
    3rd_party/Makefile
    3rd_party/GPL/Makefile
    3rd_party/BSD/Makefile
+   3rd_party/MIT/Makefile
    bin/Makefile
    cgi-bin/Makefile
    etc/Makefile
@@ -246,6 +248,7 @@ AC_OUTPUT(
    initramfs/capabilities/provision-selinux/Makefile
    initramfs/capabilities/setup-filesystems/Makefile
    initramfs/capabilities/transport-http/Makefile
+   initramfs/capabilities/transport-https/Makefile
    share/Makefile
    lib/Makefile
    lib/Warewulf/Makefile
@@ -255,4 +258,5 @@ AC_OUTPUT(
    lib/Warewulf/Module/Cli/Makefile
    lib/Warewulf/Provision/Makefile
    lib/Warewulf/Provision/Dhcp/Makefile
+   lib/Warewulf/Provision/Http/Makefile
 )

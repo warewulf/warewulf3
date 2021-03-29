@@ -35,6 +35,10 @@ if [ -z "$WWNORUNTIMESERVICES" ]; then
     mkdir -p $NEWROOT/etc/cron.d
     mkdir -p $NEWROOT/var/log
     cp -rap /warewulf/transports/$WWTRANSPORT $NEWROOT/warewulf/transports/
+    # HTTPS depends on HTTP, so copy it as well
+    if [ "${TRANSPORT}" == "https" ]; then
+    	cp -rap /warewulf/transports/http $NEWROOT/warewulf/transports/
+    fi
     ln -s ../transports/$WWTRANSPORT/wwgetfiles $NEWROOT/warewulf/bin/wwgetfiles
     ln -s ../transports/$WWTRANSPORT/wwgetscript $NEWROOT/warewulf/bin/wwgetscript
     ln -s ../transports/$WWTRANSPORT/wwgetvnfs $NEWROOT/warewulf/bin/wwgetvnfs

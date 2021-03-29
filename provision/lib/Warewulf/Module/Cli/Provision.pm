@@ -98,6 +98,7 @@ help()
     $h .= "         --postnetdown   Shutdown the network after provisioning (boolean)\n";
     $h .= "         --bootlocal     Boot the node from the local disk (\"exit\" or \"normal\")\n";
     $h .= "         --console       Set a specific console for the kernel command line\n";
+    $h .= "         --transport     Set a specific file transport (\"http\" or \"https\")\n";
     $h .= "         --kargs         Define the kernel arguments (assumes \"net.ifnames=0 biosdevname=0 quiet\" if UNDEF)\n";
     $h .= "         --pxeloader     Define a custom PXE loader image to use\n";
     $h .= "         --ipxeurl       Define a custom iPXE configuration URL to use\n";
@@ -191,6 +192,7 @@ exec()
     my @opt_filedel;
     my $opt_kargs;
     my $opt_console;
+    my $opt_transport;
     my $opt_pxeloader;
     my $opt_ipxeurl;
     my $opt_selinux;
@@ -216,6 +218,7 @@ exec()
         'filedel=s'     => \@opt_filedel,
         'kargs=s'       => \$opt_kargs,
         'console=s'     => \$opt_console,
+        'transport=s'   => \$opt_transport,
         'pxeloader=s'   => \$opt_pxeloader,
         'ipxeurl=s'     => \$opt_ipxeurl,
         'master=s'      => \@opt_master,
@@ -628,6 +631,26 @@ exec()
             }
         }
 
+        if ($opt_transport) {
+            if ($opt_transport =~ /^(http[s]?)$/i || $opt_transport =~ /^(UNDEF)$/) {
+                $opt_transport = $1;
+
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->transport($opt_transport);
+                    &dprint("Setting transport argument for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                if (uc($opt_transport) eq "UNDEF") {
+                    push(@changes, sprintf("     DEL: %-20s\n", "TRANSPORT"));
+                } else {
+                    push(@changes, sprintf("     SET: %-20s = %s\n", "TRANSPORT", $opt_transport));
+                }
+            } else {
+                &eprint("Invalid transport!\n");
+            }
+        }
+
         if ($opt_pxeloader) {
             if ($opt_pxeloader =~ /^([a-zA-Z0-9\.\/\-_]+)/) {
                 $opt_pxeloader = $1;
@@ -799,6 +822,7 @@ exec()
             printf("%15s: %-16s = %s\n", $name, "POSTNETDOWN", $o->postnetdown() ? "TRUE" : "FALSE");
             printf("%15s: %-16s = %s\n", $name, "POSTREBOOT", $o->postreboot() ? "TRUE" : "FALSE");
             printf("%15s: %-16s = %s\n", $name, "CONSOLE", $o->console() || "UNDEF");
+            printf("%15s: %-16s = %s\n", $name, "TRANSPORT", $o->transport() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "PXELOADER", $o->pxeloader() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPXEURL", $o->ipxeurl() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "SELINUX", $o->selinux() || "UNDEF");

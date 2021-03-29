@@ -1,15 +1,9 @@
 <IfModule !perl_module>
     LoadModule perl_module @apache_moddir@/mod_perl.so
 </IfModule>
-<IfModule !version_module>
-    LoadModule version_module @apache_moddir@/mod_version.so
-</IfModule>
 PerlSwitches -w
 PerlSwitches -T
 PerlSwitches -I/var/www/stage/cgi-bin
-
-# This is disabled as RHEL6 perl_mod seems to be missing this support
-#PerlPreConnectionHandler Apache2::Reload
 
 Alias /WW/static @fulldatadir@/warewulf/www
 Alias /WW/vnfs_cache /var/tmp/warewulf_cache
@@ -26,52 +20,39 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     PerlResponseHandler ModPerl::Registry
     PerlOptions +ParseHeaders
     Options +ExecCGI
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    RewriteEngine On
+    RewriteCond %{REMOTE_PORT} "-ge 1024"
+    RewriteRule ^ - [L,R=403]
+    Require all granted
 </Directory>
 
 <Directory @fulldatadir@/warewulf/www>
     Options Indexes MultiViews
     AllowOverride None
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    RewriteEngine On
+    RewriteCond %{REMOTE_PORT} "-ge 1024"
+    RewriteRule ^ - [L,R=403]
+    Require all granted
 </Directory>
 
 <Directory /var/tmp/warewulf_cache>
     AllowOverride None
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    RewriteEngine On
+    RewriteCond %{REMOTE_PORT} "-ge 1024"
+    RewriteRule ^ - [L,R=403]
+    # Any Require statements here are logical And'ed to the Require statements 
+    # in warewulf-generated.conf due to 'AuthMerging And' being set.
+    Require all granted
 </Directory>
 
 <Directory @WAREWULF_STATEDIR@/warewulf/ipxe>
     AllowOverride None
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    Require all granted
 </Directory>
 
 <Directory @WAREWULF_STATEDIR@/warewulf/bootstrap>
     AllowOverride None
-    <IfVersion < 2.4>
-        Order allow,deny
-        Allow from all
-    </IfVersion>
-    <IfVersion >= 2.4>
-        Require all granted
-    </IfVersion>
+    # Any Require statements here are logical And'ed to the Require statements 
+    # in warewulf-generated.conf due to 'AuthMerging And' being set.
+    Require all granted
 </Directory>

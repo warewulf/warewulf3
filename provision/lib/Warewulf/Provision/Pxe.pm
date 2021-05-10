@@ -182,6 +182,9 @@ update()
         my $bootlocal = $nodeobj->bootlocal();
         my @masters = $nodeobj->get("master");
         my $bootstrapname;
+        my $node_master_ipaddr = $master_ipaddr;
+        my $node_master_hostname = $master_hostname;
+
         my $arch = $nodeobj->arch();
         if (! $arch) {
             (undef, undef, undef, undef, $arch) = POSIX::uname();
@@ -235,18 +238,26 @@ update()
         # Iterate through the master IPs and attempt to resolve their hostnames
         # if enabled todo so.
         my @masters_hostnames;
-        if (scalar(@masters) > 0 && defined($use_hostnames) && $use_hostnames eq "yes") {
-            foreach my $ip (@masters) {
-            my $hostname = gethostbyaddr(inet_aton($ip), AF_INET);
-                if ($hostname) {
-                    push(@masters_hostnames, $hostname)
-                } else {
-                    push(@masters_hostnames, $ip)
+        if (scalar(@masters) > 0) {
+            if (defined($use_hostnames) && $use_hostnames eq "yes") {
+                foreach my $ip (@masters) {
+                my $hostname = gethostbyaddr(inet_aton($ip), AF_INET);
+                    if ($hostname) {
+                        push(@masters_hostnames, $hostname)
+                    } else {
+                        push(@masters_hostnames, $ip)
+                    }
                 }
+            }
+            if ($dhcp_net eq "relay") {
+                $node_master_ipaddr = $masters[0];
             }
         }
         if (scalar(@masters_hostnames) > 0) {
             @masters = @masters_hostnames;
+            if ($dhcp_net eq "relay") {
+                $node_master_hostname = $masters_hostnames[0];
+            }
         }
 
         foreach my $devname (sort($nodeobj->netdevs_list())) {
@@ -310,10 +321,10 @@ update()
                         print IPXE "sanboot --no-describe --drive 0x80\n";
                     } else {
                         print IPXE "echo Now booting $hostname with Warewulf bootstrap ($bootstrapname)\n";
-                        if (defined($use_hostnames) && $use_hostnames eq "yes" && defined($master_hostname)) {
-                            print IPXE "set base http://$master_hostname/WW/bootstrap\n";
+                        if (defined($use_hostnames) && $use_hostnames eq "yes" && defined($node_master_hostname)) {
+                            print IPXE "set base http://$node_master_hostname/WW/bootstrap\n";
                         } else {
-                            print IPXE "set base http://$master_ipaddr/WW/bootstrap\n";
+                            print IPXE "set base http://$node_master_ipaddr/WW/bootstrap\n";
                         }
                         print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
                         print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
@@ -325,10 +336,10 @@ update()
                             my $master = join(",", @masters);
                             print IPXE "wwmaster=$master ";
                         } else {
-                            if (defined($use_hostnames) && $use_hostnames eq "yes" && defined($master_hostname)) {
-                                print IPXE "wwmaster=$master_hostname ";
+                            if (defined($use_hostnames) && $use_hostnames eq "yes" && defined($node_master_hostname)) {
+                                print IPXE "wwmaster=$node_master_hostname ";
                             } else {
-                                print IPXE "wwmaster=$master_ipaddr ";
+                                print IPXE "wwmaster=$node_master_ipaddr ";
                             }
                         }
                         # Pass iPXE's dns setting from DHCP if use hostnames is enabled

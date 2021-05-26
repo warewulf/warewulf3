@@ -129,10 +129,17 @@ update_fstab_and_mount() {
   echo "${ENTRY}" | /usr/bin/awk '{ gsub(/:/,",",$4); print }' >> "${TEMPDIR}/fstab"
 
   MOUNTPOINT=$(echo "${ENTRY}" | /usr/bin/awk '{ print $2 }')
+  OPTIONS=$(echo "${ENTRY}" | /usr/bin/awk '{ print $4 }')
+
   msg_gray "   * mounting ${MOUNTPOINT}"
   if [ "${MOUNTPOINT:0:1}" = "/" ]; then
+    if echo "${OPTIONS}" | grep -q -w "bind"; then
+      # Prepend NEWROOT to source and mount points for bind mounts, transform options field ":" delim to fstab format with commas.
+      echo "${ENTRY}" | /usr/bin/awk -v NEWROOT="${NEWROOT}" '{ $1 = NEWROOT $1; $2 = NEWROOT $2; gsub(/:/,",",$4); print }' >> /etc/fstab
+    else
     # Prepend NEWROOT to mount points, transform options field ":" delim to fstab format with commas
-    echo "${ENTRY}" | /usr/bin/awk -v NEWROOT="${NEWROOT}" '{ $2 = NEWROOT $2; gsub(/:/,",",$4); print }' >> /etc/fstab
+      echo "${ENTRY}" | /usr/bin/awk -v NEWROOT="${NEWROOT}" '{ $2 = NEWROOT $2; gsub(/:/,",",$4); print }' >> /etc/fstab
+    fi
     {
       mkdir -p "${NEWROOT}${MOUNTPOINT}" && \
       mount "${NEWROOT}${MOUNTPOINT}" && wwsuccess

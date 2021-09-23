@@ -14,7 +14,7 @@ Conflicts: warewulf < 3
 Requires: warewulf-common
 Requires: %{name}-initramfs-%{_arch} = %{version}-%{release}
 
-%if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+%if 0%{?rhel} >= 8 || 0%{?suse_version} >= 1500
 %global localipmi 1
 BuildRequires: ipmitool
 Requires: ipmitool

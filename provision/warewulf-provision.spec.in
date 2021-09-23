@@ -29,7 +29,7 @@ BuildRequires: bsdtar
 %else # rhel < 8
 %global dhcpsrv dhcp
 %endif # rhel 8
-%else # sle_version
+%else # suse_version
 BuildRequires: systemd-rpm-macros
 %global httpsvc apache2
 %global httpgrp www
@@ -51,8 +51,8 @@ BuildRequires: gcc-x86_64-linux-gnu
 %undefine CROSS_FLAG
 %endif # cross_compile
 
-# New RHEL and SLE include the required FS tools
-%if 0%{?rhel} >= 8 || 0%{?sle_version} >= 150000
+# New RHEL and Suse include the required FS tools
+%if 0%{?rhel} >= 8 || 0%{?suse_version} >= 1500
 %global localtools 1
 BuildRequires: parted, e2fsprogs
 Requires: parted, autofs, e2fsprogs
@@ -151,11 +151,11 @@ Requires: %{httpsvc}, perl(Apache), %{tftpsvc}, %{dhcpsrv}, tcpdump
 %if 0%{?rhel} >= 8
 Requires(post): policycoreutils-python-utils
 %else # Not RHEL 8+
-%if 0%{?sle_version} >= 150100
+%if 0%{?suse_version} >= 1500
 Requires(post): policycoreutils
 %else # Not RHEL 8+ or SLE 15.1+
 Requires(post): policycoreutils-python
-%endif # sle_version
+%endif # suse_version
 %endif # rhel
 
 %description server
@@ -174,7 +174,7 @@ do not require this package.
 if [ $1 -eq 1 ] ; then
 usermod -a -G warewulf %{httpgrp} >/dev/null 2>&1 || :
 %{__mkdir_p} %{wwsrvdir}/warewulf/ipxe %{wwsrvdir}/warewulf/bootstrap 2>/dev/null || :
-%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%if 0%{?suse_version:1} || 0%{?rhel} >= 8
 %systemd_post %{httpdsvc}.service >/dev/null 2>&1 || :
 %systemd_post %{tftpsvc}.socket >/dev/null 2>&1 || :
 %else
@@ -198,7 +198,7 @@ semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/warewulf/ipxe(/.*)?' 2>
 semanage fcontext -d -t httpd_sys_content_t '%{wwsrvdir}/warewulf/bootstrap(/.*)?' 2>/dev/null || :
 /sbin/restorecon -R %{wwsrvdir}/warewulf || :
 fi
-%if 0%{?sle_version:1} || 0%{?rhel} >= 8
+%if 0%{?suse_version:1} || 0%{?rhel} >= 8
 %systemd_postun_with_restart %{httpdsvc}.service >/dev/null 2>&1 || :
 %systemd_postun_with_restart %{tftpsvc}.socket >/dev/null 2>&1 || :
 %else

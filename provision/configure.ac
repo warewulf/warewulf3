@@ -85,6 +85,9 @@ fi
 AC_MSG_RESULT($apache_moddir)
 AC_SUBST(apache_moddir)
 
+AC_CHECK_PROGS(CROSS_AARCH64_GCC, aarch64-linux-gnu-gcc aarch64-suse-linux-gcc)
+AC_CHECK_PROGS(CROSS_X86_64_GCC, x86_64-linux-gnu-gcc x86_64-suse-linux-gcc)
+
 AC_DEFUN([FIND_LOCAL], [
     AC_MSG_CHECKING([for locally installed $1])
     AC_ARG_WITH([local-$1], [
@@ -205,7 +208,7 @@ AS_CASE([$host_cpu],
         build_x86_64=yes
         AS_IF([test "x$enable_cross_compile" = "xyes"], [
             AC_MSG_NOTICE([cross-compile for aarch64 configured])
-            CROSS_COMPILE_ARM64="aarch64-linux-gnu-"
+            CROSS_COMPILE_ARM64=`basename $CROSS_AARCH64_GCC gcc`
             build_arm64=yes
         ])
     ],
@@ -214,7 +217,7 @@ AS_CASE([$host_cpu],
         build_arm64=yes
         AS_IF([test "x$enable_cross_compile" = "xyes"], [
             AC_MSG_NOTICE([cross-compile for x86_64 configured])
-            CROSS_COMPILE_X86_64="x86_64-linux-gnu-"
+            CROSS_COMPILE_X86_64=`basename $CROSS_X86_64_GCC gcc`
             build_x86_64=yes
         ])
     ]

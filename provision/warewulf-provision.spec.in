@@ -42,10 +42,22 @@ BuildRequires: systemd-rpm-macros
 %if 0%{?cross_compile}
 %global CROSS_FLAG --enable-cross-compile
 %if "%{_arch}" == "x86_64"
+%if 0%{?rhel} >= 8
 BuildRequires: gcc-aarch64-linux-gnu
+%else # Not RHEL 8+
+%if 0%{?suse_version} >= 1500
+BuildRequires: cross-aarch64-gcc7
+%endif # suse_version
+%endif # rhel
 %endif # x86_64
 %if "%{_arch}" == "aarch64"
+%if 0%{?rhel} >= 8
 BuildRequires: gcc-x86_64-linux-gnu
+%else # Not RHEL 8+
+%if 0%{?suse_version} >= 1500
+BuildRequires: cross-x86_64-gcc7
+%endif # suse_version
+%endif # rhel
 %endif # aarch64
 %else
 %undefine CROSS_FLAG

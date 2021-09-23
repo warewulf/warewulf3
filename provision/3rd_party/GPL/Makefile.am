@@ -1,4 +1,4 @@
-dist_gplsrc_DATA = README busybox-1.26.2.tar.bz2 e2fsprogs-1.42.12.tar.gz ipxe-133f4c4.tar.xz parted-3.2.tar.xz
+dist_gplsrc_DATA = 0000-ipxe-revert-3fb3ffc.patch README busybox-1.33.1.tar.bz2 e2fsprogs-1.46.4.tar.gz ipxe-2265a65.tar.xz parted-3.4.tar.xz
 
 gplsrcdir = $(prefix)/src/warewulf/3rd_party/GPL/
 

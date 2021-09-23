@@ -6,27 +6,27 @@ top_srcdir = @top_srcdir@
 
 MACHINE:=$(shell uname -m)
 
-BUSYBOX_VERSION = 1.26.2
+BUSYBOX_VERSION = 1.33.1
 BUSYBOX_SOURCE = $(top_srcdir)/3rd_party/GPL/busybox-$(BUSYBOX_VERSION).tar.bz2
 BUSYBOX_DIR = busybox-$(BUSYBOX_VERSION)
 BUSYBOX_PATCHES =
 
-E2FSPROGS_VERSION = 1.42.12
+E2FSPROGS_VERSION = 1.46.4
 E2FSPROGS_SOURCE = $(top_srcdir)/3rd_party/GPL/e2fsprogs-$(E2FSPROGS_VERSION).tar.gz
 E2FSPROGS_DIR = e2fsprogs-$(E2FSPROGS_VERSION)
 E2FSPROGS_CONFIGARGS = --disable-testio-debug --disable-debugfs --disable-imager --disable-resizer  --disable-defrag --disable-fsck --disable-tls --disable-uuidd --disable-nls --disable-profile
 
-LIBARCHIVE_VERSION = 3.3.1
+LIBARCHIVE_VERSION = 3.5.2
 LIBARCHIVE_SOURCE = $(top_srcdir)/3rd_party/BSD/libarchive-$(LIBARCHIVE_VERSION).tar.gz
 LIBARCHIVE_DIR = libarchive-$(LIBARCHIVE_VERSION)
 LIBARCHIVE_CONFIGARGS = --enable-bsdtar=static --disable-bsdcpio --enable-xattr --enable-acl --enable-static --disable-shared  --without-zlib --without-bz2lib --without-iconv --without-lzma --without-lzo2 --without-lz4 --without-nettle --without-openssl --without-xml2 --without-expat
 
-PARTED_VERSION = 3.2
+PARTED_VERSION = 3.4
 PARTED_SOURCE = $(top_srcdir)/3rd_party/GPL/parted-$(PARTED_VERSION).tar.xz
 PARTED_DIR = parted-$(PARTED_VERSION)
 PARTED_CONFIGARGS = --prefix=/ --libdir=/lib64 --without-readline --disable-static --disable-nls --disable-dynamic-loading --disable-debug
 
-CURL_VERSION = 7.75.0
+CURL_VERSION = 7.79.1
 CURL_SOURCE = $(top_srcdir)/3rd_party/MIT/curl-$(CURL_VERSION).tar.gz
 CURL_DIR = curl-$(CURL_VERSION)
 CURL_CONFIGARGS = --prefix=/usr --disable-shared --enable-static --without-ssl --without-gnutls --without-wolfssl --without-bearssl --with-mbedtls --with-ca-bundle=/etc/ca-bundle.crt --disable-ares --disable-cookies --disable-crypto-auth --disable-ipv6 --disable-manual --disable-proxy --disable-unix-sockets --disable-verbose --disable-versioned-symbols --enable-hidden-symbols --without-libidn --without-librtmp --without-zlib --disable-alt-svc --disable-hsts --disable-tls-srp --disable-ldap --disable-ldaps --disable-imap --disable-mqtt --disable-pop3 --disable-rtsp --disable-smtp --disable-gopher --disable-telnet --disable-tftp --disable-ftp --disable-libcurl-option

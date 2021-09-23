@@ -1,3 +1,3 @@
-EXTRA_DIST = curl-7.75.0.tar.gz
+EXTRA_DIST = curl-7.79.1.tar.gz
 
 MAINTAINERCLEANFILES = Makefile.in

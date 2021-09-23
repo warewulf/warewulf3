@@ -62,9 +62,9 @@ Requires: libarchive.so.13()(64bit)
 %else
 %global localtools 0
 Requires: %{name}-gpl_sources = %{version}-%{release}
-Provides: parted = 3.2
-Provides: e2fsprogs = 1.42.12
-Provides: libarchive = 3.3.1
+Provides: parted = 3.4
+Provides: e2fsprogs = 1.44.6
+Provides: libarchive = 3.5.2
 Provides: libarchive.so.13()(64bit)
 %endif
 

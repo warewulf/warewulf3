@@ -208,7 +208,7 @@ AS_CASE([$host_cpu],
         build_x86_64=yes
         AS_IF([test "x$enable_cross_compile" = "xyes"], [
             AC_MSG_NOTICE([cross-compile for aarch64 configured])
-            CROSS_COMPILE_ARM64=`basename $CROSS_AARCH64_GCC gcc`
+            CROSS_COMPILE_ARM64=`basename "$CROSS_AARCH64_GCC" gcc`
             build_arm64=yes
         ])
     ],
@@ -217,7 +217,7 @@ AS_CASE([$host_cpu],
         build_arm64=yes
         AS_IF([test "x$enable_cross_compile" = "xyes"], [
             AC_MSG_NOTICE([cross-compile for x86_64 configured])
-            CROSS_COMPILE_X86_64=`basename $CROSS_X86_64_GCC gcc`
+            CROSS_COMPILE_X86_64=`basename "$CROSS_X86_64_GCC" gcc`
             build_x86_64=yes
         ])
     ]

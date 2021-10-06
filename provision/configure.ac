@@ -177,7 +177,7 @@ AC_SUBST(fulllocalstatedir)
 AC_EXPAND_DIR(fulldatadir, "$datadir")
 AC_SUBST(fulldatadir)
 
-initramfsdir="$localstatedir/warewulf/initramfs/";
+initramfsdir="$WAREWULFSTATEDIR/warewulf/initramfs/";
 AC_SUBST(initramfsdir)
 
 BUSYBOX_CONFIG_EXTRA_LDLIBS=

@@ -11,6 +11,9 @@ if [ -d "${NEWROOT}/etc/sysconfig/network-scripts" ]; then
     cp -f /tmp/ifcfg-* "${NEWROOT}/etc/sysconfig/network-scripts/"
 elif [ -d "${NEWROOT}/etc/network" ]; then
     cp -f /tmp/interfaces "${NEWROOT}/etc/network/"
+elif [ -d "${NEWROOT}/etc/sysconfig/network" ]; then
+    [ /tmp/suse/if*-* != "/tmp/suse/if*-*" ] && \
+	cp -f /tmp/suse/if*-* "${NEWROOT}/etc/sysconfig/network/"
 fi
 
 if [ -n "$HOSTNAME" ]; then

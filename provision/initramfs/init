@@ -192,6 +192,37 @@ bondup() {
                     if [ -n "$WWBONDMODE" ]; then
                         echo "BONDING_OPTS=\"mode=$WWBONDMODE\"" >> /tmp/ifcfg-$DEVICE
                     fi
+		    # SUSE based ifcfg
+		    mkdir -p /tmp/suse
+
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/suse/ifcfg-$DEVICE
+                    echo "NAME=$DEVICE" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "BONDING_MASTER=yes" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "BOOTPROTO=static" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "STARMODE=auto" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "IPADDR=$WWIPADDR" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "NETMASK=$WWNETMASK" >> /tmp/suse/ifcfg-$DEVICE
+                    if [ -n "$HWADDR" ]; then
+                        echo "LLADDR=$HWADDR" >> /tmp/suse/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWMTU" ]; then
+                        echo "MTU=$WWMTU" >> /tmp/suse/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWBONDMODE" ]; then
+                        echo "BONDING_MODULE_OPTS=\"mode=$WWBONDMODE\"" >> /tmp/suse/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWGATEWAY" ]; then
+                        echo "default $WWGATEWAY - $DEVICE" > /tmp/suse/ifroute-$DEVICE
+                    fi
+                    COUNT=0
+                    for slave in $BONDDEVS; do
+			echo "BONDIG_SLAVE_$COUNT=$slave" >> /tmp/suse/ifcfg-$DEVICE
+                        echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$slave
+                        echo "NAME=$slave" >> /tmp/suse/ifcfg-$slave
+                        echo "BOOTPROTO=none" >> /tmp/suse/ifcfg-$slave
+                        echo "STARTMODE=hotplug" >> /tmp/suse/ifcfg-$slave
+			COUNT=`expr $COUNT + 1`
+                    done
                     wwsuccess
                 fi
 
@@ -262,6 +293,24 @@ netconf_distro()
         fi
         if [ -n "$WWMTU" ]; then
             echo "MTU=$WWMTU" >> /tmp/ifcfg-$OSDEVICE  # RHEL
+        fi
+
+        # SUSE based ifcfg
+	mkdir -p /tmp/suse
+        echo "# This was created by the Warewulf bootstrap" > /tmp/suse/ifcfg-$OSDEVICE
+        echo "NAME=$OSDEVICE" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "BOOTPROTO=static" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "STARTMODE=auto" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "IPADDR=$WWIPADDR" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "NETMASK=$WWNETMASK" >> /tmp/suse/ifcfg-$OSDEVICE
+        if [ -n "$HWADDR" ]; then
+            echo "LLADDR=$HWADDR" >> /tmp/suse/ifcfg-$OSDEVICE
+        fi
+        if [ -n "$WWMTU" ]; then
+            echo "MTU=$WWMTU" >> /tmp/suse/ifcfg-$OSDEVICE  # RHEL
+        fi
+        if [ -n "$WWGATEWAY" ]; then
+            echo "default $WWGATEWAY - $OSDEVICE" > /tmp/suse/ifroute-$OSDEVICE
         fi
         wwsuccess
     fi

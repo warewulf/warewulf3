@@ -243,6 +243,9 @@ netconf_distro()
         if [ -n "$HWADDR" ]; then
             echo "    hwaddress ether $HWADDR" >> /tmp/interfaces
         fi
+        if [ -n "$WWMTU" ]; then
+            echo "    mtu $WWMTU" >> /tmp/interfaces # DEB
+        fi
 
         # RHEL based ifcfg
         echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$OSDEVICE
@@ -257,11 +260,10 @@ netconf_distro()
         if [ -n "$HWADDR" ]; then
             echo "HWADDR=$HWADDR" >> /tmp/ifcfg-$OSDEVICE
         fi
-
         if [ -n "$WWMTU" ]; then
             echo "MTU=$WWMTU" >> /tmp/ifcfg-$OSDEVICE  # RHEL
-            echo "    mtu $WWMTU" >> /tmp/interfaces # DEB
         fi
+        wwsuccess
     fi
 }
 

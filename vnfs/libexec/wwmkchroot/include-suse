@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # Include file for SUSE Linux distributions
-# Use this for SLE, OpenSUSE LEAP, and Tumbleweed
+# Use this for SLE, openSUSE LEAP, and Tumbleweed
 
 distro_check() {
     if ! zypper --version >$DEVNULL ; then
@@ -55,7 +55,10 @@ prechroot() {
         ZYPP_MIRROR="$OS_MIRROR"
     fi
 
-    if [ -z "$ZYPP_MIRROR" -a -z "$INSTALL_ISO" ]; then
+    # If neither ZYPP_MIRROR nor INSTALL_ISO are set, try to copy repository
+    # information from running system (including credentials on SLE)
+    # If none of these are available, our options are exhausted: fail early
+    if [ -z "$ZYPP_MIRROR" -a -z "$INSTALL_ISO" -a ! -d /etc/zypp ]; then
         echo "ERROR: You must define the \$ZYPP_MIRROR or \$INSTALL_ISO variable"
         cleanup
         return 1
@@ -83,20 +86,23 @@ prechroot() {
     [ -n "$VERBOSE" ] && echo "Created zypp.conf"
     [ -n "$DEBUG" ] && cat z$CHROOTDIR/etc/zypp/zypp.conf
 
-    # Add all of the repos found on the ISO images
+    # Remove all existing repos in CHROOT; just a precaution
+    rm -f $CHROOTDIR/etc/zypp/repos.d/*
 
-    if [ -n "$INSTALL_ISO" ]; then
+    if [ -z "$ZYP_MIRROR" -a -z "$INSTALL_ISO" ]; then
+	echo "INFO: Taking repository information from running system"
+	cp -rap /etc/zypp/repos.d $CHROOTDIR/etc/zypp
+	[ -d /etc/zypp/services.d ] && cp -rap /etc/zypp/services.d $CHROOTDIR/etc/zypp
+	[ -d /etc/zypp/credentials.d ] && cp -rap /etc/zypp/credentials.d $CHROOTDIR/etc/zypp
+    elif [ -n "$INSTALL_ISO" ]; then
+	# Add all of the repos found on the ISO images
         for i in $(find $MEDIA_MOUNTPATH -type d -name repodata -printf "%P "); do
              [ -n "$VERBOSE" ] && echo "Found repodata at $i"
-             INSTALLDIRS="$INSTALLDIRS,file:///tmp/wwmkchroot.mount/$(dirname $i)"
+             INSTALLDIRS="${INSTALLDIRS:+${INSTALLDIRS}},file:///tmp/wwmkchroot.mount/$(dirname $i)"
         done
-        ZYPP_MIRROR="$ZYPP_MIRROR,$INSTALLDIRS"
+        ZYPP_MIRROR="${ZYPP_MIRROR:+${ZYPP_MIRROR}},$INSTALLDIRS"
         [ -n "$DEBUG" ] && echo "ZYPP_MIRROR = $ZYPP_MIRROR"
     fi
-
-    # Remove all existing repos in CHROOT; just a precaution
-    rm -f $CHROOTDIR/etc/yum.repos.d/*
-
 
     # Create new repos from comma-seperated list (using bash inline S&R)
     if [ "01" -eq "0$REPO_NOGPGCHECK" ]; then

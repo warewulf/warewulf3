@@ -39,7 +39,7 @@ if ($opt_help) {
     print "\n";
     print "   Options:\n";
     print "      -h, --help     Show this help summary\n";
-    print "      -a, --all      Print all evnironment variables\n";
+    print "      -a, --all      Print all environment variables\n";
     print "      -s, --sh       Print output in Bourne shell format\n";
     print "      -e, --exp      Also print out export lines. For use with Bourne shell format.\n";
     print "      -c, --csh      Print output in C shell format\n";

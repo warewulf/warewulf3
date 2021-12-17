@@ -29,15 +29,15 @@ if test -z "$WWCONFIGBIN"; then
 fi
 AC_SUBST(WWCONFIGBIN)
 
-AC_EXPAND_DIR(prefix, "${prefix}")
 WAREWULF_PREFIX=`$WWCONFIGBIN PREFIX`
+AC_EXPAND_DIR(prefix, "${prefix}")
 force_prefix=""
 AC_MSG_CHECKING([warewulf-common prefix vs. current prefix])
 if test "${prefix}" = "$WAREWULF_PREFIX"; then
    AC_MSG_RESULT([identical (${prefix})])
 else
    AC_MSG_RESULT([MISMATCH (${prefix} vs. $WAREWULF_PREFIX), forcing install prefix on all paths])
-   AC_PREFIX_DEFAULT([$WAREWULF_PREFIX])
+   AC_PREFIX_DEFAULT(['$WAREWULF_PREFIX'])
 fi
 
 AC_MSG_CHECKING([for Warewulf's configuration for statedir])

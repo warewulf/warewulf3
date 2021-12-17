@@ -11,14 +11,14 @@ if test -z "$WWCONFIGBIN"; then
 fi
 AC_SUBST(WWCONFIGBIN)
 
-AC_EXPAND_DIR(prefix, "${prefix}")
 WAREWULF_PREFIX=`$WWCONFIGBIN PREFIX`
+AC_EXPAND_DIR(prefix, "${prefix}")
 AC_MSG_CHECKING([warewulf-common prefix vs. current prefix])
 if test "${prefix}" = "$WAREWULF_PREFIX"; then
    AC_MSG_RESULT([identical (${prefix})])
 else
    AC_MSG_RESULT([MISMATCH (${prefix} vs. $WAREWULF_PREFIX), forcing install prefix on all paths])
-   AC_PREFIX_DEFAULT([$WAREWULF_PREFIX])
+   AC_PREFIX_DEFAULT(['$WAREWULF_PREFIX'])
 fi
 
 AC_EXPAND_DIR(datadir, "${datadir}")
@@ -208,7 +208,7 @@ AS_CASE([$host_cpu],
         build_x86_64=yes
         AS_IF([test "x$enable_cross_compile" = "xyes"], [
             AC_MSG_NOTICE([cross-compile for aarch64 configured])
-            CROSS_COMPILE_ARM64=`basename $CROSS_AARCH64_GCC gcc`
+            CROSS_COMPILE_ARM64=`basename "$CROSS_AARCH64_GCC" gcc`
             build_arm64=yes
         ])
     ],
@@ -217,7 +217,7 @@ AS_CASE([$host_cpu],
         build_arm64=yes
         AS_IF([test "x$enable_cross_compile" = "xyes"], [
             AC_MSG_NOTICE([cross-compile for x86_64 configured])
-            CROSS_COMPILE_X86_64=`basename $CROSS_X86_64_GCC gcc`
+            CROSS_COMPILE_X86_64=`basename "$CROSS_X86_64_GCC" gcc`
             build_x86_64=yes
         ])
     ]

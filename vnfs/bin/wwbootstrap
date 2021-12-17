@@ -8,6 +8,7 @@
 #
 
 
+use Warewulf::ACVars;
 use Warewulf::Init;
 use Warewulf::Config;
 use Warewulf::Logger;
@@ -24,6 +25,7 @@ use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 delete @ENV{'PATH', 'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 $ENV{"PATH"} = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
 
+my $sysconfdir = Warewulf::ACVars::get('SYSCONFDIR');
 my $randstring = &rand_string("12");
 my $tmpdir = "/var/tmp/wwinitrd.$randstring";
 my $initramfsdir = "$tmpdir/initramfs";
@@ -51,8 +53,8 @@ my $help = "USAGE: $0 [options] kernel_version
         -r, --root      Alias for --chroot
             --config    What configuration file should be used (don't use
                         full path, rather just the relative name as would be
-                        found in \$sysconfigdir/warewulf/bootstrap/) other-
-                        wise the default bootstrap.conf is used.
+                        found in $sysconfdir/warewulf/bootstrap/ or ~/.warewulf/bootstrap/)
+                        otherwise the default bootstrap.conf is used.
         -o, --output    Output the bootstrap image to a file at the specified
                         path location (default automatically imports the
                         file into Warewulf instead of writing to disk).
@@ -95,7 +97,7 @@ if ($opt_help or ! @ARGV) {
 }
 
 if ($opt_config) {
-    $config = Warewulf::Config->new($opt_config);
+    $config = Warewulf::Config->new("bootstrap/$opt_config");
 } else {
     $config = Warewulf::Config->new("bootstrap.conf");
 

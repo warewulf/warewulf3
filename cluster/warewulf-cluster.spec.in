@@ -1,6 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_sharedstatedir}}}
 
 Name: warewulf-cluster
 Version: @PACKAGE_VERSION@
@@ -30,7 +30,7 @@ configuration of a cluster and its nodes.
 
 
 %build
-%configure --localstatedir=%{wwsrvdir}
+%configure --sharedstatedir=%{wwsrvdir}
 %{__make} %{?mflags}
 
 

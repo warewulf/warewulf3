@@ -55,7 +55,7 @@ e2fsprogs:
 
 xfsprogs:
 	@ if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
-                echo "Detected local install of xfsprogs. Bypassing xfsprogs build process." ;\
+                echo "Detected local install of xfsprogs." ;\
 	fi
 
 busybox:
@@ -133,7 +133,12 @@ curl:
 		fi \
 	fi
 
-rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
+mdadm:
+	@ if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		echo "Detected local install of mdadm." ;\
+	fi
+
+rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -183,6 +188,9 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
 		cp -av "@local_curl_path@" rootfs/bin/curl; \
 	else \
 		cp -av _work/$(CURL_DIR)/src/curl rootfs/bin/curl; \
+	fi
+	if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		cp -av @local_mdadm_path@ rootfs/sbin/mdadm; \
 	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
 	cp -L --parents /lib*/libnss_dns* rootfs/

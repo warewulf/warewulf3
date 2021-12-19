@@ -179,9 +179,9 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm
 	fi
 	if [ -n "@local_parted_path@" -a -f "@local_parted_path@" -a \
 	  -n "@local_partprobe_path@" -a -f "@local_partprobe_path@" ]; then \
-		rm -f rootfs/usr/sbin/partprobe; \
-		cp -av "@local_parted_path@" rootfs/usr/sbin/parted; \
-		cp -av "@local_partprobe_path@" rootfs/usr/sbin/partprobe; \
+		rm -f rootfs/usr/sbin/partprobe rootfs/sbin/partprobe; \
+		cp -av "@local_parted_path@" rootfs/sbin/parted; \
+		cp -av "@local_partprobe_path@" rootfs/sbin/partprobe; \
 	else \
 		rm -f rootfs/usr/sbin/partprobe; \
 		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \

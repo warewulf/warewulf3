@@ -165,8 +165,10 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm
 	fi
 	if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
 		cp -av "@local_e2fsprogs_path@" rootfs/sbin/mkfs.ext4 ;\
+		cp -av "/etc/mke2fs.conf" rootfs/etc/mke2fs.conf ;\
 	else \
 		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
+		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs.conf rootfs/etc/mkfs.ext4 ;\
 	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \

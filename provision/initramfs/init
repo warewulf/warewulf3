@@ -83,18 +83,18 @@ bondup() {
     msg_white "Configuring bonding interfaces: $DEVICE $WWBONDMODE ($BONDDEVS)\n"
 
     msg_gray "Loading bonding module\n"
-# dont automatically created devices
+    # dont automatically created devices
     modprobe bonding max_bonds=0 >/dev/null
 
     for slave in $BONDDEVS; do
         ip addr flush dev $slave >/dev/null
-#        ip link set dev $slave nomaster down >/dev/null 2>&1 
+        # ip link set dev $slave nomaster down >/dev/null 2>&1
     done
 
     msg_gray "Bringing up interface $DEVICE"
 
     ip link add $DEVICE type bond >/dev/null 
-# busybox "ip" command does not support bonding modes
+    # busybox "ip" command does not support bonding modes
     echo "$WWBONDMODE" > /sys/class/net/$DEVICE/bonding/mode
     ip link set dev $DEVICE up
 
@@ -110,7 +110,7 @@ bondup() {
             fi
         fi
 
-# give the device some time to come up
+        # give the device some time to come up
         sleep 5
         
         if [ -n "$WWIPADDR" -a -n "$WWNETMASK" -a -n "$WWMASTER" ]; then
@@ -192,8 +192,8 @@ bondup() {
                     if [ -n "$WWBONDMODE" ]; then
                         echo "BONDING_OPTS=\"mode=$WWBONDMODE\"" >> /tmp/ifcfg-$DEVICE
                     fi
-		    # SUSE based ifcfg
-		    mkdir -p /tmp/suse
+                    # SUSE based ifcfg
+                    mkdir -p /tmp/suse
 
                     echo "# This was created by the Warewulf bootstrap" > /tmp/suse/ifcfg-$DEVICE
                     echo "NAME=$DEVICE" >> /tmp/suse/ifcfg-$DEVICE
@@ -216,12 +216,12 @@ bondup() {
                     fi
                     COUNT=0
                     for slave in $BONDDEVS; do
-			echo "BONDIG_SLAVE_$COUNT=$slave" >> /tmp/suse/ifcfg-$DEVICE
+                        echo "BONDIG_SLAVE_$COUNT=$slave" >> /tmp/suse/ifcfg-$DEVICE
                         echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$slave
                         echo "NAME=$slave" >> /tmp/suse/ifcfg-$slave
                         echo "BOOTPROTO=none" >> /tmp/suse/ifcfg-$slave
                         echo "STARTMODE=hotplug" >> /tmp/suse/ifcfg-$slave
-			COUNT=`expr $COUNT + 1`
+                        COUNT=`expr $COUNT + 1`
                     done
                     wwsuccess
                 fi
@@ -296,7 +296,7 @@ netconf_distro()
         fi
 
         # SUSE based ifcfg
-	mkdir -p /tmp/suse
+        mkdir -p /tmp/suse
         echo "# This was created by the Warewulf bootstrap" > /tmp/suse/ifcfg-$OSDEVICE
         echo "NAME=$OSDEVICE" >> /tmp/suse/ifcfg-$OSDEVICE
         echo "BOOTPROTO=static" >> /tmp/suse/ifcfg-$OSDEVICE
@@ -349,7 +349,7 @@ ifup() {
                     fi
                 fi
 
-		netconf_distro
+                netconf_distro
 
                 COUNT=0
                 msg_white  "Trying to reach the master node at $WWMASTER "
@@ -377,7 +377,7 @@ ifup() {
                 msg_gray "($IPADDR/$NETMASK)"
                 wwsuccess
 
-		netconf_distro
+                netconf_distro
                 return 0
             fi
             msg_white "."

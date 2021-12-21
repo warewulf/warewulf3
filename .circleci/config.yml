@@ -113,7 +113,7 @@ jobs:
                  perl-DBD-MySQL perl-DBI perl-Digest perl-Digest-MD5 perl-IO-Compress \
                  perl-Sys-Syslog perl-Test-Simple xz-devel ipmitool parted autofs \
                  e2fsprogs libarchive perl-Test-Harness perl-JSON-PP bsdtar which \
-                 libtirpc-devel mbedtls-devel
+                 mdadm xfsprogs libtirpc-devel mbedtls-devel
           name: "Install Build Dependencies"
       -
         run:
@@ -163,7 +163,8 @@ jobs:
               set -o nounset
               cd provision
               ./autogen.sh --with-local-e2fsprogs --with-local-libarchive \
-                 --with-local-parted --with-local-partprobe
+                 --with-local-parted --with-local-partprobe --with-local-mdadm \
+                 --with-local-xfsprogs
               make dist-gzip
               rpmbuild -D "_sourcedir $PWD" -D "cross_compile 0" \
                  -D "mflags -j$(/usr/bin/getconf _NPROCESSORS_ONLN)" \

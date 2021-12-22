@@ -6,7 +6,7 @@
 # through Lawrence Berkeley National Laboratory (subject to receipt of any
 # required approvals from the U.S. Dept. of Energy).  All rights reserved.
 #
-# Copyright (c) 2017 Benjamin S. Allen
+# Copyright (c) 2017-2021 Benjamin S. Allen
 
 # Exit on any non-zero exit code
 set -o errexit
@@ -21,10 +21,14 @@ NEWROOT="${NEWROOT:-/newroot}"
 BOOTLOADER="${WWBOOTLOADER:-}"
 
 GRUBINSTALL="${WWGRUBINSTALL:-}"
+GRUBINSTALLARGS="${WWGRUBINSTALLARGS:-}"
 GRUBVERS="${WWGRUBVERS:-}"
 GRUBMKCONFIG="${WWGRUBMKCONFIG:-}"
 GRUBCFG="${WWGRUBCFG:-}"
 GRUBDEFAULTCONF="${WWGRUBDEFAULTCONF:-/etc/default/grub}"
+
+SHIMINSTALL="${WWSHIMINSTALL:-}"
+SHIMINSTALLARGS="${WWSHIMINSTALLARGS:-}"
 
 CONSOLE="${WWCONSOLE:-}"
 KARGS="${WWKARGS:-quiet}"
@@ -113,6 +117,28 @@ find_grub_install() {
     if [ -x "${NEWROOT}/${path}" ]; then
       if chroot "${NEWROOT}" "${path}" --help >/dev/null 2>&1; then
         GRUBINSTALL="${path}"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+find_shim_install() {
+  local PATHS
+
+  if [ -z "${1:-}" ]; then
+    PATHS="/usr/sbin/shim-install /sbin/shim-install"
+  else
+    PATHS="${1}"
+  fi
+
+  for path in ${PATHS}; do
+    if [ -x "${NEWROOT}/${path}" ]; then
+      if chroot "${NEWROOT}" "${path}" --help >/dev/null 2>&1; then
+        SHIMINSTALL="${path}"
+        # If shim-install exists, tell grub2-install not to update boot entries via efibootmgr.
+        GRUBINSTALLARGS="${GRUBINSTALLARGS} --no-nvram"
         return 0
       fi
     fi
@@ -271,11 +297,20 @@ dev_symlinks() {
       echo "grub-mkconfig failed."
       exit 2
     fi 
-    if chroot "${NEWROOT}" /bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" "${BOOTLOADER}" >/dev/null; then
+    if chroot "${NEWROOT}" /bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" "${GRUBINSTALLARGS}" "${BOOTLOADER}" >/dev/null; then
        exit 0
     else
       echo "grub-install failed."
       exit 2
+    fi
+    # If running under EFI, and shim-install exists use it to install Grub.
+    if check_efi && find_shim_install "${SHIMINSTALL}"; then
+      if chroot "${NEWROOT}" /bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" "${SHIMINSTALLARGS}" --config-file="${GRUBCFG}" >/dev/null; then
+        exit 0
+      else
+        echo "shim-install failed."
+        exit 2
+      fi
     fi
   fi
 }

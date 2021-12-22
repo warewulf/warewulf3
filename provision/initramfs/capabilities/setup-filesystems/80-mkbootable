@@ -137,8 +137,6 @@ find_shim_install() {
     if [ -x "${NEWROOT}/${path}" ]; then
       if chroot "${NEWROOT}" "${path}" --help >/dev/null 2>&1; then
         SHIMINSTALL="${path}"
-        # If shim-install exists, tell grub2-install not to update boot entries via efibootmgr.
-        GRUBINSTALLARGS="${GRUBINSTALLARGS} --no-nvram"
         return 0
       fi
     fi
@@ -270,6 +268,13 @@ dev_symlinks() {
     exit 2
   fi
 
+  if ! find_shim_install "${SHIMINSTALL}"; then
+    SHIMINSTALL=""
+  else
+    # If shim-install exists, tell grub2-install not to update boot entries via efibootmgr.
+    GRUBINSTALLARGS="${GRUBINSTALLARGS} --no-nvram"
+  fi
+
   check_and_mount sysfs "${NEWROOT}/sys" sysfs rw,relatime
   check_and_mount proc "${NEWROOT}/proc" proc rw,relatime
   if check_efi; then
@@ -303,8 +308,8 @@ dev_symlinks() {
       echo "grub-install failed."
       exit 2
     fi
-    # If running under EFI, and shim-install exists use it to install Grub.
-    if check_efi && find_shim_install "${SHIMINSTALL}"; then
+    # If running under EFI, and shim-install exists use it to install Grub into ESP partition.
+    if check_efi && [ -n "${SHIMINSTALL}" ]; then
       if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" "${SHIMINSTALLARGS}" --config-file="${GRUBCFG}" >/dev/null; then
         exit 0
       else

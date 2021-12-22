@@ -302,20 +302,17 @@ dev_symlinks() {
       echo "grub-mkconfig failed."
       exit 2
     fi 
-    if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" ${GRUBINSTALLARGS} "${BOOTLOADER}" >/dev/null; then
-       exit 0
-    else
+    if ! chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" ${GRUBINSTALLARGS} "${BOOTLOADER}" >/dev/null; then
       echo "grub-install failed."
       exit 2
     fi
     # If running under EFI, and shim-install exists use it to install Grub into ESP partition.
     if check_efi && [ -n "${SHIMINSTALL}" ]; then
-      if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" ${SHIMINSTALLARGS} --config-file="${GRUBCFG}" >/dev/null; then
-        exit 0
-      else
+      if ! chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" ${SHIMINSTALLARGS} --config-file="${GRUBCFG}" >/dev/null; then
         echo "shim-install failed."
         exit 2
       fi
     fi
   fi
+  exit 0
 }

@@ -297,7 +297,7 @@ dev_symlinks() {
       echo "grub-mkconfig failed."
       exit 2
     fi 
-    if chroot "${NEWROOT}" /bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" "${GRUBINSTALLARGS}" "${BOOTLOADER}" >/dev/null; then
+    if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" "${GRUBINSTALLARGS}" "${BOOTLOADER}" >/dev/null; then
        exit 0
     else
       echo "grub-install failed."
@@ -305,7 +305,7 @@ dev_symlinks() {
     fi
     # If running under EFI, and shim-install exists use it to install Grub.
     if check_efi && find_shim_install "${SHIMINSTALL}"; then
-      if chroot "${NEWROOT}" /bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" "${SHIMINSTALLARGS}" --config-file="${GRUBCFG}" >/dev/null; then
+      if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" "${SHIMINSTALLARGS}" --config-file="${GRUBCFG}" >/dev/null; then
         exit 0
       else
         echo "shim-install failed."

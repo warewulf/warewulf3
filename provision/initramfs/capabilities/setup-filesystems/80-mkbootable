@@ -21,20 +21,14 @@ NEWROOT="${NEWROOT:-/newroot}"
 BOOTLOADER="${WWBOOTLOADER:-}"
 
 GRUBINSTALL="${WWGRUBINSTALL:-}"
-
-# Split WWGRUBINSTALLARGS by spaces and parse into an array to make it easier to append arguments and ensure the arguments are
-# correctly quoted.
-IFS=' ' read -r -a GRUBINSTALLARGS <<< "${WWGRUBINSTALLARGS:-}"
+GRUBINSTALLARGS="${WWGRUBINSTALLARGS:-}"
 GRUBVERS="${WWGRUBVERS:-}"
 GRUBMKCONFIG="${WWGRUBMKCONFIG:-}"
 GRUBCFG="${WWGRUBCFG:-}"
 GRUBDEFAULTCONF="${WWGRUBDEFAULTCONF:-/etc/default/grub}"
 
 SHIMINSTALL="${WWSHIMINSTALL:-}"
-
-# Split WWSHIMINSTALLARGS by spaces and parse into an array to make it easier to append arguments and ensure the arguments are
-# correctly quoted.
-IFS=' ' read -r -a SHIMINSTALLARGS <<< "${WWSHIMINSTALLARGS:-}"
+SHIMINSTALLARGS="${WWSHIMINSTALLARGS:-}"
 
 CONSOLE="${WWCONSOLE:-}"
 KARGS="${WWKARGS:-quiet}"
@@ -278,7 +272,7 @@ dev_symlinks() {
     SHIMINSTALL=""
   else
     # If shim-install exists, tell grub2-install not to update boot entries via efibootmgr.
-    GRUBINSTALLARGS+=("--no-nvram")
+    GRUBINSTALLARGS="${GRUBINSTALLARGS} --no-nvram"
   fi
 
   check_and_mount sysfs "${NEWROOT}/sys" sysfs rw,relatime
@@ -308,7 +302,7 @@ dev_symlinks() {
       echo "grub-mkconfig failed."
       exit 2
     fi 
-    if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" "${GRUBINSTALLARGS[@]}" "${BOOTLOADER}" >/dev/null; then
+    if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBINSTALL}" ${GRUBINSTALLARGS} "${BOOTLOADER}" >/dev/null; then
        exit 0
     else
       echo "grub-install failed."
@@ -316,7 +310,7 @@ dev_symlinks() {
     fi
     # If running under EFI, and shim-install exists use it to install Grub into ESP partition.
     if check_efi && [ -n "${SHIMINSTALL}" ]; then
-      if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" "${SHIMINSTALLARGS[@]}" --config-file="${GRUBCFG}" >/dev/null; then
+      if chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${SHIMINSTALL}" ${SHIMINSTALLARGS} --config-file="${GRUBCFG}" >/dev/null; then
         exit 0
       else
         echo "shim-install failed."

@@ -159,24 +159,41 @@ run_mdadm() {
   fi
 
   shift 2
-  local COUNT="$#"
-  local DEVICES
-  local DEV
+  local COUNT=0
+  local MDADMOPTS
+  local ARG
+  local DEVARGS
+
+  for ARG in "${@:-}"; do
+    case "${ARG}" in
+      -?*)
+        MDADMOPTS="${ARG} ${MDADMOPTS}"
+      ;;
+      *)
+        DEVARGS="${ARG} ${DEVARGS}"
+        COUNT=$((COUNT+1))
+      ;;
+    esac
+  done
 
   if [ ${COUNT} -eq 0 ]; then
     wwlogger "No devices specified for raid${LEVEL} on /dev/md${NUMBER}"
     exit 2
   fi
 
-  local MSG="   * creating raid${LEVEL} on /dev/md${NUMBER} for ${*}"
+  local MSG="   * creating raid${LEVEL} on /dev/md${NUMBER} for ${DEVARGS}"
   msg_gray "${MSG}"
   local MSG_REPEAT=0
 
-  for DEV in ${@:-}; do
+  local DEVICES
+  local DEV
+
+  for DEV in ${DEVARGS}; do
     case "${DEV}" in
       missing|-)
         DEVICES="${DEVICES} missing"
       ;;
+
       *)
         DEV="/dev/${DEV##*/dev/}"
         if [ -x /usr/bin/udevadm ]; then
@@ -199,7 +216,7 @@ run_mdadm() {
 
   {
     # This is ugly but mdadm always asks for confirmation if disks are not empty, so we need /usr/bin/yes
-    (/usr/bin/yes || /bin/true) | /sbin/mdadm --create "/dev/md${NUMBER}" -f "--level=${LEVEL}" --raid-devices=${COUNT} ${DEVICES} >/dev/null 2>&1 && wwsuccess
+    (/usr/bin/yes || /bin/true) | /sbin/mdadm --create "/dev/md${NUMBER}" -f "--level=${LEVEL}" --raid-devices=${COUNT} ${MDADMOPTS} ${DEVICES} >/dev/null 2>&1 && wwsuccess
   } || {
     wwfailure
     exit 2

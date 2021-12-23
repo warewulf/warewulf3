@@ -300,7 +300,7 @@ dev_symlinks() {
       exit 2
     fi
   else
-    if ! chroot "${NEWROOT}" "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
+    if ! chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
       echo "grub-mkconfig failed."
       exit 2
     fi 

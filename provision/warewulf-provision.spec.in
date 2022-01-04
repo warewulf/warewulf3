@@ -1,6 +1,6 @@
 %{!?_rel:%{expand:%%global _rel 0.%(test "@GITVERSION@" != "0000" && echo "@GITVERSION@" || git show -s --pretty=format:%h || echo 0000)}}
 %define debug_package %{nil}
-%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_localstatedir}}}
+%{!?wwsrvdir:%{expand:%%define wwsrvdir %{_sharedstatedir}}}
 
 Name: warewulf-provision
 Version: @PACKAGE_VERSION@
@@ -66,16 +66,17 @@ BuildRequires: cross-x86_64-gcc7
 # New RHEL and Suse include the required FS tools
 %if 0%{?rhel} >= 8 || 0%{?suse_version} >= 1500
 %global localtools 1
-BuildRequires: parted, e2fsprogs
+BuildRequires: parted, e2fsprogs, mdadm, xfsprogs
 Requires: parted, autofs, e2fsprogs
 BuildRequires: libarchive.so.13()(64bit)
 Requires: libarchive.so.13()(64bit)
-%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe
+%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe --with-local-mdadm --with-local-xfsprogs
 %else
 %global localtools 0
 Requires: %{name}-gpl_sources = %{version}-%{release}
+Provides: curl = 7.79.1
 Provides: parted = 3.4
-Provides: e2fsprogs = 1.44.6
+Provides: e2fsprogs = 1.46.4
 Provides: libarchive = 3.5.2
 Provides: libarchive.so.13()(64bit)
 %endif
@@ -96,7 +97,7 @@ administrate system provisioning.  To perform provisioning, the
 
 
 %build
-%configure --localstatedir=%{wwsrvdir} %{?CONF_FLAGS} %{?CROSS_FLAG}
+%configure --sharedstatedir=%{wwsrvdir} %{?CONF_FLAGS} %{?CROSS_FLAG}
 %{__make} %{?mflags}
 
 

@@ -55,7 +55,7 @@ e2fsprogs:
 
 xfsprogs:
 	@ if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
-                echo "Detected local install of xfsprogs. Bypassing xfsprogs build process." ;\
+                echo "Detected local install of xfsprogs." ;\
 	fi
 
 busybox:
@@ -133,7 +133,12 @@ curl:
 		fi \
 	fi
 
-rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
+mdadm:
+	@ if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		echo "Detected local install of mdadm." ;\
+	fi
+
+rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -171,8 +176,10 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
 	fi
 	if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
 		cp -av "@local_e2fsprogs_path@" rootfs/sbin/mkfs.ext4 ;\
+		cp -av "/etc/mke2fs.conf" rootfs/etc/mke2fs.conf ;\
 	else \
 		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
+		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs.conf rootfs/etc/mke2fs.conf ;\
 	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
@@ -185,15 +192,20 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl
 	fi
 	if [ -n "@local_parted_path@" -a -f "@local_parted_path@" -a \
 	  -n "@local_partprobe_path@" -a -f "@local_partprobe_path@" ]; then \
-		cp -av "@local_parted_path@" rootfs/usr/sbin/parted; \
-		cp -av "@local_partprobe_path@" rootfs/usr/sbin/partprobe; \
+		rm -f rootfs/usr/sbin/partprobe rootfs/sbin/partprobe; \
+		cp -av "@local_parted_path@" rootfs/sbin/parted; \
+		cp -av "@local_partprobe_path@" rootfs/sbin/partprobe; \
 	else \
+		rm -f rootfs/usr/sbin/partprobe; \
 		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \
 	fi
 	if [ -n "@local_curl_path@" -a -f "@local_curl_path@" ]; then \
 		cp -av "@local_curl_path@" rootfs/bin/curl; \
 	else \
 		cp -av _work/$(CURL_DIR)/src/curl rootfs/bin/curl; \
+	fi
+	if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
+		cp -av @local_mdadm_path@ rootfs/sbin/mdadm; \
 	fi
 	cp -L --parents /lib*/ld-linux* rootfs/
 	cp -L --parents /lib*/libnss_dns* rootfs/

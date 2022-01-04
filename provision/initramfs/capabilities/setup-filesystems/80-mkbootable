@@ -30,6 +30,9 @@ GRUBDEFAULTCONF="${WWGRUBDEFAULTCONF:-/etc/default/grub}"
 SHIMINSTALL="${WWSHIMINSTALL:-}"
 SHIMINSTALLARGS="${WWSHIMINSTALLARGS:-}"
 
+DRACUT="${WWDRACUT:-}"
+DRACUTARGS="${WWDRACUTARGS:-}"
+
 CONSOLE="${WWCONSOLE:-}"
 KARGS="${WWKARGS:-quiet}"
 
@@ -73,6 +76,16 @@ update_default_conf() {
 # Check if running under EFI
 check_efi() {
   [ -d "/sys/firmware/efi" ]
+}
+
+check_mdraid() {
+  local MDPATH
+  for MDPATH in /dev/md*; do
+    if [ -b "${MDPATH}" ]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 # Check if the VNFS already has a grubx installed
@@ -162,6 +175,24 @@ find_grub_mkconfig() {
   return 1
 }
 
+find_dracut() {
+  local PATHS
+
+  if [ -z "${1:-}" ]; then
+    PATHS="/usr/bin/dracut /sbin/dracut"
+  else
+    PATHS="${1}"
+  fi
+
+  for path in ${PATHS}; do
+    if [ -x "${NEWROOT}/${path}" ]; then
+      DRACUT="${path}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Attempt to figure out where to put grub.cfg
 find_grub_cfg() {
   if [ -z "${GRUBCFG:-}" ]; then
@@ -227,6 +258,15 @@ dev_symlinks() {
   done
 }
 
+run_dracut() {
+  if check_mdraid; then
+    DRACUTARGS=" --force-add=mdraid ${DRACUTARGS}"
+    /sbin/mdadm --detail --scan >> "${NEWROOT}/etc/mdadm.conf"
+  fi
+
+  chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${DRACUT}" ${DRACUTARGS} >/dev/null
+}
+
 {
   if [ -n "${BOOTLOADER}" ]; then
     if [ "${BOOTLOADER:0:5}" != "/dev/" ]; then
@@ -277,6 +317,8 @@ dev_symlinks() {
 
   check_and_mount sysfs "${NEWROOT}/sys" sysfs rw,relatime
   check_and_mount proc "${NEWROOT}/proc" proc rw,relatime
+  check_and_mount devtmpfs "${NEWROOT}/dev" devtmpfs rw,relatime
+
   if check_efi; then
     modprobe efivarfs 2>/dev/null || true
     check_and_mount efivars "${NEWROOT}/sys/firmware/efi/efivars" efivarfs rw,relatime
@@ -291,14 +333,21 @@ dev_symlinks() {
 
   update_default_conf "${NEWROOT}${GRUBDEFAULTCONF}"
 
+  if find_dracut "${DRACUT}"; then
+    if ! run_dracut; then
+      echo "dracut failed."
+      exit 2
+    fi
+  fi
+
   # If running under EFI and grubx is already installed, only generate a new config.
   if check_efi && check_grubx; then
-    if ! chroot "${NEWROOT}" "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
+    if ! chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
       echo "grub-mkconfig failed."
       exit 2
     fi
   else
-    if ! chroot "${NEWROOT}" "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
+    if ! chroot "${NEWROOT}" /usr/bin/env PATH=/sbin:/usr/sbin:/bin:/usr/bin "${GRUBMKCONFIG}" -o "${GRUBCFG}" >/dev/null; then
       echo "grub-mkconfig failed."
       exit 2
     fi 

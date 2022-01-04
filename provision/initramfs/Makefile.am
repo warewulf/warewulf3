@@ -163,6 +163,17 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm
 	else \
 		cp -av _work/$(BUSYBOX_DIR)/_install/* rootfs/ ;\
 	fi
+	if [ ! -L rootfs/bin/sh ]; then \
+		for i in `find rootfs/usr/bin -type l -a -lname "*busybox"`; do \
+			cp -av $$i rootfs/bin; \
+		done; \
+		for i in `find rootfs/usr/sbin -type l -a -lname "*busybox"`; do \
+			cp -av $$i rootfs/sbin; \
+		done; \
+		if [ ! -e rootfs/bin/busybox -o -L rootfs/bin/busybox ]; then \
+			test -e rootfs/usr/bin/busybox && ln -s /usr/bin/busybox rootfs/bin; \
+		fi; \
+	fi
 	if [ -n "@local_e2fsprogs_path@" -a -f "@local_e2fsprogs_path@" ]; then \
 		cp -av "@local_e2fsprogs_path@" rootfs/sbin/mkfs.ext4 ;\
 		cp -av "/etc/mke2fs.conf" rootfs/etc/mke2fs.conf ;\

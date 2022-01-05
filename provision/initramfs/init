@@ -83,18 +83,18 @@ bondup() {
     msg_white "Configuring bonding interfaces: $DEVICE $WWBONDMODE ($BONDDEVS)\n"
 
     msg_gray "Loading bonding module\n"
-# dont automatically created devices
+    # dont automatically created devices
     modprobe bonding max_bonds=0 >/dev/null
 
     for slave in $BONDDEVS; do
         ip addr flush dev $slave >/dev/null
-#        ip link set dev $slave nomaster down >/dev/null 2>&1 
+        # ip link set dev $slave nomaster down >/dev/null 2>&1
     done
 
     msg_gray "Bringing up interface $DEVICE"
 
     ip link add $DEVICE type bond >/dev/null 
-# busybox "ip" command does not support bonding modes
+    # busybox "ip" command does not support bonding modes
     echo "$WWBONDMODE" > /sys/class/net/$DEVICE/bonding/mode
     ip link set dev $DEVICE up
 
@@ -110,7 +110,7 @@ bondup() {
             fi
         fi
 
-# give the device some time to come up
+        # give the device some time to come up
         sleep 5
         
         if [ -n "$WWIPADDR" -a -n "$WWNETMASK" -a -n "$WWMASTER" ]; then
@@ -192,6 +192,37 @@ bondup() {
                     if [ -n "$WWBONDMODE" ]; then
                         echo "BONDING_OPTS=\"mode=$WWBONDMODE\"" >> /tmp/ifcfg-$DEVICE
                     fi
+                    # SUSE based ifcfg
+                    mkdir -p /tmp/suse
+
+                    echo "# This was created by the Warewulf bootstrap" > /tmp/suse/ifcfg-$DEVICE
+                    echo "NAME=$DEVICE" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "BONDING_MASTER=yes" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "BOOTPROTO=static" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "STARMODE=auto" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "IPADDR=$WWIPADDR" >> /tmp/suse/ifcfg-$DEVICE
+                    echo "NETMASK=$WWNETMASK" >> /tmp/suse/ifcfg-$DEVICE
+                    if [ -n "$HWADDR" ]; then
+                        echo "LLADDR=$HWADDR" >> /tmp/suse/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWMTU" ]; then
+                        echo "MTU=$WWMTU" >> /tmp/suse/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWBONDMODE" ]; then
+                        echo "BONDING_MODULE_OPTS=\"mode=$WWBONDMODE\"" >> /tmp/suse/ifcfg-$DEVICE
+                    fi
+                    if [ -n "$WWGATEWAY" ]; then
+                        echo "default $WWGATEWAY - $DEVICE" > /tmp/suse/ifroute-$DEVICE
+                    fi
+                    COUNT=0
+                    for slave in $BONDDEVS; do
+                        echo "BONDIG_SLAVE_$COUNT=$slave" >> /tmp/suse/ifcfg-$DEVICE
+                        echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$slave
+                        echo "NAME=$slave" >> /tmp/suse/ifcfg-$slave
+                        echo "BOOTPROTO=none" >> /tmp/suse/ifcfg-$slave
+                        echo "STARTMODE=hotplug" >> /tmp/suse/ifcfg-$slave
+                        COUNT=`expr $COUNT + 1`
+                    done
                     wwsuccess
                 fi
 
@@ -221,6 +252,68 @@ bondup() {
     # ip link del also releases the slaves
     ip link del dev $DEVICE >/dev/null
     return 255
+}
+
+netconf_distro()
+{
+    if [ -z "$WWNETCFGFILE" ]; then
+        msg_white "Creating network initialization files: "
+        msg_gray "($OSDEVICE)"
+        # Debian based /etc/network/interfaces
+        echo "# This was created by the Warewulf bootstrap" > /tmp/interfaces
+        echo "auto lo" >> /tmp/interfaces
+        echo "iface lo inet loopback" >> /tmp/interfaces
+        echo '' >> /tmp/interfaces
+        echo "auto $OSDEVICE" >> /tmp/interfaces
+        echo "iface $OSDEVICE inet static" >> /tmp/interfaces
+        echo "    address $WWIPADDR" >> /tmp/interfaces
+        echo "    netmask $WWNETMASK" >> /tmp/interfaces
+        if [ -n "$WWGATEWAY" ]; then
+            echo "    gateway $WWGATEWAY" >> /tmp/interfaces
+        fi
+        if [ -n "$HWADDR" ]; then
+            echo "    hwaddress ether $HWADDR" >> /tmp/interfaces
+        fi
+        if [ -n "$WWMTU" ]; then
+            echo "    mtu $WWMTU" >> /tmp/interfaces # DEB
+        fi
+
+        # RHEL based ifcfg
+        echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$OSDEVICE
+        echo "DEVICE=$OSDEVICE" >> /tmp/ifcfg-$OSDEVICE
+        echo "BOOTPROTO=static" >> /tmp/ifcfg-$OSDEVICE
+        echo "ONBOOT=yes" >> /tmp/ifcfg-$OSDEVICE
+        echo "IPADDR=$WWIPADDR" >> /tmp/ifcfg-$OSDEVICE
+        echo "NETMASK=$WWNETMASK" >> /tmp/ifcfg-$OSDEVICE
+        if [ -n "$WWGATEWAY" ]; then
+            echo "GATEWAY=$WWGATEWAY" >> /tmp/ifcfg-$OSDEVICE
+        fi
+        if [ -n "$HWADDR" ]; then
+            echo "HWADDR=$HWADDR" >> /tmp/ifcfg-$OSDEVICE
+        fi
+        if [ -n "$WWMTU" ]; then
+            echo "MTU=$WWMTU" >> /tmp/ifcfg-$OSDEVICE  # RHEL
+        fi
+
+        # SUSE based ifcfg
+        mkdir -p /tmp/suse
+        echo "# This was created by the Warewulf bootstrap" > /tmp/suse/ifcfg-$OSDEVICE
+        echo "NAME=$OSDEVICE" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "BOOTPROTO=static" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "STARTMODE=auto" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "IPADDR=$WWIPADDR" >> /tmp/suse/ifcfg-$OSDEVICE
+        echo "NETMASK=$WWNETMASK" >> /tmp/suse/ifcfg-$OSDEVICE
+        if [ -n "$HWADDR" ]; then
+            echo "LLADDR=$HWADDR" >> /tmp/suse/ifcfg-$OSDEVICE
+        fi
+        if [ -n "$WWMTU" ]; then
+            echo "MTU=$WWMTU" >> /tmp/suse/ifcfg-$OSDEVICE  # RHEL
+        fi
+        if [ -n "$WWGATEWAY" ]; then
+            echo "default $WWGATEWAY - $OSDEVICE" > /tmp/suse/ifroute-$OSDEVICE
+        fi
+        wwsuccess
+    fi
 }
 
 ifup() {
@@ -256,45 +349,7 @@ ifup() {
                     fi
                 fi
 
-                if [ -z "$WWNETCFGFILE" ]; then
-                    msg_white "Creating network initialization files: "
-                    msg_gray "($OSDEVICE)"
-                    # Debian based /etc/network/interfaces
-                    echo "# This was created by the Warewulf bootstrap" > /tmp/interfaces
-                    echo "auto lo" >> /tmp/interfaces
-                    echo "iface lo inet loopback" >> /tmp/interfaces
-                    echo '' >> /tmp/interfaces
-                    echo "auto $OSDEVICE" >> /tmp/interfaces
-                    echo "iface $OSDEVICE inet static" >> /tmp/interfaces
-                    echo "    address $WWIPADDR" >> /tmp/interfaces
-                    echo "    netmask $WWNETMASK" >> /tmp/interfaces
-                    if [ -n "$WWGATEWAY" ]; then
-                        echo "    gateway $WWGATEWAY" >> /tmp/interfaces
-                    fi
-                    if [ -n "$HWADDR" ]; then
-                        echo "    hwaddress ether $HWADDR" >> /tmp/interfaces
-                    fi
-
-                    # RHEL based ifcfg
-                    echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$OSDEVICE
-                    echo "DEVICE=$OSDEVICE" >> /tmp/ifcfg-$OSDEVICE
-                    echo "BOOTPROTO=static" >> /tmp/ifcfg-$OSDEVICE
-                    echo "ONBOOT=yes" >> /tmp/ifcfg-$OSDEVICE
-                    echo "IPADDR=$WWIPADDR" >> /tmp/ifcfg-$OSDEVICE
-                    echo "NETMASK=$WWNETMASK" >> /tmp/ifcfg-$OSDEVICE
-                    if [ -n "$WWGATEWAY" ]; then
-                        echo "GATEWAY=$WWGATEWAY" >> /tmp/ifcfg-$OSDEVICE
-                    fi
-                    if [ -n "$HWADDR" ]; then
-                        echo "HWADDR=$HWADDR" >> /tmp/ifcfg-$OSDEVICE
-                    fi
-
-                    if [ -n "$WWMTU" ]; then
-                        echo "MTU=$WWMTU" >> /tmp/ifcfg-$OSDEVICE  # RHEL
-                        echo "    mtu $WWMTU" >> /tmp/interfaces # DEB
-                    fi
-                    wwsuccess
-                fi
+                netconf_distro
 
                 COUNT=0
                 msg_white  "Trying to reach the master node at $WWMASTER "
@@ -322,40 +377,7 @@ ifup() {
                 msg_gray "($IPADDR/$NETMASK)"
                 wwsuccess
 
-                if [ -z "$WWNETCFGFILE" ]; then
-                    msg_white "Creating network initialization files: "
-                    msg_gray "($OSDEVICE)"
-                    # DEB
-                    echo "# This was created by the Warewulf bootstrap" > /tmp/interfaces
-                    echo "auto lo" >> /tmp/interfaces
-                    echo "iface lo inet loopback" >> /tmp/interfaces
-                    echo '' >> /tmp/interfaces
-                    echo "auto $OSDEVICE" >> /tmp/interfaces
-                    echo "iface $OSDEVICE inet static" >> /tmp/interfaces
-                    echo "    address $WWIPADDR" >> /tmp/interfaces
-                    echo "    netmask $WWNETMASK" >> /tmp/interfaces
-                    if [ -n "$WWGATEWAY" ]; then
-                        echo "    gateway $WWGATEWAY" >> /tmp/interfaces
-                    fi
-                    if [ -n "$HWADDR" ]; then
-                        echo "    hwaddress ether $HWADDR" >> /tmp/interfaces
-                    fi
-
-                    # RHEL
-                    echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$OSDEVICE
-                    echo "DEVICE=$OSDEVICE" >> /tmp/ifcfg-$OSDEVICE
-                    echo "BOOTPROTO=static" >> /tmp/ifcfg-$OSDEVICE
-                    echo "ONBOOT=yes" >> /tmp/ifcfg-$OSDEVICE
-                    echo "IPADDR=$IPADDR" >> /tmp/ifcfg-$OSDEVICE
-                    echo "NETMASK=$NETMASK" >> /tmp/ifcfg-$OSDEVICE
-                    echo "GATEWAY=$GATEWAY" >> /tmp/ifcfg-$OSDEVICE
-                    echo "HWADDR=$HWADDR" >> /tmp/ifcfg-$OSDEVICE
-                fi
-    
-                if [ -n "$WWMTU" ]; then
-                    echo "MTU=$WWMTU" >> /tmp/ifcfg-$OSDEVICE  # RHEL
-                    echo "    mtu $WWMTU" >> /tmp/interfaces # DEB
-                fi
+                netconf_distro
                 return 0
             fi
             msg_white "."

@@ -23,6 +23,32 @@ set -o pipefail
 # By default mount a tmpfs volumne for root
 WWFS=${WWFS:="select tmpfs,fstab "" / tmpfs rw:relatime:mode=555 0 0"}
 
+WWDISKWAIT=${WWDISKWAIT:=5}
+
+wait_for_disk() {
+  local DISK="$1"
+  local RETRY=0
+  if [ -z "${DISK##*/dev/*}" ]; then
+    while [ ! -b "${DISK}" ]; do
+      if [ "${RETRY}" -lt "${WWDISKWAIT}" ]; then
+        if [ "${RETRY}" -eq 0 ]; then
+          msg_gray "   * ${DISK} not ready, retrying."
+        else
+          msg_gray "."
+        fi
+        RETRY="$((RETRY+1))"
+        sleep 1
+      else
+        wwlogger "Disk: ${DISK} not found!"
+        exit 2
+      fi
+    done
+    if [ "${RETRY}" -gt 0 ]; then
+      wwsuccess
+    fi
+  fi
+}
+
 run_parted() {
   local SELECT_DISK="${1}"
   local PARTED_CMDS="${2}"
@@ -56,6 +82,8 @@ run_mkfs() {
 
   if [ -x /usr/bin/udevadm ]; then
     /usr/bin/udevadm settle --timeout=15 --exit-if-exists="${DEV}"
+  else
+    wait_for_disk "${DEV}"
   fi
 
   msg_gray "   * formatting ${DEV}"
@@ -116,6 +144,85 @@ run_mkfs() {
   esac
 }
 
+run_mdadm() {
+  local LEVEL="${1}"
+  local NUMBER="${2}"
+
+  if [ -z "${LEVEL}" ]; then
+    wwlogger "No raid level specified"
+    exit 2
+  fi
+
+  if [ -z "${NUMBER}" ]; then
+    wwlogger "No raid number given for raid${LEVEL}"
+    exit 2
+  fi
+
+  shift 2
+  local COUNT=0
+  local MDADMOPTS
+  local ARG
+  local DEVARGS
+
+  for ARG in "${@:-}"; do
+    case "${ARG}" in
+      -?*)
+        MDADMOPTS="${ARG} ${MDADMOPTS}"
+      ;;
+      *)
+        DEVARGS="${ARG} ${DEVARGS}"
+        COUNT=$((COUNT+1))
+      ;;
+    esac
+  done
+
+  if [ ${COUNT} -eq 0 ]; then
+    wwlogger "No devices specified for raid${LEVEL} on /dev/md${NUMBER}"
+    exit 2
+  fi
+
+  local MSG="   * creating raid${LEVEL} on /dev/md${NUMBER} for ${DEVARGS}"
+  msg_gray "${MSG}"
+  local MSG_REPEAT=0
+
+  local DEVICES
+  local DEV
+
+  for DEV in ${DEVARGS}; do
+    case "${DEV}" in
+      missing|-)
+        DEVICES="${DEVICES} missing"
+      ;;
+
+      *)
+        DEV="/dev/${DEV##*/dev/}"
+        if [ -x /usr/bin/udevadm ]; then
+          /usr/bin/udevadm settle --timeout=15 --exit-if-exists="${DEV}"
+        else
+          if [ ! -b "${DEV}" ]; then
+            wwrunning
+            wait_for_disk "${DEV}"
+            MSG_REPEAT=1
+          fi
+        fi
+        DEVICES="$DEVICES ${DEV}"
+      ;;
+    esac
+  done
+
+  if [ ${MSG_REPEAT} = 1 ]; then
+    msg_gray "${MSG}"
+  fi
+
+  {
+    # This is ugly but mdadm always asks for confirmation if disks are not empty, so we need /usr/bin/yes
+    (/usr/bin/yes || /bin/true) | /sbin/mdadm --create "/dev/md${NUMBER}" -f "--level=${LEVEL}" --raid-devices=${COUNT} ${MDADMOPTS} ${DEVICES} >/dev/null 2>&1 && wwsuccess
+  } || {
+    wwfailure
+    exit 2
+  }
+}
+
 update_fstab_and_mount() {
   local SELECT_DISK="${1}"
   local ENTRY="${2}"
@@ -168,7 +275,7 @@ update_fstab_and_mount() {
     # Don't pass select commands directly to parted as parted --script 
     # needs a device specified on the CLI
     select*)
-      if [ "${FIRST_DISK}" ]; then
+      if [ "${FIRST_DISK}" -eq 1 ]; then
         FIRST_DISK=0
       else
         # Run any accumulated parted commands before changing selected disk
@@ -177,27 +284,8 @@ update_fstab_and_mount() {
         SELECT_DISK=""
       fi
       SELECT_DISK=$(echo "${FSCMD}" | cut -f 2 -d' ')
-
-      SELECT_RETRY=0
-
-      if [ -z "${SELECT_DISK##*/dev/*}" ]; then
-        while [ ! -b "${SELECT_DISK}" ]; do
-          if [ "${SELECT_RETRY}" -lt "${WWSELECTDISKWAIT}" ]; then
-            if [ "${SELECT_RETRY}" -eq 0 ]; then
-              msg_gray "   * ${SELECT_DISK} not ready, retrying."
-            else
-              msg_gray "."
-            fi
-            SELECT_RETRY="$((SELECT_RETRY+1))"
-            sleep 1
-          else
-            wwlogger "Disk: ${SELECT_DISK} not found!"
-            exit 2
-          fi
-        done
-        if [ "${SELECT_RETRY}" -gt 0 ]; then
-          wwsuccess
-        fi
+      if [ "${SELECT_DISK}" != "/dev/md" ]; then
+        wait_for_disk "${SELECT_DISK}"
       fi
     ;;
 
@@ -226,6 +314,20 @@ update_fstab_and_mount() {
       unset IFS
       run_mkfs "${SELECT_DISK}" ${FSCMD:5}
       IFS=","
+    ;;
+
+    raid0*|raid1*|raid4*|raid5*|raid6*)
+      # Run any accumulated parted commands before continuing with raid
+      run_parted "${SELECT_DISK}" "${PARTED_CMDS}"
+      PARTED_CMDS=""
+
+      # Need FSCMD to be split into individual arguments for run_mdadm
+      unset IFS
+      run_mdadm ${FSCMD:4}
+      IFS=","
+
+      # Now select /dev/md for filesystem creation
+      SELECT_DISK=/dev/md
     ;;
 
     # All parted command except select

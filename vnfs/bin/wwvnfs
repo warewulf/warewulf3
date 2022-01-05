@@ -23,7 +23,6 @@ use Fcntl ':mode';
 use POSIX;
 {
     local $^W = 0;
-    $ENV{PATH} = '/bin:/usr/bin';
     if (eval { require "sys/sysmacros.ph"; }) {
       require "sys/sysmacros.ph"
     }

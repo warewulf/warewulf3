@@ -1,4 +1,4 @@
-#DESC: OpenSUSE LEAP 15.1
+#DESC: openSUSE LEAP 15.3
 # The general SUSE include has all of the necessary functions, but requires
 # some basic variables specific to each chroot type to be defined.
 
@@ -10,27 +10,28 @@
 # Uncomment to disable GPG checks on added repos
 # REPO_NOGPGHECK=1
 
-# Comma-seperated location(s) of the YUM repositories
+# Comma-seperated location(s) of the zypper repositories
 if [ "$(uname -m)" = "x86_64" ]; then
-    ZYPP_MIRROR="http://download.opensuse.org/distribution/leap/15.1/repo/oss/,\
-http://download.opensuse.org/update/leap/15.1/oss/"
+    ZYPP_MIRROR="http://download.opensuse.org/distribution/leap/15.3/repo/oss/,\
+http://download.opensuse.org/update/leap/15.3/oss/"
     # URLs for OpenSUSE LEAP 15.0
     #ZYPP_MIRROR="http://download.opensuse.org/distribution/leap/15.0/repo/oss/,\
 #http://download.opensuse.org/update/leap/15.0/oss/"
 elif [ "$(uname -m)" = "aarch64" ]; then
-    ZYPP_MIRROR="http://download.opensuse.org/ports/aarch64/distribution/leap/15.1/repo/oss/,\
-http://download.opensuse.org/ports/aarch64/update/leap/15.1/oss/"
+    ZYPP_MIRROR="http://download.opensuse.org/ports/aarch64/distribution/leap/15.3/repo/oss/,\
+http://download.opensuse.org/ports/aarch64/update/leap/15.3/oss/"
 else
     echo "Unsupported Architecture"
     exit 1
 fi
 
 # Install only what is necessary/specific for this distribution
-PKGLIST="systemd-sysvinit aaa_base bash dracut openSUSE-release coreutils \
+PKGLIST="systemd-sysvinit aaa_base bash dracut distribution-release coreutils \
     e2fsprogs ethtool filesystem findutils gawk grep iproute2 iputils \
     mingetty net-tools nfs-kernel-server pam rpcbind procps psmisc shadow \
     rsync sed rsyslog tcpd timezone util-linux tar less gzip kmod-compat \
-    udev openssh dhcp-client pciutils vim strace cron cpupower cpio wget zypper"
+    udev openssh dhcp-client pciutils vim strace cron cpupower cpio wget
+    zypper netcfg ncurses-utils"
 
 
 

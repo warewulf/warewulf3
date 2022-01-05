@@ -246,28 +246,33 @@ configure_timezone() {
 }
 
 configure_ntp() {
-    NETDEV=$(grep "^network device =" $WAREWULF_SYSCONFDIR/warewulf/provision.conf | cut -d = -f 2)
+    NETDEV=$(sed -ne "/network device =/s/.*=\s*//p" $WAREWULF_SYSCONFDIR/warewulf/provision.conf)
+    IPADDR=""
+    BOOTPROTO=""
     if [ -f "/etc/sysconfig/network-scripts/ifcfg-$NETDEV" ]; then
         . /etc/sysconfig/network-scripts/ifcfg-$NETDEV
-        if [ -n "$IPADDR" -a "x$BOOTPROTO" == "xstatic" ]; then
-            [ -n $VERBOSE ] && echo "Adding ntp and chrony configuration files to chroot"
-            echo "# Written by Warewulf:wwmkchroot" > $CHROOTDIR/etc/ntp.conf
-            echo "# Written by Warewulf:wwmkchroot" > $CHROOTDIR/etc/chrony.conf
+    elif [ -f "/etc/sysconfig/network/ifcfg-$NETDEV" ]; then
+	. /etc/sysconfig/network/ifcfg-$NETDEV
+    fi
+    if [ -n "$IPADDR" -a "x$BOOTPROTO" == "xstatic" ]; then
+	IPADDR=${IPADDR/\/*/}
+        [ -n $VERBOSE ] && echo "Adding ntp and chrony configuration files to chroot"
+        echo "# Written by Warewulf:wwmkchroot" > $CHROOTDIR/etc/ntp.conf
+        echo "# Written by Warewulf:wwmkchroot" > $CHROOTDIR/etc/chrony.conf
 
-            echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/ntp.conf
-            echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/chrony.conf
+        echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/ntp.conf
+        echo "driftfile /var/lib/ntp/drift" >> $CHROOTDIR/etc/chrony.conf
 
-            echo "restrict default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
-            echo "restrict -6 default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
-            echo "restrict 127.0.0.1" >> $CHROOTDIR/etc/ntp.conf
-            echo "restrict -6 ::1" >> $CHROOTDIR/etc/ntp.conf
+        echo "restrict default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
+        echo "restrict -6 default kod nomodify notrap nopeer noquery" >> $CHROOTDIR/etc/ntp.conf
+        echo "restrict 127.0.0.1" >> $CHROOTDIR/etc/ntp.conf
+        echo "restrict -6 ::1" >> $CHROOTDIR/etc/ntp.conf
 
-            echo "server $IPADDR prefer" >> $CHROOTDIR/etc/ntp.conf
-            echo "server $IPADDR prefer" >> $CHROOTDIR/etc/chrony.conf
+        echo "server $IPADDR prefer" >> $CHROOTDIR/etc/ntp.conf
+        echo "server $IPADDR prefer" >> $CHROOTDIR/etc/chrony.conf
 
-            echo "restrict $IPADDR mask 255.255.255.255 nomodify notrap noquery" >> $CHROOTDIR/etc/ntp.conf
-            echo "allow $IPADDR" >> $CHROOTDIR/etc/chrony.conf
-        fi
+        echo "restrict $IPADDR mask 255.255.255.255 nomodify notrap noquery" >> $CHROOTDIR/etc/ntp.conf
+        echo "allow $IPADDR" >> $CHROOTDIR/etc/chrony.conf
     fi
     return 0
 }

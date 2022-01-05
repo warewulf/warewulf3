@@ -1,0 +1,104 @@
+# Localboot RAID Example with 4 disks, multiple partitions
+
+# Partition each disk sda, sdb, sdc, sdd
+select /dev/sda
+mklabel gpt
+mkpart ESP fat32 1MiB 538MiB
+mkpart primary linux-swap 538MiB 17.7GB
+mkpart primary ext4 17.7GB 155GB
+mkpart primary ext4 155GB 293GB
+mkpart primary ext4 293GB 100%
+name 1 ESP
+name 2 swap
+name 3 var 
+name 4 tmp
+name 5 root
+
+set 1 boot on
+set 2 raid on
+set 3 raid on
+set 4 raid on
+set 5 raid on
+
+select /dev/sdb
+mklabel gpt
+mkpart ESP fat32 1MiB 538MiB
+mkpart primary linux-swap 538MiB 17.7GB
+mkpart primary ext4 17.7GB 155GB
+mkpart primary ext4 155GB 293GB
+mkpart primary ext4 293GB 100%
+name 1 ESP
+name 2 swap
+name 3 var 
+name 4 tmp
+name 5 root
+
+set 1 boot on
+set 2 raid on
+set 3 raid on
+set 4 raid on
+set 5 raid on
+
+select /dev/sdc
+mklabel gpt
+mkpart ESP fat32 1MiB 538MiB
+mkpart primary linux-swap 538MiB 17.7GB
+mkpart primary ext4 17.7GB 155GB
+mkpart primary ext4 155GB 293GB
+mkpart primary ext4 293GB 100%
+name 1 ESP
+name 2 swap
+name 3 var 
+name 4 tmp
+name 5 root
+
+set 1 boot on
+set 2 raid on
+set 3 raid on
+set 4 raid on
+set 5 raid on
+
+select /dev/sdd
+mklabel gpt
+mkpart ESP fat32 1MiB 538MiB
+mkpart primary linux-swap 538MiB 17.7GB
+mkpart primary ext4 17.7GB 155GB
+mkpart primary ext4 155GB 293GB
+mkpart primary ext4 293GB 100%
+name 1 ESP
+name 2 swap
+name 3 var 
+name 4 tmp
+name 5 root
+
+set 1 boot on
+set 2 raid on
+set 3 raid on
+set 4 raid on
+set 5 raid on
+
+# Create RAID1 on /dev/md0 for /boot/efi using metadata format 1.0.
+# Any number of mdadm --create options can be passed this way. Ensure options don't have spaces.
+# Options are differentiated from disks by matching the glob "-?*".
+raid1 0 --metadata=1.0 sda1 sdb1 sdc1 sdd1
+
+# Create RAID10s on /dev/md[1-4] using default options
+raid10 1 sda2 sdb2 sdc2 sdd2
+raid10 2 sda3 sdb3 sdc3 sdd3
+raid10 3 sda4 sdb4 sdc4 sdd4
+raid10 4 sda5 sdb5 sdc5 sdd5
+
+# Format filesystems on /dev/md<n>
+mkfs 0 vfat -n ESP
+mkfs 1 swap
+mkfs 2 ext4 -L var -E nodiscard
+mkfs 3 ext4 -L tmp -E nodiscard
+mkfs 4 ext4 -L root -E nodiscard
+
+# Create fstab entries and mount from /dev/md<n>
+# fstab NUMBER fs_file fs_vfstype fs_mntops fs_freq fs_passno
+fstab 4 / ext4 defaults 0 0
+fstab 1 swap swap defaults 0 0
+fstab 0 /boot/efi vfat defaults 0 0
+fstab 2 /var ext4 defaults 0 0
+fstab 3 /tmp ext4 defaults 0 0

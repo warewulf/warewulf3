@@ -19,7 +19,7 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
     SetHandler perl-script
     PerlResponseHandler ModPerl::Registry
     PerlOptions +ParseHeaders
-    Options +ExecCGI
+    Options +ExecCGI +SymLinksIfOwnerMatch
     RewriteEngine On
     RewriteCond %{REMOTE_PORT} "-ge 1024"
     RewriteRule ^ - [L,R=403]
@@ -27,7 +27,7 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 </Directory>
 
 <Directory @fulldatadir@/warewulf/www>
-    Options Indexes MultiViews
+    Options Indexes MultiViews SymLinksIfOwnerMatch
     AllowOverride None
     RewriteEngine On
     RewriteCond %{REMOTE_PORT} "-ge 1024"
@@ -38,6 +38,7 @@ ScriptAlias /WW/vnfs @fulllibexecdir@/warewulf/cgi-bin/vnfs.pl
 <Directory /var/tmp/warewulf_cache>
     AllowOverride None
     RewriteEngine On
+    Options SymLinksIfOwnerMatch
     RewriteCond %{REMOTE_PORT} "-ge 1024"
     RewriteRule ^ - [L,R=403]
     # Any Require statements here are logical And'ed to the Require statements 

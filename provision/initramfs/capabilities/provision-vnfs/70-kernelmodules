@@ -33,4 +33,8 @@ if [ -x "${NEWROOT}${DEPMOD}" ]; then
     chroot "${NEWROOT}" /sbin/depmod -a
 fi
 
+if [ -e "${NEWROOT}"/lib/modules/"${KVERSION}"/sysctl.conf -a ! -e "${NEWROOT}"/boot/sysctl.conf-"${KVERSION}" ]; then
+    ln -s /lib/modules/"${KVERSION}"/sysctl.conf" "${NEWROOT}"/boot/sysctl.conf-"${KVERSION}"
+fi
+
 exit 0

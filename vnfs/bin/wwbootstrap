@@ -278,6 +278,12 @@ if ($config->get("drivers")) {
     copy("$opt_chroot/lib/modules/$opt_kversion/modules.order", "$tmpdir/initramfs/lib/modules/$opt_kversion/modules.order");
     copy("$opt_chroot/lib/modules/$opt_kversion/modules.builtin", "$tmpdir/initramfs/lib/modules/$opt_kversion/modules.builtin");
 
+    if (-e "$opt_chroot/lib/modules/$opt_kversion/sysctl.conf" ) {
+         copy("$opt_chroot/lib/modules/$opt_kversion/sysctl.conf", "$tmpdir/initramfs/lib/modules/$opt_kversion/sysctl.conf");
+    } elsif ( -e "$opt_chroot/boot/sysctl.conf-$opt_kversion" ) {
+        copy("$opt_chroot/boot/sysctl.conf-$opt_kversion", "$tmpdir/initramfs/lib/modules/$opt_kversion/sysctl.conf");
+    }
+
     if ($module_count > 0) {
         &nprint("Number of drivers included in bootstrap: $module_count\n");
         &dprint("Running depmod\n");

@@ -133,6 +133,7 @@ fi
 %{perl_vendorlib}/Warewulf/Module/Cli/Bootstrap.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Provision.pm
 %{perl_vendorlib}/Warewulf/Module/Cli/Vnfs.pm
+%{perl_vendorlib}/Warewulf/Module/Cli/Ucode.pm
 
 
 # ====================

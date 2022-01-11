@@ -77,6 +77,7 @@ help()
     $h .= "\n";
     $h .= "     -n, --name      Name of bootstrap, defaults to the file name on import\n";
     $h .= "     -a, --arch      Architecture of bootstrap, defaults to the current machine on import\n";
+    $h .= "     -u, --ucode     Set to indicate that the bootstrap includes a CPU microcode initrd (boolean)\n";
     $h .= "     -1              With list command, output bootstrap name only\n";
     $h .= "\n";
     $h .= "EXAMPLES:\n";
@@ -149,6 +150,8 @@ exec()
     my $term = Warewulf::Term->new();
     my $opt_lookup = "name";
     my $opt_name;
+    my $opt_arch;
+    my $opt_ucode;
     my $opt_single;
     my $command;
     my $return_count = 0;
@@ -163,6 +166,7 @@ exec()
         'n|name=s'      => \$opt_name,
         'l|lookup=s'    => \$opt_lookup,
         'a|arch=s'      => \$opt_arch,
+        'u|ucode=s'     => \$opt_ucode,
         '1'             => \$opt_single,
     );
 
@@ -228,6 +232,7 @@ exec()
                         if (-f $path) {
                             my $name;
                             my $arch;
+                            my $ucode = 0;
                             my $objSet;
                             my $obj;
                             if ($opt_name) {
@@ -242,16 +247,44 @@ exec()
                                 &dprint("Architecture not specified, defaulting the local system architecture\n");
                                 (undef, undef, undef, undef, $arch) = POSIX::uname();
                             }
+                            if (defined($opt_ucode)) {
+                                if (uc($opt_ucode) eq "UNDEF" or
+                                    uc($opt_ucode) eq "FALSE" or
+                                    uc($opt_ucode) eq "NO" or
+                                    uc($opt_ucode) eq "N" or
+                                    $opt_ucode eq 0
+                                ) {
+                                    $ucode = 0;
+                                } elsif (uc($opt_ucode) eq "TRUE" or
+                                    uc($opt_ucode) eq "YES" or
+                                    uc($opt_ucode) eq "Y" or
+                                    $opt_ucode eq 1
+                                ) {
+                                    $ucode = 1;
+                                } else { 
+                                    &eprint("Argument to ucode is not valid\n");
+                                    return();
+                                }
+                            }
                             $objSet = $db->get_objects("bootstrap", $opt_lookup, $name);
 
                             if ($objSet->count() > 0) {
                                 $obj = $objSet->get_object(0);
+                                # Only update arch if the user set it, otherwise keep the existing setting.
+                                if ($opt_arch) {
+                                    $obj->arch($arch);
+                                }
+                                # Ignore the existing ucode attribute from the existing bootstrap and set
+                                # it since we're overwriting the bootstrap.
+                                if ($ucode) {
+                                    $obj->ucode($ucode);
+                                }
                                 if ($term->interactive()) {
                                     my $name = $obj->name() || "UNDEF";
                                     &wprint("Do you wish to overwrite '$name' in the Warewulf data store?\n");
                                     my $yesno = lc($term->get_input("Yes/No> ", "no", "yes"));
                                     if ($yesno ne "y" and $yesno ne "yes") {
-                                        &nprint("Not exporting '$name'\n");
+                                        &nprint("Not importing '$name'\n");
                                         return undef;
                                     }
                                 }
@@ -260,7 +293,10 @@ exec()
                                 $obj = Warewulf::Bootstrap->new();
                                 $obj->name($name);
                                 $obj->arch($arch);
-                                &dprint("Persisting the new Warewulf bootstrap object with name: $name\n");
+                                if ($ucode) {
+                                    $obj->ucode($ucode);
+                                }
+                                &dprint("Persisting the new Warewulf bootstrap object with name: $name, arch: $arch, ucode: $ucode\n");
                                 $db->persist($obj);
                             }
 
@@ -322,6 +358,35 @@ exec()
                     $persist_count++;
                 }
                 push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "ARCH", $opt_arch));
+            }
+
+            if (defined($opt_ucode)) {
+                if (uc($opt_ucode) eq "UNDEF" or
+                    uc($opt_ucode) eq "FALSE" or
+                    uc($opt_ucode) eq "NO" or
+                    uc($opt_ucode) eq "N" or
+                    $opt_ucode eq 0
+                ) {
+                    &dprint("Unsetting ucode");
+                    foreach my $o ($objSet->get_list()) {
+                        $o->ucode(0);
+                        $persist_count++;
+                    }
+                    push(@changes, sprintf("%8s: %-20s\n", "UNDEF", "UCODE"));
+                } elsif (uc($opt_ucode) eq "TRUE" or
+                    uc($opt_ucode) eq "YES" or
+                    uc($opt_ucode) eq "Y" or
+                    $opt_ucode eq 1
+                ) {
+                    foreach my $o ($objSet->get_list()) {
+                        $o->ucode(1);
+                        $persist_count++;
+                    }
+                    push(@changes, sprintf("%8s: %-20s = %d\n", "SET", "UCODE", 1));
+                } else { 
+                    &eprint("Argument to ucode is not valid\n");
+                    return();
+                }
             }
             if ($term->interactive()) {
                 if (! $self->confirm_changes($term, $objSet->count(), "Bootstrap(s)", @changes)) {

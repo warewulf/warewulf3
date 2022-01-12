@@ -39,7 +39,7 @@ jobs:
               GITVERSION=$(git show -s --pretty=format:%h)
               DIST=$(rpm --eval '%{dist}')
               yum -y install ~/rpmbuild/RPMS/noarch/\
-              warewulf-common-3.9.0-0.${GITVERSION}${DIST}.noarch.rpm
+              warewulf-common-3.10.0-0.${GITVERSION}${DIST}.noarch.rpm
           name: "Install warewulf-common"
       -
         run:
@@ -134,7 +134,7 @@ jobs:
               GITVERSION=$(git show -s --pretty=format:%h)
               DIST=$(rpm --eval '%{dist}')
               yum -y install ~/rpmbuild/RPMS/noarch/\
-              warewulf-common-3.9.0-0.${GITVERSION}${DIST}.noarch.rpm
+              warewulf-common-3.10.0-0.${GITVERSION}${DIST}.noarch.rpm
           name: "Install warewulf-common"
       -
         run:

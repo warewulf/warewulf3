@@ -265,6 +265,30 @@ ipxeurl()
     return $self->prop("ipxeurl", qr/^([a-zA-Z0-9\.\/\-_\:%\{}\$]+)$/, @val);
 }
 
+=item ucode($bool)
+
+Load CPU microcode via the kernel's early load mechanism for this node.
+
+=cut
+
+sub
+ucode()
+{
+    my ($self, $bool) = @_;
+
+    if (defined($bool)) {
+        if ($bool eq "UNDEF") {
+            $self->del("ucode");
+        } elsif ($bool) {
+            $self->set("ucode", 1);
+        } else {
+            $self->set("ucode", 0);
+        }
+    }
+
+    return $self->get("ucode");
+}
+
 =item fileidadd(@fileids)
 
 Add a file ID or list of file IDs to the current object.

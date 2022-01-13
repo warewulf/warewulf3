@@ -102,6 +102,7 @@ help()
     $h .= "         --kargs         Define the kernel arguments (assumes \"net.ifnames=0 biosdevname=0 quiet\" if UNDEF)\n";
     $h .= "         --pxeloader     Define a custom PXE loader image to use\n";
     $h .= "         --ipxeurl       Define a custom iPXE configuration URL to use\n";
+    $h .= "         --ucode         Load CPU microcode via kernel early load mechanism (boolean)\n";
     $h .= "         --selinux       Boot node with SELinux support? (valid options are: DISABLED,\n";
     $h .= "                         ENABLED, and ENFORCED)\n";
     $h .= "     -f, --filesystem    Specify a filesystem command file\n";
@@ -195,6 +196,7 @@ exec()
     my $opt_transport;
     my $opt_pxeloader;
     my $opt_ipxeurl;
+    my $opt_ucode;
     my $opt_selinux;
     my $opt_bootloader;
     my $opt_diskformat;
@@ -221,6 +223,7 @@ exec()
         'transport=s'   => \$opt_transport,
         'pxeloader=s'   => \$opt_pxeloader,
         'ipxeurl=s'     => \$opt_ipxeurl,
+        'ucode=s'       => \$opt_ucode,
         'master=s'      => \@opt_master,
         'bootserver=s'  => \@opt_bootserver,
         'b|bootstrap=s' => \$opt_bootstrap,
@@ -693,6 +696,43 @@ exec()
             }
         }
 
+        if (defined($opt_ucode)) {
+            if (uc($opt_ucode) eq "UNDEF") {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->ucode("UNDEF");
+                    &dprint("Deleting early microcode loading setting for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("   UNDEF: %-20s\n", "UCODE"));
+
+            } elsif (uc($opt_ucode) eq "FALSE" or
+                   uc($opt_ucode) eq "NO" or
+                   uc($opt_ucode) eq "N" or
+                   $opt_ucode eq 0
+            ) {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->ucode(0);
+                    &dprint("Disabling early microcode loading for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("     SET: %-20s = %s\n", "UCODE", 0));
+            } elsif (uc($opt_ucode) eq "TRUE" or
+                   uc($opt_ucode) eq "YES" or
+                   uc($opt_ucode) eq "Y" or
+                   $opt_ucode eq 1
+            ) {
+                foreach my $obj ($objSet->get_list()) {
+                    my $name = $obj->name() || "UNDEF";
+                    $obj->ucode(1);
+                    &dprint("Enabling early microcode loading for node name: $name\n");
+                    $persist_bool = 1;
+                }
+                push(@changes, sprintf("     SET: %-20s = %s\n", "UCODE", 1));
+            }
+        }
+
         if ($opt_selinux) {
             if ($opt_selinux =~ /^(disabled|enabled|enforced)$/i) {
                 $opt_selinux = $1;
@@ -826,6 +866,15 @@ exec()
             printf("%15s: %-16s = %s\n", $name, "PXELOADER", $o->pxeloader() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "IPXEURL", $o->ipxeurl() || "UNDEF");
             printf("%15s: %-16s = %s\n", $name, "SELINUX", $o->selinux() || "UNDEF");
+            if (defined $o->ucode()) {
+                if ($o->ucode() == 1) {
+                    printf("%15s: %-16s = %s\n", $name, "UCODE", "TRUE");
+                } elsif ($o->ucode() == 0) {
+                    printf("%15s: %-16s = %s\n", $name, "UCODE", "FALSE");
+                }
+            } else {
+                printf("%15s: %-16s = %s\n", $name, "UCODE", "UNDEF");
+            }
             printf("%15s: %-16s = \"%s\"\n", $name, "KARGS", $kargs);
             if ($o->get("fs")) {
                 printf("%15s: %-16s = \"%s\"\n", $name, "FS", join(",", $o->get("fs")));

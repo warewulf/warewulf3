@@ -149,6 +149,7 @@ update()
     my $use_hostnames = $config->get("use hostnames");
     my $dhcp_net = $config->get("dhcp network") || "direct";
     my $default_transport = $config->get("default transport") || "http";
+    my $load_ucode = $config->get("load ucode") || "no";
 
     if (! $master_ipaddr) {
         &wprint("Could not generate PXE configurations, check 'network device' or 'ip address/netmask/network' configuration!\n");
@@ -180,6 +181,7 @@ update()
         my $transport = $nodeobj->transport() || $default_transport;
         my @kargs = $nodeobj->kargs();
         my $bootlocal = $nodeobj->bootlocal();
+        my $ucode = $nodeobj->ucode();
         my @masters = $nodeobj->get("master");
         my $bootstrapname;
         my $node_master_ipaddr = $master_ipaddr;
@@ -211,9 +213,11 @@ update()
             }
             my $bootstrapName = $bootstrapObj->get("name");
             my $bootstrapArch;
+            my $bootstrap_ucode;
 
             if ($bootstrapObj) {
                 $bootstrapArch = $bootstrapObj->get("arch");
+                $bootstrap_ucode = $bootstrapObj->get("ucode");
             }
 
             if ($bootstrapObj && ! $bootstrapArch) {
@@ -257,6 +261,29 @@ update()
             @masters = @masters_hostnames;
             if ($dhcp_net eq "relay") {
                 $node_master_hostname = $masters_hostnames[0];
+            }
+        }
+
+        my $ucode_path;
+        # Currently only support early microcode loading on x86_64. Ignore other architectures.
+        if ($arch eq "x86_64") {
+            # If the node has ucode explicitly disabled, ignore the default and bootstrap settings.
+            if (defined($ucode) && $ucode eq 0) {
+                $ucode_path = "";
+            } elsif (defined($ucode) && $ucode eq 1) {
+                $ucode_path = "$arch/ucode";
+            } elsif (defined($load_ucode) && uc($load_ucode) eq "YES") {
+                $ucode_path = "$arch/ucode";
+            }
+            # If the bootstrap includes a CPU microcode initrd, use it instead of the server install.
+            if ($ucode_path && defined($bootstrap_ucode) && $bootstrap_ucode) {
+                $ucode_path = "$arch/$bootstrapid/ucode";
+            } 
+            if ($ucode_path) {
+                if (! -f "$statedir/warewulf/bootstrap/$ucode_path") {
+                    &wprint("Could not find $statedir/warewulf/bootstrap/$ucode_path when configured to early load CPU microcode for node $nodename, skipping...");
+                    next;
+                }
             }
         }
 
@@ -327,7 +354,12 @@ update()
                             print IPXE "set base http://$node_master_ipaddr/WW/bootstrap\n";
                         }
                         print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
-                        print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
+                        if ($ucode_path) {
+                            print IPXE "initrd --name ucode \${base}/$ucode_path\n";
+                            print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=ucode initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
+                        } else {
+                            print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
+                        }
                         print IPXE join(" ", @kargs) . " ";
                         if ($console) {
                             print IPXE "console=tty0 console=$console ";
@@ -376,7 +408,7 @@ update()
                     if (! close IPXE) {
                         &eprint("Could not write iPXE configuration file: $!\n");
                     }
-		    chmod(0644, "$statedir/warewulf/ipxe/cfg/$config");
+                    chmod(0644, "$statedir/warewulf/ipxe/cfg/$config");
                 } else {
                     &eprint("Node: $nodename-$devname: Bad characters in hwaddr: '$hwaddr'\n");
                 }

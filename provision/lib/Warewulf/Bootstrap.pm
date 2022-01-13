@@ -123,6 +123,28 @@ arch()
     return $self->prop("arch", qr/^([a-zA-Z0-9_]+)$/, @_);
 }
 
+=item ucode($bool)
+
+Set or return if the bootstrap includes a CPU microcode initrd.
+
+=cut
+
+sub
+ucode()
+{
+    my ($self, $bool) = @_;
+
+    if (defined($bool)) {
+        if ($bool) {
+            $self->set("ucode", 1);
+        } else {
+            $self->del("ucode");
+        }
+    }
+
+    return $self->get("ucode");
+}
+
 =item bootstrap_import($file)
 
 Import a bootstrap image at the defined path into the data store directly.
@@ -275,6 +297,13 @@ delete_local_bootstrap()
                     &eprint("Could not remove file: $bootstrapdir/cookie\n");
                 }
             }
+            if (-f "$bootstrapdir/ucode") {
+                if (unlink("$bootstrapdir/ucode")) {
+                    &dprint("Removed file: $bootstrapdir/ucode\n");
+                } else {
+                    &eprint("Could not remove file: $bootstrapdir/ucode\n");
+                }
+            }
             if (-d "$bootstrapdir") {
                 if (rmdir("$bootstrapdir")) {
                     &dprint("Removed directory: $bootstrapdir\n");
@@ -347,6 +376,7 @@ build_local_bootstrap()
     if ($self) {
         my $bootstrap_name = $self->name();
         my $bootstrap_id = $self->id();
+        my $ucode = $self->ucode();
         my $arch = $self->arch();
         if (! $arch) {
             (undef, undef, undef, undef, $arch) = POSIX::uname();
@@ -405,6 +435,15 @@ build_local_bootstrap()
             }
             close CPIO;
 
+            if (! -f "$tmpdir/kernel") {
+                &eprint("Could not locate the kernel within the bootstrap\n");
+                return();
+            }
+            if ($ucode && ! -f "$tmpdir/ucode") {
+                &eprint("Could not locate the CPU microcode initrd 'ucode' within the bootstrap when the bootstrap is configured to include it\n");
+                return();
+            }
+
             &dprint("Including capabiltiies into bootstrap\n");
             foreach my $path (glob($initramfsdir . "/capabilities/*")) {
                 if ($path =~ /^([a-zA-Z0-9\.\_\-\/]+)$/) {
@@ -436,6 +475,10 @@ build_local_bootstrap()
             &nprint("Locating the kernel object\n");
             system("cp $tmpdir/kernel $bootstrapdir/kernel");
             chmod(0644, "$bootstrapdir/kernel");
+            if ($ucode) {
+                system("cp $tmpdir/ucode $bootstrapdir/ucode");
+                chmod(0644, "$bootstrapdir/ucode");
+            }
             system("rm -rf $tmpdir");
             open(COOKIE, "> $bootstrapdir/cookie");
             chmod(0644, "$bootstrapdir/cookie");

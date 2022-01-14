@@ -353,11 +353,12 @@ update()
                         } else {
                             print IPXE "set base http://$node_master_ipaddr/WW/bootstrap\n";
                         }
-                        print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
                         if ($ucode_path) {
                             print IPXE "initrd --name ucode \${base}/$ucode_path\n";
+                            print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
                             print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=ucode initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
                         } else {
+                            print IPXE "initrd \${base}/$arch/$bootstrapid/initfs.gz\n";
                             print IPXE "kernel \${base}/$arch/$bootstrapid/kernel ro initrd=initfs.gz wwhostname=$hostname wwtransport=$transport ";
                         }
                         print IPXE join(" ", @kargs) . " ";

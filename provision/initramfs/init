@@ -192,6 +192,7 @@ bondup() {
                     if [ -n "$WWBONDMODE" ]; then
                         echo "BONDING_OPTS=\"mode=$WWBONDMODE\"" >> /tmp/ifcfg-$DEVICE
                     fi
+
                     # SUSE based ifcfg
                     mkdir -p /tmp/suse
 
@@ -216,8 +217,8 @@ bondup() {
                     fi
                     COUNT=0
                     for slave in $BONDDEVS; do
-                        echo "BONDIG_SLAVE_$COUNT=$slave" >> /tmp/suse/ifcfg-$DEVICE
-                        echo "# This was created by the Warewulf bootstrap" > /tmp/ifcfg-$slave
+                        echo "BONDING_SLAVE_$COUNT=$slave" >> /tmp/suse/ifcfg-$DEVICE
+                        echo "# This was created by the Warewulf bootstrap" > /tmp/suse/ifcfg-$slave
                         echo "NAME=$slave" >> /tmp/suse/ifcfg-$slave
                         echo "BOOTPROTO=none" >> /tmp/suse/ifcfg-$slave
                         echo "STARTMODE=hotplug" >> /tmp/suse/ifcfg-$slave

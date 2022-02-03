@@ -92,10 +92,10 @@ jobs:
           destination: SRPMS
           path: ~/rpmbuild/SRPMS
     working_directory: ~/warewulf3
-  build_centos8:
+  build_rocky8:
     docker:
       -
-        image: "centos:8"
+        image: "rockylinux:8"
     steps:
       - checkout
       -
@@ -193,6 +193,6 @@ workflows:
   build:
     jobs:
       - build_centos7
-      - build_centos8
+      - build_rocky8
   version: 2
 

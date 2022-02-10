@@ -18,8 +18,8 @@ distro_check() {
     # Make zypper quiet if verbose and debug are not set
     [ -z "$VERBOSE" -a -z "$DEBUG" ] && EXTRA_ARGS="${EXTRA_ARGS} --quiet"
 
-    ZYP_CMD="zypper --root $CHROOTDIR -n --gpg-auto-import-keys ${EXTRA_ARGS} -c $CHROOTDIR/etc/zypp/zypp.conf"
-    [ -n "$DEBUG" ] && echo "ZYP_CMD = $ZYP_CMD" 
+    ZYP_CMD="zypper -n --gpg-auto-import-keys ${EXTRA_ARGS}  -c $CHROOTDIR/etc/zypp/zypp.conf"
+    [ -n "$DEBUG" ] && echo "ZYP_CMD = $ZYP_CMD"
 
     return 0
 }
@@ -42,8 +42,14 @@ set_overlay() {
         echo "ERROR: This must be a SUSE compatible chroot!"
         return 1
     fi
-    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses --no-recommends $PKGLIST"
-    [ -n "$DEBUG" ] && echo "PKGR_CMD=$PKGR_CMD" 
+    chrootarg="--root $CHROOTDIR"
+    if [ -z "$ZYP_MIRROR" -a -z "$INSTALL_ISO" ]; then
+	echo "INFO: Taking repository information from running system"
+	chrootarg="--installroot $CHROOTDIR"
+    fi
+    [ -n "$VERBOSE" ] && echo "Executing zypper with $chrootarg"
+    PKGR_CMD="$ZYP_CMD $chrootarg install --auto-agree-with-licenses --no-recommends $PKGLIST"
+    [ -n "$DEBUG" ] && echo "PKGR_CMD=$PKGR_CMD"
     return 0
 }
 
@@ -69,7 +75,7 @@ prechroot() {
     rm -f $CHROOTDIR/dev/zero && mknod -m 666 $CHROOTDIR/dev/zero c 1 5
 
     # Create new zypp.conf and zypper.conf files
-    echo "[main]" > $CHROOTDIR/etc/zypp/zypper.conf	
+    echo "[main]" > $CHROOTDIR/etc/zypp/zypper.conf
     echo "[solver]" >> $CHROOTDIR/etc/zypp/zypper.conf
     echo "installRecommends = no" >> $CHROOTDIR/etc/zypp/zypper.conf
     echo "[commit]" >> $CHROOTDIR/etc/zypp/zypper.conf
@@ -89,11 +95,10 @@ prechroot() {
     # Remove all existing repos in CHROOT; just a precaution
     rm -f $CHROOTDIR/etc/zypp/repos.d/*
 
+    chrootarg="--root $CHROOTDIR"
     if [ -z "$ZYP_MIRROR" -a -z "$INSTALL_ISO" ]; then
 	echo "INFO: Taking repository information from running system"
-	cp -rap /etc/zypp/repos.d $CHROOTDIR/etc/zypp
-	[ -d /etc/zypp/services.d ] && cp -rap /etc/zypp/services.d $CHROOTDIR/etc/zypp
-	[ -d /etc/zypp/credentials.d ] && cp -rap /etc/zypp/credentials.d $CHROOTDIR/etc/zypp
+	chrootarg="--installroot $CHROOTDIR"
     elif [ -n "$INSTALL_ISO" ]; then
 	# Add all of the repos found on the ISO images
         for i in $(find $MEDIA_MOUNTPATH -type d -name repodata -printf "%P "); do
@@ -103,6 +108,7 @@ prechroot() {
         ZYPP_MIRROR="${ZYPP_MIRROR:+${ZYPP_MIRROR}},$INSTALLDIRS"
         [ -n "$DEBUG" ] && echo "ZYPP_MIRROR = $ZYPP_MIRROR"
     fi
+    [ -n "$VERBOSE" ] && echo "Executing zypper with $chrootarg"
 
     # Create new repos from comma-seperated list (using bash inline S&R)
     if [ "01" -eq "0$REPO_NOGPGCHECK" ]; then
@@ -115,11 +121,11 @@ prechroot() {
     # Bash pattern replace -- replace all commas with spaces
     for i in ${ZYPP_MIRROR//,/ }; do
         [ -n "$VERBOSE" ] && echo "Adding repo-$cnt: $i"
-        $ZYP_CMD ar $GPGARG $i repo-$cnt
+        $ZYP_CMD $chrootarg ar $GPGARG $i repo-$cnt
         let cnt++
     done
 
-    PKGR_CMD="$ZYP_CMD install --auto-agree-with-licenses --no-recommends $PKGLIST"
+    PKGR_CMD="$ZYP_CMD $chrootarg install --auto-agree-with-licenses --no-recommends $PKGLIST"
 
     return 0
 }

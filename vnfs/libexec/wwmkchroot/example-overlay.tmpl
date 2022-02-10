@@ -4,6 +4,7 @@
 # one of these must come first
 # . include-rhel
 # . include-deb
+# . include-suse
 
 # ! make sure to use this template as overlay !
 # must be set after the above platform options
@@ -20,6 +21,11 @@ set_as_overlay
 # Define the location of the YUM repository
 # YUM_MIRROR="http://mirror.centos.org/centos-6/6/os/\$basearch/"
 
+# required for a suse overlay
+#------------------------------#
+# Define the location of the zypper repository
+# ZYPP_MIRROR="http://download.opensuse.org/distribution/leap/15.3/repo/oss/,\
+#        http://download.opensuse.org/update/leap/15.3/oss/"
 
 # list of package to install into chroot
 # PKGLIST="cups build-essential"

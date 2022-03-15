@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS lookup (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
     object_id   INT UNSIGNED,
     field       VARCHAR(64) BINARY,
-    value       VARCHAR(64) BINARY,
+    value       VARCHAR(256) BINARY,
 
     FOREIGN KEY (object_id) REFERENCES datastore (id),
     UNIQUE KEY (object_id, field, value),

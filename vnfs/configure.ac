@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT(warewulf-vnfs, 3.9.0, warewulf-devel@lbl.gov)
+AC_INIT(warewulf-vnfs, 3.10.0, warewulf-devel@lbl.gov)
 AC_CONFIG_SRCDIR([.])
 
 AC_PROG_INSTALL

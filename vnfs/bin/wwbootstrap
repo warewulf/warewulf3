@@ -50,6 +50,7 @@ my $help = "USAGE: $0 [options] kernel_version
 
     OPTIONS:
         -c, --chroot    Look into this chroot directory to find the kernel
+        -V, --vnfs      Look into this VNFS archive file to find the kernel
         -k, --kernel    Look for this file prefix to find the kernel (default: vmlinuz)
         -u, --ucode     Full path to CPU microcode initrd in CPIO format (default: UNDEF)
         -r, --root      Alias for --chroot
@@ -69,6 +70,7 @@ my $help = "USAGE: $0 [options] kernel_version
         # wwbootstrap --kernel=Image 2.6.32-71.el6.x86_64
         # wwbootstrap --config=testbootstrap 2.6.32-71.el6.x86_64
         # wwbootstrap --chroot=/path/to/chroot 2.6.32-71.el6.x86_64
+        # wwbootstrap --vnfs=/path/to/distro.vnfs 2.6.32-71.el6.x86_64
         # wwbootstrap --output=test-bootstrap.wwbs 2.6.32-71.el6.x86_64
         # wwbootstrap --ucode=/boot/ucode 2.6.32-71.el6.x86_64
 
@@ -87,6 +89,7 @@ GetOptions(
     'n|name=s'      => \$opt_name,
     'k|kernel=s'    => \$opt_kernel,
     'u|ucode=s'     => \$opt_ucode,
+    'V|vnfs=s'      => \$opt_vnfs,
     'config=s'      => \$opt_config,
 );
 
@@ -98,6 +101,11 @@ if ($opt_debug) {
 if ($opt_help or ! @ARGV) {
     print $help;
     exit;
+}
+
+if ($opt_chroot and $opt_vnfs) {
+    print $help
+    exit
 }
 
 if ($opt_config) {
@@ -142,6 +150,14 @@ if ($opt_chroot and $opt_chroot =~ /^(?:\/|([a-zA-Z0-9_\-\.\/]+)(?<!\/)\/*)$/) {
     &iprint("Using root directory: $opt_chroot\n");
 }
 
+if ($opt_vnfs and $opt_vnfs =~ /^(?:\/|([a-zA-Z0-9_\-\.\/]+)(?<!\/)\/*)$/) {
+    $opt_vnfs = "$1";
+    &iprint("Using archive: $opt_vnfs\n");
+} elsif ($opt_vnfs) {
+    &eprint("Path to archive name contains illegal characters!\n");
+    exit 1;
+}
+
 if ($opt_output) {
     if ($opt_output =~ /^([a-zA-Z0-9_\-\.\/]+)$/) {
         $opt_output = $1;
@@ -179,6 +195,13 @@ foreach my $dir (split(":", $ENV{"PATH"})) {
             last;
         }
     }
+}
+
+my $extract_dir = "/var/tmp/wwextract.$randstring";
+if ( $opt_vnfs ) {
+    mkpath("$extract_dir");
+    system("bsdtar -C $extract_dir --include ./boot --include ./lib/modules/$opt_kversion --include ./lib/firmware -xf $opt_vnfs");
+    $opt_chroot = $extract_dir;
 }
 
 mkpath("$tmpdir/initramfs");
@@ -406,8 +429,8 @@ if ($opt_ucode) {
 }
 
 &nprint("Building and compressing bootstrap\n");
-system("(cd $tmpdir; find . | cpio -o --quiet -H newc ) | $gzip_bin $gzip_opts > $output");
-system("rm -rf $tmpdir");
+system("(cd $tmpdir; find . | bsdcpio -o --quiet -H newc ) | $gzip_bin $gzip_opts > $output");
+system("rm -rf $tmpdir $extract_dir");
 
 if ($opt_output) {
     move($output, $opt_output);

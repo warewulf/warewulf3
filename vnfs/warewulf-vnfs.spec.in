@@ -11,6 +11,11 @@ URL: http://warewulf.lbl.gov/
 Source: %{name}-%{version}.tar.gz
 ExclusiveOS: linux
 Requires: warewulf-common
+Requires: bsdtar
+Requires: pigz
+%if 0%{?rhel:1}
+Requires: bsdcpio
+%endif
 BuildRequires: warewulf-common
 Conflicts: warewulf < 3
 BuildArch: noarch

@@ -100,7 +100,6 @@ help()
     $h .= "     -B, --bondmode      Set bonding mode\n";
     $h .= "     -f, --fqdn          Set FQDN of given netdev\n";
     $h .= "     -m, --mtu           Set MTU of given netdev\n";
-    $h .= "     -p, --hwprefix      Specify a prefix for hardware/MAC address of a given netdev\n";
     $h .= "     -c, --cluster       Specify cluster name for this node\n";
     $h .= "         --domain        Specify domain name for this node\n";
     $h .= "     -n, --name          Specify new name for this node\n";
@@ -183,7 +182,6 @@ exec()
     my @opt_hwaddrs;
     my @opt_bonddevs;
     my $opt_bondmode;
-    my $opt_hwprefix;
     my $opt_ipaddr;
     my $opt_netmask;
     my $opt_network;
@@ -224,7 +222,6 @@ exec()
         'netdel'        => \$opt_devremove,
         'netrename=s'   => \$opt_netrename,
         'H|hwaddr=s'    => \@opt_hwaddrs,
-        'p|hwprefix=s'  => \$opt_hwprefix,
         'I|ipaddr=s'    => \$opt_ipaddr,
         'N|network=s'   => \$opt_network,
         'G|gateway=s'   => \$opt_gateway,
@@ -348,7 +345,6 @@ exec()
             printf("%15s: %-16s = %s\n", $nodename, "ENABLED", ($o->enabled()) ? "TRUE" : "FALSE");
             foreach my $devname (sort($o->netdevs_list())) {
                 printf("%15s: %-16s = %s\n", $nodename, "$devname.HWADDR", $o->hwaddr($devname) ? join(',', $o->hwaddr($devname)) : "UNDEF");
-                printf("%15s: %-16s = %s\n", $nodename, "$devname.HWPREFIX", $o->hwprefix($devname) || "UNDEF");
                 printf("%15s: %-16s = %s\n", $nodename, "$devname.IPADDR", $o->ipaddr($devname) || "UNDEF");
                 printf("%15s: %-16s = %s\n", $nodename, "$devname.NETMASK", $o->netmask($devname) || "UNDEF");
                 printf("%15s: %-16s = %s\n", $nodename, "$devname.NETWORK", $o->network($devname) || "UNDEF");
@@ -437,32 +433,6 @@ exec()
                     }
                 } else {
                     &eprint("Can not set HWADDR on more then 1 node!\n");
-                }
-            }
-            if ($opt_hwprefix) {
-                $opt_hwprefix = lc($opt_hwprefix);
-                if ($opt_hwprefix =~ /^((?:[0-9a-f]{2}:){11}[0-9a-f]{2})$/) {
-                    my $show_changes;
-                    foreach my $o ($objSet->get_list()) {
-                        my $nodename = $o->name();
-                        if (! $opt_netdev) {
-                            my @devs = $o->netdevs_list();
-                            if (scalar(@devs) == 1) {
-                                $opt_netdev = shift(@devs);
-                            } else {
-                                &eprint("Option --hwprefix requires the --netdev option for: $nodename\n");
-                                return undef;
-                            }
-                        }
-                        $o->hwprefix($opt_netdev, $1);
-                        $persist_count++;
-                        $show_changes = 1;
-                    }
-                    if ($show_changes) {
-                        push(@changes, sprintf("%8s: %-20s = %s\n", "SET", "$opt_netdev.HWPREFIX", $opt_hwprefix));
-                    }
-                } else {
-                    &eprint("Option 'hwprefix' has invalid characters\n");
                 }
             }
             if ($opt_ipaddr) {

@@ -234,7 +234,6 @@ persist()
 
             foreach my $devname ($n->netdevs_list()) {
                 my @hwaddrs = $n->hwaddr($devname);
-                my $hwprefix = $n->hwprefix($devname);
                 my $node_ipaddr = $n->ipaddr($devname);
                 my $node_netmask = $n->netmask($devname) || $netmask;
                 my $node_gateway = $n->gateway($devname);

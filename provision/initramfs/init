@@ -430,9 +430,9 @@ fi
 if [ ! -f /tmp/wwdev ]; then
     for i in `echo /sys/class/net/* | xargs -n1 /usr/bin/basename | grep -v lo`; do
         HWADDR=`cat /sys/class/net/$i/address`
-        # Use GUID if IB
+        # Calculate shortened HWADDR from GUID if IB
         if [ ${#HWADDR} -eq 59 ]; then
-            HWADDR=`expr substr $HWADDR 37 23`
+            HWADDR=`expr substr $WWINIT_HWADDR 37 8`:`expr substr $WWINIT_HWADDR 52 8`
         fi
         if [ $HWADDR == $WWHWADDR ]; then
             if ifup $i $WWHWADDR $WWNETDEV; then
@@ -447,9 +447,9 @@ fi
 if [ ! -f /tmp/wwdev ]; then
     for i in `echo /sys/class/net/* | xargs -n1 /usr/bin/basename | grep -v lo`; do
         HWADDR=`cat /sys/class/net/$i/address`
-        # Use GUID if IB
+        # Calculate shortened HWADDR from GUID if IB
         if [ ${#HWADDR} -eq 59 ]; then
-            HWADDR=`expr substr $HWADDR 37 23`
+            HWADDR=`expr substr $WWINIT_HWADDR 37 8`:`expr substr $WWINIT_HWADDR 52 8`
         fi
         if ifup $i $HWADDR $WWNETDEV; then
             echo "$i" > /tmp/wwdev
@@ -478,7 +478,7 @@ msg_white "Probing for HW Address: "
 if [ -f "/sys/class/net/$NETDEV/address" ]; then
     WWINIT_HWADDR=`cat /sys/class/net/$NETDEV/address`
     if [ ${#WWINIT_HWADDR} -eq 59 ]; then
-        WWINIT_HWADDR=`expr substr $WWINIT_HWADDR 37 23`
+        WWINIT_HWADDR=`expr substr $WWINIT_HWADDR 37 8`:`expr substr $WWINIT_HWADDR 52 8`
     fi
     msg_gray "($WWINIT_HWADDR)"
     wwsuccess

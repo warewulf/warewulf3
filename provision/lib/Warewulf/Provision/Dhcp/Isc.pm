@@ -264,7 +264,6 @@ persist()
 
             foreach my $devname ($n->netdevs_list()) {
                 my @hwaddrs = $n->hwaddr($devname);
-                my $hwprefix = $n->hwprefix($devname);
                 my $mtu = $n->mtu($devname);
                 my $node_ipaddr = $n->ipaddr($devname);
                 my $node_netmask = $n->netmask($devname) || $netmask;
@@ -346,11 +345,7 @@ persist()
                         if ($domain) {
                             $dhcpd_contents .= "      option domain-name \"$domain\";\n";
                         }
-                        if ($devname =~ /ib\d+/ && $hwprefix) {
-                            $dhcpd_contents .= "      option dhcp-client-identifier = $hwprefix:$hwaddr;\n";
-                        } else {
-                            $dhcpd_contents .= "      hardware ethernet $hwaddr;\n";
-                        }
+                        $dhcpd_contents .= "      hardware ethernet $hwaddr;\n";
                         if ($mtu) {
                             $dhcpd_contents .= "      option interface-mtu $mtu;\n";
                         }

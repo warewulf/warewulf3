@@ -316,7 +316,6 @@ canonicalize()
                 bless($n, "Warewulf::Object");
                 $self->add("_ipaddr", $n->get("ipaddr"));
                 $self->add("_hwaddr", $n->get("hwaddr"));
-                $self->add("_hwprefix", $n->get("hwprefix"));
                 $new_netdevs->add($n);
             }
             $self->set("netdevs", $new_netdevs);
@@ -447,7 +446,6 @@ netdel()
     if ($netdev) {
         my @hwaddrs = $netdev->get("hwaddr");
         my $ipaddr = $netdev->get("ipaddr");
-        my $hwprefix = $netdev->get("hwprefix");
         
         &dprint("Object $nodename del netdev $devname\n");
         $self->netdevs()->del($netdev);
@@ -456,9 +454,6 @@ netdel()
         }
         if ($ipaddr) {
             $self->del("_ipaddr", $ipaddr);
-        }
-        if ($hwprefix) {
-            $self->del("_hwprefix", $hwprefix);
         }
     } else {
         &eprint("Object $nodename has no netdev \"$devname\" configured!\n");
@@ -537,37 +532,6 @@ hwaddr()
     return $self->update_netdev_member($devname, "hwaddr", "_hwaddr",
             qr/^((?:[0-9a-f]{2}:){5,7}[0-9a-f]{2})$/,
             ((scalar(@_) >= 3) && (!defined $new_hwaddr[0])) ? ("__UNDEF") : (@new_hwaddr));
-}
-
-=item hwprefix_list()
-
-Shortcut to retrieve a list of all HWADDR Prefixes for this node
-
-=cut
-
-sub
-hwprefix_list()
-{
-    my $self = shift;
-
-    return $self->get("_hwprefix");
-}
-
-=item hwprefix($devname, [ $value ])
-
-Get or set the hwaddr prefix for the network device named I<$devname>.
-
-=cut
-
-sub
-hwprefix()
-{
-    my ($self, $devname, $new_hwprefix) = @_;
-
-    return $self->update_netdev_member($devname, "hwprefix", "_hwprefix",
-            qr/^((?:[0-9a-f]{2}:){11}[0-9a-f]{2})$/,
-            ((scalar(@_) >= 3) && (!defined($new_hwprefix))) ? ("__UNDEF")
-             : ((defined($new_hwprefix)) ? (lc($new_hwprefix)) : (undef)));
 }
 
 =item ipaddr_list()

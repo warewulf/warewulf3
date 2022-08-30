@@ -66,11 +66,11 @@ BuildRequires: cross-x86_64-gcc7
 # New RHEL and Suse include the required FS tools
 %if 0%{?rhel} >= 8 || 0%{?suse_version} >= 1500
 %global localtools 1
-BuildRequires: parted, e2fsprogs, mdadm, xfsprogs
+BuildRequires: parted, e2fsprogs, mdadm, xfsprogs, kmod
 Requires: parted, autofs, e2fsprogs
 BuildRequires: libarchive.so.13()(64bit)
 Requires: libarchive.so.13()(64bit)
-%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe --with-local-mdadm --with-local-xfsprogs
+%global CONF_FLAGS --with-local-e2fsprogs --with-local-libarchive --with-local-parted --with-local-partprobe --with-local-mdadm --with-local-xfsprogs --with-local-kmod
 %else
 %global localtools 0
 Requires: %{name}-gpl_sources = %{version}-%{release}

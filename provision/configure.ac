@@ -164,6 +164,7 @@ FIND_LOCAL(partprobe, partprobe)
 FIND_LOCAL(xfsprogs, mkfs.xfs)
 FIND_LOCAL(curl, curl)
 FIND_LOCAL(mdadm, mdadm)
+FIND_LOCAL(kmod, kmod)
 
 #AC_CHECK_LIB(fuse, fuse_main, , [
 #AC_MSG_ERROR([Fatal:  Fuse libraries not found.])
@@ -245,6 +246,7 @@ AC_OUTPUT(
    etc/warewulf-httpd.conf
    initramfs/Makefile
    initramfs/busybox.config
+   initramfs/busybox_nokmod.config
    initramfs/capabilities/Makefile
    initramfs/capabilities/provision-adhoc/Makefile
    initramfs/capabilities/provision-files/Makefile

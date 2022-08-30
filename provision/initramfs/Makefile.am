@@ -70,7 +70,11 @@ busybox:
 			for i in $(BUSYBOX_PATCHES); do \
 				(cd _work/$(BUSYBOX_DIR); patch -p1 < ../../$${i} || exit 1) ;\
 			done ;\
-			cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
+			if [ -n "@local_kmod_path@" -a -f "@local_kmod_path@" ]; then \
+				cp $(srcdir)/busybox_nokmod.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
+			else \
+				cp $(srcdir)/busybox.config _work/busybox-$(BUSYBOX_VERSION)/.config ;\
+			fi ;\
 		fi ;\
 		if [ ! -f "_work/$(BUSYBOX_DIR)/" ]; then \
 			echo "Building initramfs core" ;\
@@ -138,7 +142,12 @@ mdadm:
 		echo "Detected local install of mdadm." ;\
 	fi
 
-rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm
+kmod:
+	@ if [ -n "@local_kmod_path@" -a -f "@local_kmod_path@" ]; then \
+		echo "Detected local install of kmod." ;\
+	fi
+
+rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm kmod
 	rm -rf rootfs
 	mkdir rootfs
 	mkdir rootfs/bin
@@ -207,6 +216,15 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm
 	if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
 		cp -av @local_mdadm_path@ rootfs/sbin/mdadm; \
 	fi
+	if [ -n "@local_kmod_path@" -a -f "@local_kmod_path@" ]; then \
+		cp -av @local_kmod_path@ rootfs/bin/kmod; \
+		ln -sf ../bin/kmod rootfs/sbin/lsmod; \
+		ln -sf ../bin/kmod rootfs/sbin/rmmod; \
+		ln -sf ../bin/kmod rootfs/sbin/insmod; \
+		ln -sf ../bin/kmod rootfs/sbin/modinfo; \
+		ln -sf ../bin/kmod rootfs/sbin/modprobe; \
+		ln -sf ../bin/kmod rootfs/sbin/depmod; \
+	fi ;\
 	cp -L --parents /lib*/ld-linux* rootfs/
 	cp -L --parents /lib*/libnss_dns* rootfs/
 	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
@@ -244,6 +262,6 @@ clean-local:
 
 
 
-EXTRA_DIST = busybox.config init devs.cpio functions dhcp-script detect transporthandler provisionhandler wwlogger
+EXTRA_DIST = busybox.config busybox_nokmod.config init devs.cpio functions dhcp-script detect transporthandler provisionhandler wwlogger
 
 MAINTAINERCLEANFILES = Makefile.in

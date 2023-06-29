@@ -224,7 +224,10 @@ if ($config->get("drivers")) {
     my %included_files;
     my @driver_files;
     my $module_count = 0;
-    my $check_compression;
+    my $check_compression_xz;
+    my $check_compression_gz;
+    my $check_compression_zst;
+    my $check_compression_bz2;
 
     mkpath("$tmpdir/initramfs/lib/modules/$opt_kversion");
 
@@ -238,10 +241,16 @@ if ($config->get("drivers")) {
                 my $path = $1;
                 my @deps = split(/\s+/, $2);
                 my $name = basename($path);
-                if  ($name =~ /\.ko\.(xz|bz2|gz)$/) {
-                    $check_compression = 1;
+                if  ($name =~ /\.ko\.xz$/) {
+                    $check_compression_xz = 1;
+                } elsif  ($name =~ /\.ko\.gz$/) {
+                    $check_compression_gz = 1;
+                } elsif  ($name =~ /\.ko\.zst$/) {
+                    $check_compression_zst = 1;
+                } elsif  ($name =~ /\.ko\.bz2$/) {
+                    $check_compression_bz2 = 1;
                 }
-                $name =~ s/\.ko(\.(xz|bz2|gz))?$//;
+                $name =~ s/\.ko(\.(xz|bz2|gz|zst))?$//;
                 $mod_path{"$name"} = $path;
                 push(@mod_files, $path);
                 if (@deps) {
@@ -327,10 +336,28 @@ if ($config->get("drivers")) {
         &dprint("Running depmod\n");
         system("/sbin/depmod -a -b $tmpdir/initramfs $opt_kversion");
 
-        if ($check_compression) {
-            my $dependencies = `ldd /sbin/depmod`;
+        my $dependencies = `ldd /sbin/depmod`;
+        if ($check_compression_xz) {
             if (index($dependencies, "liblzma") == -1) {
-                &wprint("Using compressed kernel modules, but depmod doesn't support it\n");
+                &wprint("Using xz compressed kernel modules, but depmod doesn't support it\n");
+                &wprint("-> bootstrap will likely fail\n");
+            }
+        }
+        if ($check_compression_gz) {
+            if (index($dependencies, "libz") == -1) {
+                &wprint("Using gzip compressed kernel modules, but depmod doesn't support it\n");
+                &wprint("-> bootstrap will likely fail\n");
+            }
+        }
+        if ($check_compression_zst) {
+            if (index($dependencies, "libzstd") == -1) {
+                &wprint("Using zstd compressed kernel modules, but depmod doesn't support it\n");
+                &wprint("-> bootstrap will likely fail\n");
+            }
+        }
+        if ($check_compression_bz2) {
+            if (index($dependencies, "libbz2") == -1) {
+                &wprint("Using bzip2 compressed kernel modules, but depmod doesn't support it\n");
                 &wprint("-> bootstrap will likely fail\n");
             }
         }

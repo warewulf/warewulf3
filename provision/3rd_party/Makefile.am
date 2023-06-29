@@ -6,10 +6,9 @@ MAINTAINERCLEANFILES = Makefile.in
 
 all: $(IPXETARGETS)
 
-IPXE_VERSION = 2265a65
+IPXE_VERSION = 09e8a15
 IPXE_SOURCE = $(top_srcdir)/3rd_party/GPL/ipxe-$(IPXE_VERSION).tar.xz
 IPXE_DIR = ipxe-$(IPXE_VERSION)
-IPXE_PATCH = GPL/0000-ipxe-revert-3fb3ffc.patch
 
 
 prep:
@@ -65,11 +64,8 @@ if BUILD_ARM64
 		mkdir -p _work/$(IPXE_DIR)/src/bin-arm64-efi ;\
 		cp "@local_ipxe_snp_arm64_path@" _work/$(IPXE_DIR)/src/bin-arm64-efi/snp.efi ;\
 	else \
-	   if [ `$(CROSS_COMPILE_ARM64)gcc -dumpversion` == 4.8.5 ]; then \
-	      ( cd _work && pwd && patch -N -p1 < ../$(IPXE_PATCH) ) ; \
-	   fi ; \
-	$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi; \
-  fi
+		$(MAKE) -C _work/$(IPXE_DIR)/src CROSS_COMPILE=$(CROSS_COMPILE_ARM64) bin-arm64-efi/snp.efi; \
+	fi
 endif
 
 install-data-local: $(IPXETARGETS)

@@ -50,6 +50,8 @@ new($$)
         $type = "unsupported";
         if (-f "/etc/redhat-release") {
             $type = "rhel";
+        } elsif (-f "/etc/openEuler-release") {
+            $type = "Euler";
         } elsif (-f "/etc/SuSE-release") {
             $type = "Suse";
         } elsif ( -f "/etc/debian_version" ) {

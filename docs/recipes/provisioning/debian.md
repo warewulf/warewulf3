@@ -7,7 +7,7 @@ The fastest way to start booting nodes on Debian is to use the provided generic 
 
 ```
 $ sudo wwmkchroot debian7-64 /var/chroots/debian7-64
-$ wwvnfs --chroot /var/chroots/debian7-64
+$ sudo wwvnfs --chroot /var/chroots/debian7-64
 $ sudo wwnodescan --netdev=eth0 --ipaddr=10.0.0.100 --netmask=255.255.255.0 --vnfs=debian7-64 --bootstrap=name --groups=newnodes n00[00-19]
 ```
 

@@ -47,6 +47,7 @@ Warewulf recipes are designed to be brief command based walk throughs of what yo
 
 * [Stateless provisioning for Red Hat and compatibles](recipes/provisioning/rhel.md)
 * [Stateless provisioning for Debian Linux](recipes/provisioning/debian.md)
+* [Stateless provisioning for openEuler 22.03 Linux](recipes/provisioning/openEuler-22.03.md)
 * <a class="missing wiki">Stateless provisioning for Ubuntu Linux?</a>
 * <a class="missing wiki">Stateless provisioning for OpenSuSE Linux?</a>
 

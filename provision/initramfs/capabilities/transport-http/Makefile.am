@@ -16,7 +16,7 @@ rootfs:
 	done
 
 capability.cpio: rootfs
-	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
+	cd rootfs/; find . | xargs touch -d @1690848000 ; find . | sort | cpio -o -H newc -F ../capability.cpio
 
 install-data-local: capability.cpio
 	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities

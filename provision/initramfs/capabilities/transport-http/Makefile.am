@@ -12,11 +12,13 @@ rootfs:
 	mkdir -p rootfs/warewulf/transports/$(TRANSPORT_NAME)
 	@ for i in $(METHODSCRIPTS); do \
 		echo "install -m 755 $$i rootfs/warewulf/transports/$(TRANSPORT_NAME)/$$i" ; \
-		install -m 755 $(srcdir)/$$i rootfs/warewulf/transports/$(TRANSPORT_NAME)/$$i; \
+		install -p -m 755 $(srcdir)/$$i rootfs/warewulf/transports/$(TRANSPORT_NAME)/$$i; \
 	done
 
+# Preserve time stamps of archived files for build reproducibility
 capability.cpio: rootfs
-	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
+	find rootfs/ -type d | xargs touch -r $(word 1,$(METHODSCRIPTS));
+	cd rootfs/; find . | cpio -o -H newc --reproducible -F ../capability.cpio
 
 install-data-local: capability.cpio
 	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities

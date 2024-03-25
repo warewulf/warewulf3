@@ -9,11 +9,13 @@ rootfs:
 	mkdir -p rootfs/warewulf/provision/
 	@ for i in $(METHODSCRIPTS); do \
 		echo "install -m 755 $$i rootfs/warewulf/provision/$$i" ; \
-		install -m 755 $(srcdir)/$$i rootfs/warewulf/provision/$$i; \
+		install -p -m 755 $(srcdir)/$$i rootfs/warewulf/provision/$$i; \
 	done
 
+# Preserve time stamps of archived files for build reproducibility
 capability.cpio: rootfs
-	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
+	find rootfs/ -type d | xargs touch -r $(word 1,$(METHODSCRIPTS));
+	cd rootfs/; find . | cpio -o -H newc --reproducible -F ../capability.cpio
 
 install-data-local: capability.cpio
 	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities

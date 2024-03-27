@@ -15,6 +15,7 @@ rootfs:
 		install -m 755 $(srcdir)/$$i rootfs/warewulf/transports/$(TRANSPORT_NAME)/$$i; \
 	done
 
+# Preserve time stamps of archived files for build reproducibility
 capability.cpio: rootfs
 	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
 

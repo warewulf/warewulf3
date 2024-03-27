@@ -147,6 +147,7 @@ kmod:
 		echo "Detected local install of kmod." ;\
 	fi
 
+# Preserve time stamps of archived files for build reproducibility
 rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm kmod
 	rm -rf rootfs
 	mkdir rootfs
@@ -171,6 +172,7 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm kmod
 		cp -av "@local_busybox_path@" rootfs/bin/busybox ;\
 	else \
 		cp -av _work/$(BUSYBOX_DIR)/_install/* rootfs/ ;\
+	        find rootfs/ | xargs touch -r devs.cpio; \
 	fi
 	if [ ! -L rootfs/bin/sh ]; then \
 		for i in `find rootfs/usr/bin -type l -a -lname "*busybox"`; do \
@@ -187,8 +189,9 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm kmod
 		cp -av "@local_e2fsprogs_path@" rootfs/sbin/mkfs.ext4 ;\
 		cp -av "/etc/mke2fs.conf" rootfs/etc/mke2fs.conf ;\
 	else \
-		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
-		cp -av _work/$(E2FSPROGS_DIR)/misc/mke2fs.conf rootfs/etc/mke2fs.conf ;\
+		cp -v _work/$(E2FSPROGS_DIR)/misc/mke2fs rootfs/sbin/mkfs.ext4 ;\
+		cp -v _work/$(E2FSPROGS_DIR)/misc/mke2fs.conf rootfs/etc/mke2fs.conf;\
+	        touch -r devs.cpio rootfs/sbin/mkfs.ext4 rootfs/etc/mke2fs.conf; \
 	fi
 	ln -s mkfs.ext4 rootfs/sbin/mkfs.ext3
 	if [ -n "@local_xfsprogs_path@" -a -f "@local_xfsprogs_path@" ]; then \
@@ -197,7 +200,8 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm kmod
 	if [ -n "@local_libarchive_path@" -a -f "@local_libarchive_path@" ]; then \
 		cp -av "@local_libarchive_path@" rootfs/bin/bsdtar; \
 	else \
-		cp -av _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar; \
+		cp -v _work/$(LIBARCHIVE_DIR)/bsdtar rootfs/bin/bsdtar; \
+	        touch -r devs.cpio rootfs/bin/bsdtar; \
 	fi
 	if [ -n "@local_parted_path@" -a -f "@local_parted_path@" -a \
 	  -n "@local_partprobe_path@" -a -f "@local_partprobe_path@" ]; then \
@@ -207,11 +211,13 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm kmod
 	else \
 		rm -f rootfs/usr/sbin/partprobe; \
 		$(MAKE) -C _work/$(PARTED_DIR)/ DESTDIR=`pwd`/rootfs install; \
+		touch -r devs.cpio rootfs/usr/sbin/partprobe; \
 	fi
 	if [ -n "@local_curl_path@" -a -f "@local_curl_path@" ]; then \
 		cp -av "@local_curl_path@" rootfs/bin/curl; \
 	else \
-		cp -av _work/$(CURL_DIR)/src/curl rootfs/bin/curl; \
+		cp -v _work/$(CURL_DIR)/src/curl rootfs/bin/curl; \
+	        touch -r devs.cpio rootfs/bin/curl; \
 	fi
 	if [ -n "@local_mdadm_path@" -a -f "@local_mdadm_path@" ]; then \
 		cp -av @local_mdadm_path@ rootfs/sbin/mdadm; \
@@ -227,27 +233,29 @@ rootfs: busybox e2fsprogs xfsprogs libarchive parted curl mdadm kmod
 	fi ;\
 	cp -L --parents /lib*/ld-linux* rootfs/
 	cp -L --parents /lib*/libnss_dns* rootfs/
-	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
+	find rootfs -type f -perm -o+x -print | grep -v ld-linux | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -avL --parents $$i rootfs/ && chmod 755 rootfs/$$i; done
 	rm -f rootfs/linuxrc rootfs/lib64/*.la rootfs/lib/*.la rootfs/usr/lib64/*.la rootfs/usr/lib/*.la
 	rm -rf rootfs/usr/share rootfs/usr/include rootfs/usr/lib/pkgconfig
 	find -type d \! -perm -u=w -exec chmod u+w {} \;
-	find rootfs -type f -perm -o+x -print | xargs strip -g
+	find rootfs -type f -perm -o+x -print | xargs strip -pg
 
-	install -m 755 $(srcdir)/init rootfs/init
-	install -m 755 $(srcdir)/functions rootfs/etc/functions
-	install -m 755 $(srcdir)/dhcp-script rootfs/sbin/
-	install -m 755 $(srcdir)/detect rootfs/sbin/
-	install -m 755 $(srcdir)/transporthandler rootfs/sbin/
-	install -m 755 $(srcdir)/provisionhandler rootfs/sbin/
-	install -m 755 $(srcdir)/wwlogger rootfs/sbin/
+	install -p -m 755 $(srcdir)/init rootfs/init
+	install -p -m 755 $(srcdir)/functions rootfs/etc/functions
+	install -p -m 755 $(srcdir)/dhcp-script rootfs/sbin/
+	install -p -m 755 $(srcdir)/detect rootfs/sbin/
+	install -p -m 755 $(srcdir)/transporthandler rootfs/sbin/
+	install -p -m 755 $(srcdir)/provisionhandler rootfs/sbin/
+	install -p -m 755 $(srcdir)/wwlogger rootfs/sbin/
 	ln -s transporthandler rootfs/sbin/wwgetvnfs
 	ln -s transporthandler rootfs/sbin/wwgetscript
 	ln -s transporthandler rootfs/sbin/wwgetnodeconfig
 	ln -s transporthandler rootfs/sbin/wwgetfiles
 
+# Set timestamps of links and directories in archives to fixed value for build repoducibility
 initramfs.cpio: rootfs
 	install -m 644 $(srcdir)/devs.cpio initramfs.cpio
-	cd rootfs/; find . | cpio -o -H newc -A -F ../initramfs.cpio
+	find rootfs/ -type d -o -type l | xargs touch -h -r devs.cpio
+	cd rootfs/; find . | cpio -o -H newc --reproducible -A -F ../initramfs.cpio
 
 install-data-local: initramfs.cpio
 	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/

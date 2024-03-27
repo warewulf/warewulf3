@@ -18,11 +18,11 @@ unionfs:
 	@ if [ ! -f "_work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION)/src/unionfs" ]; then \
 	    echo "Building unionfs-fuse" ;\
 	    $(MAKE) -C _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION) ;\
+	    touch -r ../devs.cpio _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION)/src/unionfs
 	fi
 	@ if [ ! -f "unionfs" ]; then \
 	    cp -a _work/unionfs-fuse/unionfs-fuse-$(UNIONFS_VERSION)/src/unionfs unionfs ;\
 	fi
-
 
 rootfs: unionfs
 	rm -rf rootfs
@@ -35,8 +35,10 @@ rootfs: unionfs
 	find rootfs -type f -perm -o+x  -print | xargs ldd | grep "=>" | awk '{print $$3}' | grep "^/" | sort | uniq | while read i; do cp -L --parents $$i rootfs/; done
 	find rootfs -type f -perm -o+x -print | xargs strip -g
 
+# Preserve time stamps of archived files for build reproducibility
 capability.cpio: rootfs
-	cd rootfs/; find . | cpio -o -H newc -F ../capability.cpio
+	find rootfs/ -type d | xargs touch -r unionfs;
+	cd rootfs/; find . | cpio -o -H newc --reproducible -F ../capability.cpio
 
 install-data-local: capability.cpio
 	install -d -m 755 $(DESTDIR)/$(WAREWULF_STATEDIR)/warewulf/initramfs/$(MACHINE)/capabilities
